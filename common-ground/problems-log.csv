@@ -1,0 +1,12 @@
+#,Date,What went wrong,Who is responsible,Why,Status
+1,2026-10-03,Microphone doesn't work in the Claude-app version of Common Ground,Claude app (Anthropic),Claude's app blocks the microphone on pages it hosts,Worked around: website version
+2,2026-10-03,Needed a separate paid API key,Claude app (Anthropic) + Claude (assistant),Outside websites can't use a Claude subscription; Claude didn't explain this up front,Explained
+3,2026-10-03,Claude couldn't switch on the website for you,GitHub / Claude's tool permissions,Claude has no access to repository settings,You did it manually
+4,2026-10-03,Directions sent you to the wrong settings page,Claude (assistant),Directions weren't clear enough,Fixed with clearer steps
+5,2026-10-03,App labeled Leslie's speech as Patrick's,Claude (assistant),First version had no way to tell voices apart,Fixed: voice matching
+6,2026-10-03,App never interrupted,Claude (assistant),Coach was too cautious and phone sound wasn't unlocked,Fixed
+7,2026-10-03,"""Microphone isn't available"" error",Claude (assistant),Claude's voice-matching update broke microphone start on phones,Fixed
+8,2026-10-03,API key rejected,Unknown (likely a copy/paste problem),Key may be cut off or deleted; Claude added no key check at first,Check key button added
+9,2026-10-03,Instructions too long to follow,Claude (assistant),Too many steps at once,Now one step at a time
+10,2026-10-03,Website address wasn't a tappable link,Claude (assistant),Claude wrote it as plain text,Fixed
+11,2026-10-03,Link opens in Claude's built-in browser that blocks the microphone,Claude app (Anthropic) + Claude (assistant),The app forces its own browser; Claude didn't warn you before sending the link,Open in Safari
