@@ -1,0 +1,776 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+</head>
+<body style="margin:0">
+<!-- Generated from app.html. Edit app.html, then run ./build.sh -->
+<title>Common Ground</title>
+<meta name="description" content="A conversation coach that listens, builds a working theory of what's happening, and gently steps in.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: control strip on top, then transcript (left) beside the working theory (right); the coach's interruption lands above both. */
+:root {
+  --bg: #EEF2F1;
+  --surface: #FFFFFF;
+  --sunk: #E3E9E7;
+  --ink: #15201F;
+  --muted: #586764;
+  --line: #CFD9D6;
+  --a: #1D6B74;
+  --a-soft: #DCEEEF;
+  --b: #7B4790;
+  --b-soft: #F0E4F4;
+  --coach: #9A5A0E;
+  --coach-soft: #FBEBD3;
+  --good: #2C7A4B;
+  --bad: #B0364A;
+  --focus: #1D6B74;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1514; --surface: #162120; --sunk: #1D2A28; --ink: #E4EDEB; --muted: #95A6A2; --line: #2B3A38;
+    --a: #6FC1CA; --a-soft: #183A3D; --b: #C9A0DA; --b-soft: #33233B;
+    --coach: #F0B464; --coach-soft: #3A2A14; --good: #6FC48F; --bad: #F08393; --focus: #6FC1CA;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1514; --surface: #162120; --sunk: #1D2A28; --ink: #E4EDEB; --muted: #95A6A2; --line: #2B3A38;
+  --a: #6FC1CA; --a-soft: #183A3D; --b: #C9A0DA; --b-soft: #33233B;
+  --coach: #F0B464; --coach-soft: #3A2A14; --good: #6FC48F; --bad: #F08393; --focus: #6FC1CA;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.5 var(--font-body); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 48px; display: grid; gap: 16px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.label { font: 500 12px/1.2 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+
+/* Header */
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; justify-content: space-between; }
+header.top h1 { font-size: clamp(28px, 4vw, 40px); font-weight: 700; letter-spacing: -.02em; }
+header.top p { margin: 0; color: var(--muted); max-width: 60ch; }
+.status { display: inline-flex; align-items: center; gap: 8px; font: 500 13px var(--font-mono); color: var(--muted); }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+.status[data-on="true"] .dot { background: var(--bad); animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+
+/* Controls */
+.controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; }
+.btn { border: 1px solid var(--line); background: var(--sunk); border-radius: 8px; padding: 10px 14px; cursor: pointer; font-weight: 700; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+.speakers { display: flex; gap: 8px; flex-wrap: wrap; flex: 1 1 360px; }
+.spk { flex: 1 1 160px; display: flex; align-items: center; gap: 8px; border: 2px solid var(--line); border-radius: 8px; padding: 6px 8px 6px 12px; background: var(--surface); cursor: pointer; min-width: 0; }
+.spk input { border: 0; background: transparent; font-weight: 700; width: 100%; min-width: 0; padding: 4px; border-radius: 4px; }
+.spk .key { font: 500 12px var(--font-mono); color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+.spk[data-who="A"] { --c: var(--a); --cs: var(--a-soft); }
+.spk[data-who="B"] { --c: var(--b); --cs: var(--b-soft); }
+.spk[aria-pressed="true"] { border-color: var(--c); background: var(--cs); }
+.spk[aria-pressed="true"]::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); flex: none; }
+.settings { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.settings label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+.settings select { padding: 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); }
+.note { font-size: 13px; color: var(--muted); margin: 0; flex-basis: 100%; }
+
+/* Connection */
+details.conn { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 14px; }
+details.conn summary { cursor: pointer; font-weight: 700; }
+.conn-body { display: grid; gap: 8px; padding-top: 10px; max-width: 640px; }
+.conn-body input[type="password"] { padding: 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); width: 100%; font-family: var(--font-mono); font-size: 14px; }
+.conn-body p { margin: 0; font-size: 14px; color: var(--muted); }
+
+/* Coach interruption */
+.coach { background: var(--coach-soft); border: 2px solid var(--coach); border-radius: 14px; padding: 18px 20px; display: grid; gap: 10px; animation: arrive .45s ease-out; }
+@keyframes arrive { from { transform: translateY(-6px); opacity: .4; } }
+.coach .who { font: 500 13px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--coach); }
+.coach .msg { font-family: var(--font-display); font-size: clamp(20px, 2.6vw, 26px); line-height: 1.3; font-weight: 500; margin: 0; max-width: 46ch; }
+.coach .meta { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; color: var(--muted); }
+.coach .meta b { color: var(--ink); }
+.coach .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Main grid */
+.grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.panel-head h2 { font-size: 20px; }
+.example-flag { font: 500 12px var(--font-mono); background: var(--sunk); border: 1px dashed var(--muted); border-radius: 999px; padding: 2px 10px; color: var(--muted); }
+
+/* Transcript */
+.transcript { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; max-height: 58vh; overflow-y: auto; padding-right: 4px; }
+.turn { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; align-items: start; }
+.turn .tag { font: 700 13px var(--font-body); border: 0; border-radius: 6px; padding: 3px 8px; cursor: pointer; background: var(--cs); color: var(--c); white-space: nowrap; }
+.turn[data-who="A"] { --c: var(--a); --cs: var(--a-soft); }
+.turn[data-who="B"] { --c: var(--b); --cs: var(--b-soft); }
+.turn .text { margin: 0; overflow-wrap: anywhere; }
+.turn .flags { grid-column: 2; display: flex; flex-wrap: wrap; gap: 4px; }
+.turn.interim .text { color: var(--muted); font-style: italic; }
+.turn.coachline { grid-template-columns: minmax(0, 1fr); border-block: 1px dashed var(--coach); padding-block: 6px; color: var(--coach); font-size: 14px; }
+.empty { color: var(--muted); margin: 0; padding: 18px; text-align: center; border: 1px dashed var(--line); border-radius: 8px; }
+form.add { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); min-width: 0; }
+
+/* Theory */
+.summary { font-size: 17px; margin: 0; }
+.gauges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.gauge { background: var(--sunk); border-radius: 8px; padding: 10px; display: grid; gap: 4px; min-width: 0; }
+.gauge .v { font: 500 22px var(--font-mono); font-variant-numeric: tabular-nums; }
+.bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--fill, var(--muted)); transition: width .6s ease; }
+.people { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 480px) { .people, .gauges { grid-template-columns: minmax(0, 1fr); } }
+.person { border-radius: 8px; padding: 10px 12px; background: var(--cs); display: grid; gap: 4px; min-width: 0; }
+.person[data-who="A"] { --c: var(--a); --cs: var(--a-soft); }
+.person[data-who="B"] { --c: var(--b); --cs: var(--b-soft); }
+.person h3 { font-size: 16px; color: var(--c); }
+.person dl { margin: 0; display: grid; gap: 4px; font-size: 14px; }
+.person dt { font: 500 11px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.person dd { margin: 0; }
+.patterns { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.pattern { display: grid; gap: 2px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); }
+.pattern .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pattern .name { font-weight: 700; }
+.chip { font: 500 11px var(--font-mono); letter-spacing: .04em; border-radius: 999px; padding: 1px 8px; border: 1px solid currentColor; }
+.chip.unproductive { color: var(--bad); }
+.chip.productive { color: var(--good); }
+.pattern q { color: var(--muted); font-style: italic; font-size: 14px; }
+.pattern .fw { font-size: 12px; color: var(--muted); }
+.log { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; font-size: 14px; }
+.log li { display: grid; gap: 2px; }
+.log time { font: 500 12px var(--font-mono); color: var(--muted); }
+.thinking { font: 500 13px var(--font-mono); color: var(--muted); }
+.err { color: var(--bad); font-size: 14px; margin: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Common Ground</h1>
+      <p>Listens to two people talking, builds a working theory of what's going on between them, and steps in gently when the conversation stops helping either of them.</p>
+    </div>
+    <span class="status" id="status" data-on="false" role="status"><span class="dot"></span><span id="statusText">Not listening</span></span>
+  </header>
+
+  <section class="controls" aria-label="Session controls">
+    <button class="btn primary" id="listenBtn" type="button">Start listening</button>
+    <div class="speakers" role="group" aria-label="Who is speaking now">
+      <div class="spk" data-who="A" aria-pressed="true" id="spkA">
+        <label class="sr-only" for="nameA">Name of person 1</label>
+        <input id="nameA" value="Priya" maxlength="24" autocomplete="off">
+        <span class="key" aria-hidden="true">1</span>
+      </div>
+      <div class="spk" data-who="B" aria-pressed="false" id="spkB">
+        <label class="sr-only" for="nameB">Name of person 2</label>
+        <input id="nameB" value="Sam" maxlength="24" autocomplete="off">
+        <span class="key" aria-hidden="true">2</span>
+      </div>
+    </div>
+    <div class="settings">
+      <label for="sensitivity">Coach
+        <select id="sensitivity">
+          <option value="gentle">Light touch</option>
+          <option value="balanced" selected>Balanced</option>
+          <option value="active">Active</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="speakAloud" checked> Speak aloud</label>
+      <button class="btn" id="analyzeBtn" type="button">Analyze now</button>
+      <button class="btn" id="clearBtn" type="button">Clear</button>
+    </div>
+    <p class="note">Tap a name (or press 1 / 2) when the other person starts talking. Tap a name in the transcript to fix a line. Make sure everyone in the room agrees to be listened to.</p>
+  </section>
+
+  <details class="conn" id="conn">
+    <summary id="connSummary">Connection: add an Anthropic API key</summary>
+    <div class="conn-body">
+      <label class="label" for="apiKey">Anthropic API key</label>
+      <input type="password" id="apiKey" placeholder="sk-ant-…" autocomplete="off" spellcheck="false">
+      <label style="font-size:14px"><input type="checkbox" id="rememberKey"> Remember on this device</label>
+      <p>The key is sent only to api.anthropic.com, straight from this browser. Use a key with a spending limit; anyone with access to this browser can read a remembered key.</p>
+    </div>
+  </details>
+
+  <section class="coach" id="coach" hidden aria-live="assertive" aria-atomic="true">
+    <span class="who" id="coachWho">For both of you</span>
+    <p class="msg" id="coachMsg"></p>
+    <div class="meta"><span><b>Strategy:</b> <span id="coachStrategy"></span></span><span><b>Why now:</b> <span id="coachWhy"></span></span></div>
+    <div class="actions">
+      <button class="btn primary" id="coachOk" type="button">Thanks, we'll try it</button>
+      <button class="btn" id="coachRepeat" type="button">Say it again</button>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="panel" aria-labelledby="tHead">
+      <div class="panel-head">
+        <h2 id="tHead">Conversation</h2>
+        <span class="example-flag" id="exampleFlag">Example conversation. Press Clear to start your own.</span>
+      </div>
+      <ol class="transcript" id="transcript" aria-live="polite"></ol>
+      <form class="add" id="addForm">
+        <label class="sr-only" for="typed">Type what was said</label>
+        <input id="typed" placeholder="Or type a line for the highlighted speaker…" autocomplete="off">
+        <button class="btn" type="submit">Add</button>
+      </form>
+      <p class="err" id="micErr" hidden></p>
+    </section>
+
+    <section class="panel" aria-labelledby="thHead">
+      <div class="panel-head">
+        <h2 id="thHead">Working theory</h2>
+        <span class="thinking" id="thinking" aria-live="polite"></span>
+      </div>
+      <p class="summary" id="summary"></p>
+      <div class="gauges">
+        <div class="gauge"><span class="label">Tension</span><span class="v" id="gTension">–</span><div class="bar"><i id="bTension" style="width:0"></i></div></div>
+        <div class="gauge"><span class="label">Productive</span><span class="v" id="gProd">–</span><div class="bar"><i id="bProd" style="width:0"></i></div></div>
+        <div class="gauge"><span class="label">Phase</span><span class="v" id="gPhase" style="font-size:16px">–</span></div>
+      </div>
+      <div class="people" id="people"></div>
+      <div>
+        <h3 class="label" style="margin-bottom:8px">Patterns noticed</h3>
+        <ul class="patterns" id="patterns"></ul>
+      </div>
+      <div>
+        <h3 class="label" style="margin-bottom:8px">Coaching log</h3>
+        <ul class="log" id="log"></ul>
+      </div>
+      <p class="err" id="aiErr" hidden></p>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} },
+  };
+
+  const COOLDOWN = { gentle: 120000, balanced: 60000, active: 30000 };
+  const MODEL = "claude-opus-5-5";
+
+  const EXAMPLE = {
+    names: { A: "Priya", B: "Sam" },
+    turns: [
+      { who: "A", text: "We said the beta would ship on the 14th. I don't understand why it's slipping again." },
+      { who: "B", text: "It's slipping because design changed the onboarding flow twice last week. That's not on my team." },
+      { who: "A", text: "You always have a reason. Every single launch it's someone else's fault." },
+      { who: "B", text: "Okay, that's not fair. I've been here until nine every night." },
+      { who: "A", text: "I'm not saying you're not working hard. I'm saying I can't keep telling leadership a new date." },
+      { who: "B", text: "Fine. Whatever. Tell them whatever you want." },
+    ],
+    theory: {
+      summary: "Priya is under pressure from leadership and reads the slip as a reliability problem. Sam hears that as a verdict on his effort and is starting to withdraw. They are arguing about blame, and neither has named the shared problem: a date both of them can stand behind.",
+      phase: "escalating", tension: 7, productive: 35,
+      speakers: {
+        A: { position: "The date has to hold this time.", underlying_need: "Credibility with leadership; predictability.", state: "Frustrated, feeling exposed" },
+        B: { position: "The delay isn't my team's fault.", underlying_need: "Recognition of effort; fair attribution.", state: "Defensive, shutting down" },
+      },
+      patterns: [
+        { name: "Criticism (global)", kind: "unproductive", speaker: "A", evidence: "You always have a reason.", framework: "Gottman: Four Horsemen" },
+        { name: "Defensiveness", kind: "unproductive", speaker: "B", evidence: "That's not on my team.", framework: "Gottman: Four Horsemen" },
+        { name: "Stonewalling onset", kind: "unproductive", speaker: "B", evidence: "Fine. Whatever.", framework: "Gottman: flooding and withdrawal" },
+        { name: "Repair attempt", kind: "productive", speaker: "A", evidence: "I'm not saying you're not working hard.", framework: "Gottman: repair attempts" },
+      ],
+    },
+    log: [
+      { to: "both", message: "Quick pause. You both want a date you can trust. Priya, what does leadership need to hear? Sam, what would make a date realistic? Try starting with \"I need\" instead of \"you always\".", strategy: "Shift from positions to interests", at: null },
+    ],
+  };
+
+  const state = {
+    names: { A: "Priya", B: "Sam" },
+    current: "A",
+    turns: [],          // {who, text, t, flags?:[]}
+    theory: null,
+    log: [],            // interventions
+    example: true,
+    listening: false,
+    speaking: false,
+    analyzing: false,
+    lastAnalyzedCount: 0,
+    lastAnalysisAt: 0,
+    lastInterventionAt: 0,
+    pending: null,
+  };
+
+  // ---------- Claude backends ----------
+  let sampleFn = null;            // artifact viewer: viewer's own Claude account
+  let backendReady = false;
+
+  function apiKey() { return $("apiKey").value.trim(); }
+
+  async function initBackend() {
+    if (window.claude && typeof window.claude.use === "function") {
+      try { sampleFn = await window.claude.use("sample"); } catch { sampleFn = null; }
+    }
+    backendReady = true;
+    if (sampleFn) {
+      $("conn").hidden = true;
+    } else {
+      const k = store.get("cg.apiKey");
+      if (k) { $("apiKey").value = k; $("rememberKey").checked = true; }
+      updateConnSummary();
+    }
+  }
+  function updateConnSummary() {
+    $("connSummary").textContent = apiKey() ? "Connection: API key set" : "Connection: add an Anthropic API key";
+  }
+
+  function parseJSON(text) {
+    const t = text.trim();
+    try { return JSON.parse(t); } catch {}
+    const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fence) { try { return JSON.parse(fence[1]); } catch {} }
+    const s = t.indexOf("{"), e = t.lastIndexOf("}");
+    if (s >= 0 && e > s) return JSON.parse(t.slice(s, e + 1));
+    throw new Error("The coach replied without readable JSON.");
+  }
+
+  async function askClaude(prompt, signal) {
+    if (sampleFn) {
+      return await sampleFn.json(prompt, { cache: false, signal });
+    }
+    const key = apiKey();
+    if (!key) throw { friendly: "Add an Anthropic API key under Connection so the coach can think." };
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      signal,
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "server-side-fallback-2026-07-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 8000,
+        fallbacks: "default",
+        output_config: { effort: "low" },
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data?.error?.message || res.statusText;
+      if (res.status === 401) throw { friendly: "That API key was rejected. Check it under Connection." };
+      if (res.status === 429) throw { friendly: "Rate limited by the API. The coach will try again shortly." };
+      throw { friendly: "The API returned an error: " + msg };
+    }
+    if (data.stop_reason === "refusal") throw { friendly: "Claude declined to analyze this stretch of conversation." };
+    const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+    return parseJSON(text);
+  }
+
+  // ---------- Prompt ----------
+  function buildPrompt() {
+    const N = state.names;
+    const recent = state.turns.slice(-60).map((t, i) => `${i + 1}. ` + (t.who === "coach" ? `[Coach, spoken aloud]: ${t.text}` : `${N[t.who]} (${t.who}): ${t.text}`)).join("\n");
+    const sinceLast = state.lastInterventionAt ? Math.round((Date.now() - state.lastInterventionAt) / 1000) + " seconds ago" : "never";
+    const prev = state.theory ? JSON.stringify({ summary: state.theory.summary, phase: state.theory.phase, tension: state.theory.tension, speakers: state.theory.speakers }) : "none yet";
+    const pastCoaching = state.log.slice(-4).map((l) => `- to ${l.to}: ${l.message}`).join("\n") || "none";
+    return `You are Common Ground, a warm, even-handed conversation coach trained in couples and workplace mediation. You are silently listening to a live conversation between two people, A (${N.A}) and B (${N.B}). The transcript comes from speech recognition, so expect missing punctuation, misheard words, and occasionally a line attributed to the wrong person.
+
+Your job each time you are called:
+1. Update a working psychological theory of what is going on between them. Draw on established frameworks where they genuinely fit, and name the framework: Gottman's Four Horsemen (criticism, contempt, defensiveness, stonewalling) and their antidotes (gentle start-up, appreciation, taking responsibility, self-soothing), repair attempts and flooding; Fisher and Ury's interests versus positions; Nonviolent Communication (observations, feelings, needs, requests); demand-withdraw cycles; active listening and reflecting; mind-reading, always/never generalizing, scorekeeping, topic drift, talking past each other. Also note productive moves. Treat the theory as a hypothesis that you revise as evidence arrives; keep what still fits from the previous theory.
+2. Decide whether to interrupt right now. Interrupt only when a gentle nudge would clearly help: an unproductive pattern is repeating or escalating, someone is withdrawing or flooding, they are stuck in positions, or a productive move deserves brief reinforcement so they keep doing it. Do not interrupt for a single mild slip. Coaching intensity requested: ${document.getElementById("sensitivity").value} (light touch = only when clearly needed; balanced; active = coach more freely). Last interruption: ${sinceLast}. Never repeat advice you already gave unless the pattern clearly persists, and then phrase it differently.
+3. If you interrupt, write the words that will be spoken aloud to them. Address one person by name (choose whoever has the most leverage to change the pattern right now) or both. At most 45 words. Warm, specific, non-blaming, never takes sides, never diagnoses anyone, never lectures. Acknowledge what the person is likely feeling or needing, then offer one concrete thing to try next, ideally with example words they could say. Encourage cooperation toward their shared goal.
+
+Safety: if anything suggests threats, intimidation, abuse, or someone being unsafe, do not coach them toward cooperating; set intervene to true and gently suggest pausing the conversation and getting support from someone trusted or a professional.
+
+Previous theory: ${prev}
+Recent coaching already given:
+${pastCoaching}
+
+Transcript (oldest first):
+${recent}
+
+Reply with only one JSON object, no other text, in exactly this shape:
+{"summary": "2-3 sentence working theory in plain language",
+ "phase": "warming up" | "exploring" | "escalating" | "stuck" | "repairing" | "collaborating",
+ "tension": 0-10,
+ "productive": 0-100 (share of the recent exchange that moves them toward a shared solution),
+ "speakers": {"A": {"position": "what they are asking for", "underlying_need": "the interest or need beneath it", "state": "likely emotional state"}, "B": {same}},
+ "patterns": [{"name": "short label", "kind": "unproductive" | "productive", "speaker": "A" | "B" | "both", "evidence": "short quote from the transcript", "framework": "source framework"}],
+ "flag_lines": [{"line": transcript line number, "label": "short label", "kind": "unproductive" | "productive"}],
+ "intervene": true | false,
+ "intervention": {"to": "A" | "B" | "both", "message": "the words to speak", "strategy": "name of the strategy", "why": "one sentence on why now"} or null}
+List at most 5 patterns and 6 flag_lines, most important first.`;
+  }
+
+  // ---------- Analysis loop ----------
+  let analysisCtl = null;
+  async function analyze(manual = false) {
+    if (state.analyzing || !backendReady) return;
+    if (state.turns.length < 2) { if (manual) showAiErr("Add at least two lines of conversation first."); return; }
+    if (!sampleFn && !apiKey()) { $("conn").open = true; showAiErr("Add an Anthropic API key under Connection so the coach can think."); return; }
+    state.analyzing = true;
+    hideAiErr();
+    const countAtStart = state.turns.length;
+    $("thinking").textContent = "Thinking…";
+    $("analyzeBtn").disabled = true;
+    analysisCtl = new AbortController();
+    try {
+      const r = await askClaude(buildPrompt(), analysisCtl.signal);
+      if (!r || typeof r !== "object") throw { friendly: "The coach sent back something unreadable." };
+      state.lastAnalyzedCount = countAtStart;
+      state.lastAnalysisAt = Date.now();
+      applyFlags(r.flag_lines, countAtStart);
+      state.theory = r;
+      renderTheory();
+      maybeIntervene(r);
+      $("thinking").textContent = "Updated " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    } catch (e) {
+      $("thinking").textContent = "";
+      if (e && e.code === "cancelled") return;
+      if (e && (e.code === "not_granted" || e.code === "sampling_disabled")) showAiErr("Claude isn't allowed for this page. Allow it from the artifact's permissions to enable coaching.");
+      else if (e && e.code === "rate_limited") showAiErr("Too many requests right now. The coach will pick up again in a moment.");
+      else showAiErr((e && (e.friendly || e.message)) || "Something went wrong reaching Claude.");
+    } finally {
+      state.analyzing = false;
+      $("analyzeBtn").disabled = false;
+    }
+  }
+
+  function applyFlags(flags, count) {
+    if (!Array.isArray(flags)) return;
+    const offset = Math.max(0, count - 60);
+    for (const t of state.turns) t.flags = [];
+    for (const f of flags.slice(0, 6)) {
+      const idx = offset + Number(f.line) - 1;
+      const turn = state.turns[idx];
+      if (!turn || !f.label) continue;
+      (turn.flags ||= []).push({ label: String(f.label), kind: f.kind === "productive" ? "productive" : "unproductive" });
+    }
+    renderTranscript();
+  }
+
+  function maybeIntervene(r) {
+    if (!r.intervene || !r.intervention || !r.intervention.message) return;
+    const cooldown = COOLDOWN[$("sensitivity").value] || 60000;
+    if (state.lastInterventionAt && Date.now() - state.lastInterventionAt < cooldown) return;
+    const iv = { ...r.intervention, at: Date.now() };
+    state.lastInterventionAt = iv.at;
+    state.log.push(iv);
+    state.turns.push({ who: "coach", text: iv.message, t: iv.at });
+    showCoach(iv);
+    renderTranscript();
+    renderLog();
+  }
+
+  // Auto-trigger: when new lines arrive and the conversation has had a moment to develop.
+  setInterval(() => {
+    if (state.analyzing || state.example) return;
+    const fresh = spokenCount() - state.lastAnalyzedCountSpoken();
+    if (fresh <= 0) return;
+    const since = Date.now() - state.lastAnalysisAt;
+    if (!sampleFn && (fresh >= 2 && since > 8000 || since > 25000)) analyze();
+  }, 2000);
+  state.lastAnalyzedCountSpoken = () => state.turns.slice(0, state.lastAnalyzedCount).filter((t) => t.who !== "coach").length;
+  function spokenCount() { return state.turns.filter((t) => t.who !== "coach").length; }
+
+  // ---------- Coach UI + voice ----------
+  function nameFor(to) { return to === "both" ? "both of you" : state.names[to] || "you"; }
+  function showCoach(iv) {
+    $("coachWho").textContent = "For " + nameFor(iv.to);
+    $("coachMsg").textContent = iv.message;
+    $("coachStrategy").textContent = iv.strategy || "–";
+    $("coachWhy").textContent = iv.why || "–";
+    $("coach").hidden = false;
+    if (iv.at) { chime(); speak(iv.message); }
+  }
+
+  let audioCtx = null;
+  function chime() {
+    try {
+      audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
+      const now = audioCtx.currentTime;
+      [523.25, 783.99].forEach((f, i) => {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = "sine"; o.frequency.value = f;
+        g.gain.setValueAtTime(0, now + i * 0.18);
+        g.gain.linearRampToValueAtTime(0.18, now + i * 0.18 + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.18 + 0.9);
+        o.connect(g).connect(audioCtx.destination);
+        o.start(now + i * 0.18); o.stop(now + i * 0.18 + 1);
+      });
+    } catch {}
+  }
+
+  function speak(text) {
+    if (!$("speakAloud").checked || !("speechSynthesis" in window)) return;
+    pauseRecognitionForSpeech();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.95; u.pitch = 1;
+    u.onend = u.onerror = () => { state.speaking = false; resumeRecognition(); };
+    state.speaking = true;
+    setTimeout(() => { speechSynthesis.cancel(); speechSynthesis.speak(u); }, 700);
+  }
+
+  // ---------- Speech recognition ----------
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null, interim = "";
+  function setStatus() {
+    $("status").dataset.on = String(state.listening && !state.speaking);
+    $("statusText").textContent = state.speaking ? "Coach speaking" : state.listening ? "Listening" : "Not listening";
+    $("listenBtn").textContent = state.listening ? "Stop listening" : "Start listening";
+  }
+
+  function startListening() {
+    hideMicErr();
+    if (!SR) { showMicErr("This browser can't transcribe speech. Use Chrome, Edge or Safari, or type lines below."); return; }
+    if (state.example) clearAll();
+    rec = new SR();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = navigator.language || "en-US";
+    rec.onresult = (e) => {
+      interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) addLine(state.current, r[0].transcript);
+        else interim += r[0].transcript;
+      }
+      renderInterim();
+    };
+    rec.onerror = (e) => {
+      if (e.error === "not-allowed" || e.error === "service-not-allowed" || e.error === "audio-capture") {
+        state.listening = false; setStatus();
+        showMicErr("The microphone isn't available here. Allow microphone access, or open the downloadable version of Common Ground in Chrome. You can also type lines below.");
+      }
+    };
+    rec.onend = () => { if (state.listening && !state.speaking) { try { rec.start(); } catch {} } };
+    try { rec.start(); state.listening = true; } catch { state.listening = false; }
+    requestWakeLock();
+    setStatus();
+  }
+  function stopListening() {
+    state.listening = false;
+    try { rec && rec.stop(); } catch {}
+    interim = ""; renderInterim(); setStatus();
+    releaseWakeLock();
+  }
+  function pauseRecognitionForSpeech() { try { rec && state.listening && rec.stop(); } catch {} setStatus(); }
+  function resumeRecognition() { setStatus(); if (state.listening && rec) { try { rec.start(); } catch {} } }
+
+  let wakeLock = null;
+  async function requestWakeLock() { try { wakeLock = await navigator.wakeLock?.request("screen"); } catch {} }
+  function releaseWakeLock() { try { wakeLock && wakeLock.release(); } catch {} wakeLock = null; }
+
+  function addLine(who, raw) {
+    const text = String(raw || "").trim();
+    if (!text) return;
+    const last = state.turns[state.turns.length - 1];
+    if (last && last.who === who && Date.now() - last.t < 4000) {
+      last.text += " " + text; last.t = Date.now();
+    } else {
+      state.turns.push({ who, text, t: Date.now() });
+    }
+    renderTranscript();
+  }
+
+  // ---------- Rendering ----------
+  function renderTranscript() {
+    const ol = $("transcript");
+    ol.textContent = "";
+    $("exampleFlag").hidden = !state.example;
+    if (!state.turns.length) {
+      const li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = "Press Start listening and talk normally. Each line appears here under whoever is highlighted above.";
+      ol.append(li);
+    }
+    state.turns.forEach((t, i) => {
+      const li = document.createElement("li");
+      if (t.who === "coach") {
+        li.className = "turn coachline";
+        li.textContent = "Coach: " + t.text;
+        ol.append(li); return;
+      }
+      li.className = "turn"; li.dataset.who = t.who;
+      const tag = document.createElement("button");
+      tag.type = "button"; tag.className = "tag";
+      tag.textContent = state.names[t.who];
+      tag.title = "Switch speaker for this line";
+      tag.setAttribute("aria-label", `${state.names[t.who]} said this. Press to reassign to ${state.names[t.who === "A" ? "B" : "A"]}.`);
+      tag.onclick = () => { t.who = t.who === "A" ? "B" : "A"; renderTranscript(); };
+      const p = document.createElement("p"); p.className = "text"; p.textContent = t.text;
+      li.append(tag, p);
+      if (t.flags && t.flags.length) {
+        const f = document.createElement("div"); f.className = "flags";
+        for (const fl of t.flags) { const c = document.createElement("span"); c.className = "chip " + fl.kind; c.textContent = fl.label; f.append(c); }
+        li.append(f);
+      }
+      ol.append(li);
+    });
+    renderInterim(false);
+    ol.scrollTop = ol.scrollHeight;
+  }
+  function renderInterim(scroll = true) {
+    const ol = $("transcript");
+    ol.querySelector(".interim")?.remove();
+    if (!interim.trim()) return;
+    ol.querySelector(".empty")?.remove();
+    const li = document.createElement("li");
+    li.className = "turn interim"; li.dataset.who = state.current;
+    const tag = document.createElement("span"); tag.className = "tag"; tag.textContent = state.names[state.current];
+    const p = document.createElement("p"); p.className = "text"; p.textContent = interim;
+    li.append(tag, p); ol.append(li);
+    if (scroll) ol.scrollTop = ol.scrollHeight;
+  }
+
+  function renderTheory() {
+    const th = state.theory;
+    const ppl = $("people"), pats = $("patterns");
+    ppl.textContent = ""; pats.textContent = "";
+    if (!th) {
+      $("summary").textContent = "No theory yet. Once a few lines have been said, the coach will describe what seems to be happening between you.";
+      $("gTension").textContent = "–"; $("gProd").textContent = "–"; $("gPhase").textContent = "–";
+      $("bTension").style.width = "0"; $("bProd").style.width = "0";
+      return;
+    }
+    $("summary").textContent = th.summary || "";
+    const tension = clamp(Number(th.tension), 0, 10), prod = clamp(Number(th.productive), 0, 100);
+    $("gTension").textContent = isNaN(tension) ? "–" : tension + "/10";
+    $("bTension").style.width = (tension * 10 || 0) + "%";
+    $("bTension").style.setProperty("--fill", tension >= 7 ? "var(--bad)" : tension >= 4 ? "var(--coach)" : "var(--good)");
+    $("gProd").textContent = isNaN(prod) ? "–" : prod + "%";
+    $("bProd").style.width = (prod || 0) + "%";
+    $("bProd").style.setProperty("--fill", prod >= 60 ? "var(--good)" : prod >= 35 ? "var(--coach)" : "var(--bad)");
+    $("gPhase").textContent = th.phase || "–";
+    for (const who of ["A", "B"]) {
+      const s = (th.speakers && th.speakers[who]) || {};
+      const d = document.createElement("div"); d.className = "person"; d.dataset.who = who;
+      const h = document.createElement("h3"); h.textContent = state.names[who];
+      const dl = document.createElement("dl");
+      for (const [k, label] of [["position", "Says they want"], ["underlying_need", "Seems to need"], ["state", "Likely feeling"]]) {
+        const dt = document.createElement("dt"); dt.textContent = label;
+        const dd = document.createElement("dd"); dd.textContent = s[k] || "–";
+        dl.append(dt, dd);
+      }
+      d.append(h, dl); ppl.append(d);
+    }
+    for (const p of (th.patterns || []).slice(0, 5)) {
+      const li = document.createElement("li"); li.className = "pattern";
+      const row = document.createElement("div"); row.className = "row";
+      const n = document.createElement("span"); n.className = "name"; n.textContent = p.name;
+      const c = document.createElement("span"); c.className = "chip " + (p.kind === "productive" ? "productive" : "unproductive"); c.textContent = p.kind === "productive" ? "helping" : "not helping";
+      const w = document.createElement("span"); w.className = "fw"; w.textContent = p.speaker === "both" ? "Both" : state.names[p.speaker] || "";
+      row.append(n, c, w); li.append(row);
+      if (p.evidence) { const q = document.createElement("q"); q.textContent = p.evidence; li.append(q); }
+      if (p.framework) { const f = document.createElement("span"); f.className = "fw"; f.textContent = p.framework; li.append(f); }
+      pats.append(li);
+    }
+  }
+  function renderLog() {
+    const ul = $("log"); ul.textContent = "";
+    if (!state.log.length) { const li = document.createElement("li"); li.style.color = "var(--muted)"; li.textContent = "No interruptions yet."; ul.append(li); return; }
+    for (const l of state.log.slice().reverse()) {
+      const li = document.createElement("li");
+      const tm = document.createElement("time"); tm.textContent = (l.at ? new Date(l.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Example") + " · to " + nameFor(l.to) + (l.strategy ? " · " + l.strategy : "");
+      const p = document.createElement("span"); p.textContent = l.message;
+      li.append(tm, p); ul.append(li);
+    }
+  }
+  function clamp(n, lo, hi) { return isNaN(n) ? NaN : Math.min(hi, Math.max(lo, Math.round(n))); }
+  function showAiErr(m) { $("aiErr").textContent = m; $("aiErr").hidden = false; }
+  function hideAiErr() { $("aiErr").hidden = true; }
+  function showMicErr(m) { $("micErr").textContent = m; $("micErr").hidden = false; }
+  function hideMicErr() { $("micErr").hidden = true; }
+
+  function setSpeaker(who) {
+    state.current = who;
+    $("spkA").setAttribute("aria-pressed", String(who === "A"));
+    $("spkB").setAttribute("aria-pressed", String(who === "B"));
+    renderInterim();
+  }
+
+  function clearAll() {
+    analysisCtl?.abort();
+    state.turns = []; state.theory = null; state.log = []; state.example = false;
+    state.lastAnalyzedCount = 0; state.lastAnalysisAt = 0; state.lastInterventionAt = 0;
+    $("coach").hidden = true; hideAiErr();
+    $("thinking").textContent = "";
+    renderTranscript(); renderTheory(); renderLog();
+  }
+
+  function loadExample() {
+    state.names = { ...EXAMPLE.names };
+    $("nameA").value = state.names.A; $("nameB").value = state.names.B;
+    state.turns = EXAMPLE.turns.map((t) => ({ ...t, t: 0 }));
+    state.turns[2].flags = [{ label: "Criticism", kind: "unproductive" }];
+    state.turns[1].flags = [{ label: "Defensiveness", kind: "unproductive" }];
+    state.turns[4].flags = [{ label: "Repair attempt", kind: "productive" }];
+    state.turns[5].flags = [{ label: "Withdrawing", kind: "unproductive" }];
+    state.turns.push({ who: "coach", text: EXAMPLE.log[0].message, t: 0 });
+    state.theory = EXAMPLE.theory;
+    state.log = EXAMPLE.log.map((l) => ({ ...l }));
+    state.lastAnalyzedCount = state.turns.length;
+    state.example = true;
+    renderTranscript(); renderTheory(); renderLog();
+    showCoach({ ...EXAMPLE.log[0], why: "Sam is starting to shut down while Priya escalates; naming the shared goal can interrupt the cycle.", at: null });
+  }
+
+  // ---------- Wiring ----------
+  $("listenBtn").onclick = () => (state.listening ? stopListening() : startListening());
+  $("spkA").onclick = (e) => { if (e.target.tagName !== "INPUT") setSpeaker("A"); };
+  $("spkB").onclick = (e) => { if (e.target.tagName !== "INPUT") setSpeaker("B"); };
+  $("nameA").onfocus = () => setSpeaker("A");
+  $("nameB").onfocus = () => setSpeaker("B");
+  for (const who of ["A", "B"]) {
+    $("name" + who).oninput = (e) => { state.names[who] = e.target.value.trim() || (who === "A" ? "Person 1" : "Person 2"); renderTranscript(); renderTheory(); renderLog(); };
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.target.matches("input, textarea, select")) return;
+    if (e.key === "1") setSpeaker("A");
+    else if (e.key === "2") setSpeaker("B");
+  });
+  $("addForm").onsubmit = (e) => {
+    e.preventDefault();
+    const v = $("typed").value.trim();
+    if (!v) return;
+    if (state.example) clearAll();
+    state.turns.push({ who: state.current, text: v, t: Date.now() });
+    $("typed").value = "";
+    renderTranscript();
+    setSpeaker(state.current === "A" ? "B" : "A");
+    // With the viewer's own Claude account, analysis only runs on explicit actions like this one.
+    if (sampleFn && spokenCount() >= 2) analyze();
+  };
+  $("analyzeBtn").onclick = () => { if (state.example) { state.example = false; $("exampleFlag").hidden = true; } analyze(true); };
+  $("clearBtn").onclick = () => { stopListening(); clearAll(); };
+  $("coachOk").onclick = () => { $("coach").hidden = true; window.speechSynthesis?.cancel(); };
+  $("coachRepeat").onclick = () => { const l = state.log[state.log.length - 1]; if (l) { const was = $("speakAloud").checked; $("speakAloud").checked = true; speak(l.message); $("speakAloud").checked = was; } };
+  $("apiKey").oninput = () => { updateConnSummary(); if ($("rememberKey").checked) store.set("cg.apiKey", apiKey() || null); };
+  $("rememberKey").onchange = (e) => store.set("cg.apiKey", e.target.checked ? apiKey() || null : null);
+  $("sensitivity").onchange = (e) => store.set("cg.sensitivity", e.target.value);
+  $("speakAloud").onchange = (e) => store.set("cg.speak", e.target.checked ? "1" : "0");
+
+  const sens = store.get("cg.sensitivity"); if (sens && COOLDOWN[sens]) $("sensitivity").value = sens;
+  if (store.get("cg.speak") === "0") $("speakAloud").checked = false;
+
+  loadExample();
+  setStatus();
+  initBackend();
+})();
+</script>
+
+</body>
+</html>
