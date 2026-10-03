@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Interrupter</title>
+<style>
+  :root {
+    --bg: #f6f4ef;
+    --card: #ffffff;
+    --text: #1d1b18;
+    --muted: #6b665e;
+    --accent: #c2410c;
+    --border: #ddd8cf;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17161a;
+      --card: #222127;
+      --text: #f1efe9;
+      --muted: #a29d94;
+      --accent: #fb923c;
+      --border: #38363d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font: 18px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+  main { width: 100%; max-width: 680px; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 24px; font-size: 0.95rem; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+  }
+  .label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  #question { font-size: 1.25rem; font-weight: 600; margin: 6px 0 20px; }
+  textarea {
+    width: 100%;
+    min-height: 120px;
+    font: inherit;
+    color: inherit;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    resize: vertical;
+  }
+  textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea:disabled { opacity: 0.5; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; align-items: center; }
+  button {
+    font: inherit;
+    padding: 10px 18px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  label.toggle { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 0.95rem; }
+  #interruption {
+    margin-top: 20px;
+    padding: 16px;
+    border-radius: 10px;
+    border-left: 4px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    font-weight: 600;
+    display: none;
+  }
+  #interruption.show { display: block; animation: shake 0.35s; }
+  @keyframes shake {
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #interruption.show { animation: none; }
+  }
+  #score { color: var(--muted); font-size: 0.9rem; margin-top: 16px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<main>
+  <h1>The Interrupter</h1>
+  <p class="sub">It asks you something hard. It does not want your answer.</p>
+
+  <section class="card" aria-labelledby="qlabel">
+    <div class="label" id="qlabel">Question</div>
+    <p id="question" aria-live="polite">Press Start when you're ready to be ignored.</p>
+
+    <label for="answer" class="sr-only">Your answer</label>
+    <textarea id="answer" placeholder="Type your answer…" disabled></textarea>
+
+    <div class="row">
+      <button id="start" class="primary">Start</button>
+      <button id="mic" hidden>🎤 Answer out loud</button>
+      <label class="toggle"><input type="checkbox" id="speak" checked> Read aloud</label>
+    </div>
+
+    <div id="interruption" role="alert"></div>
+    <div id="score" aria-live="polite"></div>
+  </section>
+</main>
+
+<script>
+const QUESTIONS = [
+  "If a ship has every plank replaced over time, is it still the same ship — and does your answer change if the old planks are reassembled into a second ship?",
+  "Is free will compatible with a universe governed entirely by physical laws, and if so, what exactly is doing the choosing?",
+  "Should a self-driving car prioritize its passengers or pedestrians, and who should be legally responsible for that decision?",
+  "Is mathematics discovered or invented? Defend your answer using the fact that abstract math keeps turning out to describe physics.",
+  "If you could perfectly simulate a human brain on a computer, would the simulation be conscious — and would turning it off be wrong?",
+  "Does a society have a stronger obligation to people alive today or to the billions of people who will exist in the future?",
+  "Why is there something rather than nothing, and is that even a coherent question?",
+  "If a perfectly accurate predictor knows what you'll choose, should you take one box or both boxes in Newcomb's problem?",
+  "Is it ethical to eat meat if lab-grown meat is available at the same price, and what does your answer imply about pets?",
+  "How would you design a voting system that is fair, and how do you reconcile that with Arrow's impossibility theorem?",
+  "Is language necessary for thought, or can you think things you have no words for? Give an example — if you can.",
+  "If all of your memories were transplanted into someone else, which of you would be the real you?",
+  "Should countries be allowed to refuse immigrants, and how do you weigh national sovereignty against individual human rights?",
+  "Can an action be morally right if it produces worse consequences than every alternative? Explain without using the word 'duty'.",
+  "What is time, and why does it seem to flow in only one direction when most laws of physics work the same backwards?"
+];
+
+const INTERRUPTIONS = [
+  "I don't care what you think. I just wanted to interrupt you.",
+  "Yeah, no. Wasn't listening. Next question.",
+  "Fascinating. Anyway, I stopped caring two seconds ago.",
+  "Sorry, were you saying something? Doesn't matter.",
+  "Hold that thought. Actually, drop it entirely.",
+  "Wow, okay, let me stop you right there — forever.",
+  "I asked, but I didn't say I wanted an answer.",
+  "That's great, but I've already moved on.",
+  "Interesting take. Not interested, though.",
+  "Shh. My turn again.",
+  "Let me just interrupt you there, because I can.",
+  "You were about to make a really good point. Tragic. Moving on."
+];
+
+const INTERRUPT_DELAY_MS = 2000;
+const NEXT_QUESTION_DELAY_MS = 2500;
+
+const $ = id => document.getElementById(id);
+const questionEl = $("question");
+const answerEl = $("answer");
+const startBtn = $("start");
+const micBtn = $("mic");
+const speakBox = $("speak");
+const interruptEl = $("interruption");
+const scoreEl = $("score");
+
+let timer = null;
+let waiting = false;
+let count = 0;
+let lastQ = -1, lastI = -1;
+let recognition = null;
+
+function pick(list, last) {
+  let i;
+  do { i = Math.floor(Math.random() * list.length); } while (list.length > 1 && i === last);
+  return i;
+}
+
+function say(text) {
+  if (!speakBox.checked || !("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+}
+
+function askQuestion() {
+  clearTimeout(timer);
+  timer = null;
+  lastQ = pick(QUESTIONS, lastQ);
+  const q = QUESTIONS[lastQ];
+  questionEl.textContent = q;
+  interruptEl.classList.remove("show");
+  interruptEl.textContent = "";
+  answerEl.value = "";
+  answerEl.disabled = false;
+  answerEl.focus();
+  micBtn.disabled = false;
+  waiting = true;
+  say(q);
+}
+
+// The user has started responding — give them exactly two seconds.
+function userStartedAnswering() {
+  if (!waiting || timer) return;
+  timer = setTimeout(interrupt, INTERRUPT_DELAY_MS);
+}
+
+function interrupt() {
+  waiting = false;
+  timer = null;
+  stopListening();
+  answerEl.disabled = true;
+  micBtn.disabled = true;
+  lastI = pick(INTERRUPTIONS, lastI);
+  const line = INTERRUPTIONS[lastI];
+  interruptEl.textContent = line;
+  interruptEl.classList.remove("show");
+  void interruptEl.offsetWidth; // restart animation
+  interruptEl.classList.add("show");
+  count++;
+  scoreEl.textContent = `Times you've been interrupted: ${count}`;
+  say(line);
+  setTimeout(askQuestion, NEXT_QUESTION_DELAY_MS);
+}
+
+answerEl.addEventListener("input", userStartedAnswering);
+
+startBtn.addEventListener("click", () => {
+  startBtn.textContent = "Skip question";
+  askQuestion();
+});
+
+// Optional: answer by voice, where the browser supports speech recognition.
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SR) {
+  micBtn.hidden = false;
+  micBtn.disabled = true;
+  micBtn.addEventListener("click", () => {
+    if (recognition) { stopListening(); return; }
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
+    recognition = new SR();
+    recognition.interimResults = true;
+    recognition.continuous = true;
+    recognition.onspeechstart = userStartedAnswering;
+    recognition.onresult = e => {
+      answerEl.value = Array.from(e.results).map(r => r[0].transcript).join(" ");
+      userStartedAnswering();
+    };
+    recognition.onend = () => { recognition = null; micBtn.textContent = "🎤 Answer out loud"; };
+    recognition.start();
+    micBtn.textContent = "⏹ Stop listening";
+  });
+}
+
+function stopListening() {
+  if (recognition) { recognition.stop(); recognition = null; }
+  micBtn.textContent = "🎤 Answer out loud";
+}
+</script>
+</body>
+</html>
