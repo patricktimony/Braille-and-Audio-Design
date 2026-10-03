@@ -187,12 +187,12 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
     <div class="speakers" role="group" aria-label="Who is speaking now">
       <div class="spk" data-who="A" aria-pressed="true" id="spkA">
         <label class="sr-only" for="nameA">Name of person 1</label>
-        <input id="nameA" value="Priya" maxlength="24" autocomplete="off">
+        <input id="nameA" value="Leslie" maxlength="24" autocomplete="off">
         <span class="key" aria-hidden="true">1</span>
       </div>
       <div class="spk" data-who="B" aria-pressed="false" id="spkB">
         <label class="sr-only" for="nameB">Name of person 2</label>
-        <input id="nameB" value="Sam" maxlength="24" autocomplete="off">
+        <input id="nameB" value="Patrick" maxlength="24" autocomplete="off">
         <span class="key" aria-hidden="true">2</span>
       </div>
     </div>
@@ -217,7 +217,7 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
       <button class="btn" id="analyzeBtn" type="button">Analyze now</button>
       <button class="btn" id="clearBtn" type="button">Clear</button>
     </div>
-    <p class="note" id="modeNote">Press <b>Teach voices</b> first so the app can tell you apart by the sound of your voices. If a line lands under the wrong name, tap the name to fix it and the app learns from that. Make sure everyone in the room agrees to be listened to.</p>
+    <p class="note" id="modeNote">The app tells you apart by voice: the higher voice is Leslie and the lower voice is Patrick. Press <b>Teach voices</b> once to make that more accurate. If a line lands under the wrong name, tap the name to fix it and the app learns from that. Make sure everyone in the room agrees to be listened to.</p>
   </section>
 
   <p class="coachbar" id="coachBar" role="status">Coach: waiting for the conversation to start.</p>
@@ -258,7 +258,6 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
     <section class="panel" aria-labelledby="tHead">
       <div class="panel-head">
         <h2 id="tHead">Conversation</h2>
-        <span class="example-flag" id="exampleFlag">Example conversation. Press Clear to start your own.</span>
       </div>
       <ol class="transcript" id="transcript" aria-live="polite"></ol>
       <form class="add" id="addForm">
@@ -311,41 +310,10 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
   const FACT_COOLDOWN = 20000;
   const MODEL = "claude-opus-5-5";
   const WINDOW = 60;
-
-  const EXAMPLE = {
-    names: { A: "Priya", B: "Sam" },
-    turns: [
-      { who: "A", text: "We said the beta would ship on the 14th. I don't understand why it's slipping again." },
-      { who: "B", text: "It's slipping because design changed the onboarding flow twice last week. That's not on my team.", flags: [{ label: "Defensiveness", kind: "unproductive" }] },
-      { who: "A", text: "You always have a reason. Every single launch it's someone else's fault.", flags: [{ label: "Criticism", kind: "unproductive" }] },
-      { who: "B", text: "Okay, that's not fair. I've been here until nine every night. And with all these meetings nobody can focus anyway. Attention spans are down to eight seconds now, shorter than a goldfish.", facts: ["incorrect"] },
-      { who: "A", text: "I'm not saying you're not working hard. I'm saying I can't keep telling leadership a new date.", flags: [{ label: "Repair attempt", kind: "productive" }] },
-      { who: "B", text: "Fine. Whatever. Tell them whatever you want.", flags: [{ label: "Withdrawing", kind: "unproductive" }] },
-    ],
-    theory: {
-      summary: "Priya is under pressure from leadership and reads the slip as a reliability problem. Sam hears that as a verdict on his effort and is starting to withdraw. They are arguing about blame, and neither has named the shared problem: a date both of them can stand behind.",
-      phase: "escalating", tension: 7, productive: 35,
-      speakers: {
-        A: { position: "The date has to hold this time.", underlying_need: "Credibility with leadership; predictability.", state: "Frustrated, feeling exposed" },
-        B: { position: "The delay isn't my team's fault.", underlying_need: "Recognition of effort; fair attribution.", state: "Defensive, shutting down" },
-      },
-      patterns: [
-        { name: "Criticism (global)", kind: "unproductive", speaker: "A", evidence: "You always have a reason.", framework: "Gottman: Four Horsemen" },
-        { name: "Defensiveness", kind: "unproductive", speaker: "B", evidence: "That's not on my team.", framework: "Gottman: Four Horsemen" },
-        { name: "Stonewalling onset", kind: "unproductive", speaker: "B", evidence: "Fine. Whatever.", framework: "Gottman: flooding and withdrawal" },
-        { name: "Repair attempt", kind: "productive", speaker: "A", evidence: "I'm not saying you're not working hard.", framework: "Gottman: repair attempts" },
-      ],
-    },
-    facts: [
-      { claim: "Human attention spans are down to eight seconds, shorter than a goldfish's.", speaker: "B", verdict: "incorrect", explanation: "The eight-second figure traces back to a marketing report, not to research measuring attention spans, and there is no good evidence that goldfish attention spans are nine seconds either.", correction: "Quick fact check, Sam: the goldfish attention-span statistic is a myth. It came from a marketing report, not from attention research.", sources: [], searched: false },
-    ],
-    log: [
-      { kind: "coach", to: "both", message: "Quick pause. You both want a date you can trust. Priya, what does leadership need to hear? Sam, what would make a date realistic? Try starting with \"I need\" instead of \"you always\".", strategy: "Shift from positions to interests", at: null },
-    ],
-  };
+  const DEFAULT_PROFILES = { A: Math.log2(210), B: Math.log2(120) };
 
   const state = {
-    names: { A: "Priya", B: "Sam" },
+    names: { A: "Leslie", B: "Patrick" },
     current: "A",
     turns: [],          // {who, text, t, f0?, sure?, manual?, aiFixed?, flags?, facts?}
     theory: null,
@@ -353,7 +321,7 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
     facts: [],          // fact checks
     checkedClaims: new Set(),
     factQueue: [],
-    example: true,
+    example: false,
     listening: false,
     speaking: false,
     analyzing: false,
@@ -682,7 +650,8 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
   // track voice pitch, and match each finished line to the closer of the two learned voices.
   const voice = {
     stream: null, ctx: null, analyser: null, buf: null, timer: null, frames: [], noise: 0.01, level: 0, failed: false,
-    profiles: { A: null, B: null },   // mean log2 pitch
+    // Mean log2 pitch per person. Until voices are taught: Leslie's higher voice, Patrick's lower voice.
+    profiles: { ...DEFAULT_PROFILES },
     async start() {
       if (this.ctx || this.failed) return !!this.ctx;
       if (!navigator.mediaDevices?.getUserMedia) { this.failed = true; return false; }
@@ -772,9 +741,9 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
     return null;
   }
 
-  function saveProfiles() { store.set("cg.voices", JSON.stringify(voice.profiles)); }
+  function saveProfiles() { store.set("cg2.voices", JSON.stringify(voice.profiles)); }
   function loadProfiles() {
-    try { const p = JSON.parse(store.get("cg.voices") || "null"); if (p && typeof p === "object") voice.profiles = { A: p.A ?? null, B: p.B ?? null }; } catch {}
+    try { const p = JSON.parse(store.get("cg2.voices") || "null"); if (p && typeof p === "object") voice.profiles = { A: p.A ?? DEFAULT_PROFILES.A, B: p.B ?? DEFAULT_PROFILES.B }; } catch {}
   }
   const hz = (lg) => (lg == null ? "–" : Math.round(2 ** lg) + " Hz");
 
@@ -785,7 +754,7 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
     $("train").hidden = false;
     train.step = 0;
     $("trainPrompt").textContent = `Each of you will say a couple of sentences in your normal voice, one at a time. ${state.names.A} goes first.`;
-    $("trainDetail").textContent = voice.profiles.A != null && voice.profiles.B != null ? `Current voices: ${state.names.A} about ${hz(voice.profiles.A)}, ${state.names.B} about ${hz(voice.profiles.B)}.` : "Takes about 15 seconds.";
+    $("trainDetail").textContent = `Right now ${state.names.A} is matched to voices around ${hz(voice.profiles.A)} and ${state.names.B} to voices around ${hz(voice.profiles.B)}. Teaching your real voices takes about 15 seconds and makes matching more accurate.`;
     $("trainGo").textContent = "Start";
     $("trainGo").hidden = false;
     $("trainGo").focus();
@@ -997,7 +966,6 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
   function renderTranscript() {
     const ol = $("transcript");
     ol.textContent = "";
-    $("exampleFlag").hidden = !state.example;
     if (!state.turns.length) {
       ol.append(el("li", "empty", "Press Start listening and talk normally. Each line appears here under whoever is speaking."));
     }
@@ -1104,7 +1072,7 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
     if (!state.log.length) { ul.append(el("li", "muted", "No interruptions yet.")); return; }
     for (const l of state.log.slice().reverse()) {
       const li = el("li");
-      li.append(el("time", null, (l.at ? clock(l.at) : "Example") + " · " + (l.kind === "fact" ? "fact check for " : "to ") + nameFor(l.to) + (l.strategy ? " · " + l.strategy : "")), el("span", null, l.message));
+      li.append(el("time", null, clock(l.at) + " · " + (l.kind === "fact" ? "fact check for " : "to ") + nameFor(l.to) + (l.strategy ? " · " + l.strategy : "")), el("span", null, l.message));
       ul.append(li);
     }
   }
@@ -1125,24 +1093,10 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
     analysisCtl?.abort();
     Object.assign(state, { turns: [], theory: null, log: [], facts: [], factQueue: [], example: false, lastAnalyzedCount: 0, lastAnalysisAt: 0, lastInterventionAt: 0, lastFactAt: 0 });
     state.checkedClaims = new Set();
-    for (const who of ["A", "B"]) { const n = store.get("cg.name" + who); if (n) { state.names[who] = n; $("name" + who).value = n; } }
+    for (const who of ["A", "B"]) { const n = store.get("cg2.name" + who); if (n) { state.names[who] = n; $("name" + who).value = n; } }
     $("coach").hidden = true; hideAiErr();
     $("thinking").textContent = "";
     renderTranscript(); renderTheory(); renderLog(); renderFacts();
-  }
-
-  function loadExample() {
-    state.names = { ...EXAMPLE.names };
-    $("nameA").value = state.names.A; $("nameB").value = state.names.B;
-    state.turns = EXAMPLE.turns.map((t) => ({ ...t, t: 0, sure: true }));
-    state.turns.push({ who: "coach", text: EXAMPLE.log[0].message, t: 0, kind: "coach" });
-    state.theory = EXAMPLE.theory;
-    state.facts = EXAMPLE.facts.map((f) => ({ ...f }));
-    state.log = EXAMPLE.log.map((l) => ({ ...l }));
-    state.lastAnalyzedCount = state.turns.length;
-    state.example = true;
-    renderTranscript(); renderTheory(); renderLog(); renderFacts();
-    showCoach({ ...EXAMPLE.log[0], why: "Sam is starting to shut down while Priya escalates; naming the shared goal can interrupt the cycle.", at: null });
   }
 
   // ---------- Wiring ----------
@@ -1164,7 +1118,7 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
   $("nameA").onfocus = () => setSpeaker("A");
   $("nameB").onfocus = () => setSpeaker("B");
   for (const who of ["A", "B"]) {
-    $("name" + who).oninput = (e) => { state.names[who] = e.target.value.trim() || (who === "A" ? "Person 1" : "Person 2"); if (!state.example) store.set("cg.name" + who, state.names[who]); renderTranscript(); renderTheory(); renderLog(); renderFacts(); };
+    $("name" + who).oninput = (e) => { state.names[who] = e.target.value.trim() || (who === "A" ? "Person 1" : "Person 2"); if (!state.example) store.set("cg2.name" + who, state.names[who]); renderTranscript(); renderTheory(); renderLog(); renderFacts(); };
   }
   document.addEventListener("keydown", (e) => {
     if (e.target.matches("input, textarea, select")) return;
@@ -1183,7 +1137,7 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
     // With the viewer's own Claude account, analysis only runs on explicit actions like this one.
     if (sampleFn && spokenCount() >= 2) analyze();
   };
-  $("analyzeBtn").onclick = () => { if (state.example) { state.example = false; $("exampleFlag").hidden = true; } analyze(true); };
+  $("analyzeBtn").onclick = () => analyze(true);
   $("clearBtn").onclick = () => { stopListening(); clearAll(); };
   $("teachBtn").onclick = openTrain;
   $("trainGo").onclick = trainNext;
@@ -1207,7 +1161,7 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
   if (store.get("cg.mode") === "tap") $("speakerMode").value = "tap";
   loadProfiles();
 
-  loadExample();
+  clearAll();
   setStatus();
   initBackend().then(renderFacts);
 })();
