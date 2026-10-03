@@ -75,6 +75,9 @@ header.top p { margin: 0; color: var(--muted); max-width: 60ch; }
 .settings label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
 .settings select { padding: 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); }
 .note { font-size: 13px; color: var(--muted); margin: 0; flex-basis: 100%; }
+.coachbar { margin: 0; padding: 10px 14px; border-radius: var(--r); background: var(--sunk); font: 500 14px/1.4 var(--font-mono); color: var(--muted); }
+.coachbar[data-state="error"] { background: var(--surface); color: var(--bad); border: 2px solid var(--bad); font-family: var(--font-body); font-weight: 700; }
+.coachbar[data-state="busy"] { color: var(--ink); }
 
 /* Connection */
 details.conn { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 14px; }
@@ -210,11 +213,14 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
       </label>
       <label><input type="checkbox" id="factCheck" checked> Fact-check</label>
       <label><input type="checkbox" id="speakAloud" checked> Speak aloud</label>
+      <button class="btn" id="testVoiceBtn" type="button">Test sound</button>
       <button class="btn" id="analyzeBtn" type="button">Analyze now</button>
       <button class="btn" id="clearBtn" type="button">Clear</button>
     </div>
     <p class="note" id="modeNote">Press <b>Teach voices</b> first so the app can tell you apart by the sound of your voices. If a line lands under the wrong name, tap the name to fix it and the app learns from that. Make sure everyone in the room agrees to be listened to.</p>
   </section>
+
+  <p class="coachbar" id="coachBar" role="status">Coach: waiting for the conversation to start.</p>
 
   <section class="train" id="train" hidden aria-live="polite">
     <h2>Teach voices</h2>
@@ -301,7 +307,7 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
   };
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
-  const COOLDOWN = { gentle: 120000, balanced: 60000, active: 30000 };
+  const COOLDOWN = { gentle: 120000, balanced: 45000, active: 20000 };
   const FACT_COOLDOWN = 20000;
   const MODEL = "claude-opus-5-5";
   const WINDOW = 60;
@@ -463,7 +469,7 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
 Your job each time you are called:
 1. Check who said what. If the content makes it clear that a line was said by the other person (for example it answers the previous line from the same "speaker", uses "I" about something only the other person did, or addresses the labelled speaker by name), list it in speaker_fixes. Only include fixes you are confident about. Use the corrected speakers in the rest of your analysis.
 2. Update a working psychological theory of what is going on between them. Draw on established frameworks where they genuinely fit, and name the framework: Gottman's Four Horsemen (criticism, contempt, defensiveness, stonewalling) and their antidotes (gentle start-up, appreciation, taking responsibility, self-soothing), repair attempts and flooding; Fisher and Ury's interests versus positions; Nonviolent Communication (observations, feelings, needs, requests); demand-withdraw cycles; active listening and reflecting; mind-reading, always/never generalizing, scorekeeping, topic drift, talking past each other. Also note productive moves. Treat the theory as a hypothesis that you revise as evidence arrives; keep what still fits from the previous theory.
-3. Decide whether to interrupt right now. Interrupt only when a gentle nudge would clearly help: an unproductive pattern is repeating or escalating, someone is withdrawing or flooding, they are stuck in positions, or a productive move deserves brief reinforcement so they keep doing it. Do not interrupt for a single mild slip. Coaching intensity requested: ${$("sensitivity").value} (gentle = only when clearly needed; balanced; active = coach more freely). Last interruption: ${sinceLast}. Never repeat advice you already gave unless the pattern clearly persists, and then phrase it differently.
+3. Decide whether to interrupt right now. The people using this app want to be coached, so don't be shy about it. Coaching intensity requested: ${$("sensitivity").value}. Light touch (gentle): step in only for a clearly repeated or escalating unproductive pattern, withdrawal, or flooding. Balanced: step in when an unproductive pattern shows up (criticism, contempt, defensiveness, stonewalling, blaming, interrupting, always/never, talking past each other), when tension is rising, when someone's point hasn't been acknowledged, when they are stuck in positions, or to briefly praise a good move so they keep doing it. Active: step in whenever you have something useful to offer, roughly every minute or two of conversation. Last interruption: ${sinceLast}. Never repeat advice you already gave unless the pattern clearly persists, and then phrase it differently.
 4. If you interrupt, write the words that will be spoken aloud to them. Address one person by name (choose whoever has the most leverage to change the pattern right now) or both. At most 45 words. Warm, specific, non-blaming, never takes sides, never diagnoses anyone, never lectures. Acknowledge what the person is likely feeling or needing, then offer one concrete thing to try next, ideally with example words they could say. Encourage cooperation toward their shared goal.
 ${factOn ? `5. List checkable factual claims about the world made in the transcript (statistics, dates, history, science, health, money, laws, how things work, what a public source says). Skip opinions, feelings, plans, and personal facts about their own lives that no outside source could check. Skip claims already checked (listed below). At most 3, most consequential first.` : ""}
 
@@ -489,6 +495,7 @@ Reply with only one JSON object, no other text, in exactly this shape:
  "flag_lines": [{"line": transcript line number, "label": "short label", "kind": "unproductive" | "productive"}],
  "claims": [{"line": transcript line number, "speaker": "A" | "B", "claim": "the claim restated as one clear, self-contained sentence"}],
  "intervene": true | false,
+ "hold_reason": "if not intervening, a short phrase saying why (e.g. \"you're both listening well\")",
  "intervention": {"to": "A" | "B" | "both", "message": "the words to speak", "strategy": "name of the strategy", "why": "one sentence on why now"} or null}
 List at most 5 patterns and 6 flag_lines, most important first.`;
   }
@@ -521,6 +528,7 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
     hideAiErr();
     const countAtStart = state.turns.length;
     $("thinking").textContent = "Thinking…";
+    setCoachBar("Coach: thinking about the last few lines…", "busy");
     $("analyzeBtn").disabled = true;
     analysisCtl = new AbortController();
     try {
@@ -534,8 +542,11 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
       state.theory = r;
       renderTheory();
       queueClaims(r.claims, offset);
-      maybeIntervene(r);
+      const outcome = maybeIntervene(r);
       $("thinking").textContent = "Updated " + clock(Date.now());
+      setCoachBar(outcome === "spoke" ? `Coach: stepped in at ${clock(Date.now())}.`
+        : outcome === "waiting" ? `Coach: had a suggestion at ${clock(Date.now())} but waited, because it stepped in very recently.`
+        : `Coach: checked at ${clock(Date.now())}. Didn't step in: ${r.hold_reason || "nothing needed yet"}.`);
     } catch (e) {
       $("thinking").textContent = "";
       handleAiError(e);
@@ -545,8 +556,11 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
     }
   }
 
+  function setCoachBar(text, st = "") { $("coachBar").textContent = text; $("coachBar").dataset.state = st; }
   function handleAiError(e) {
     if (e && e.code === "cancelled") return;
+    if (e && e.name === "AbortError") return;
+    setCoachBar("Coach can't reach Claude: " + ((e && (e.friendly || e.message)) || "something went wrong."), "error");
     if (e && (e.code === "not_granted" || e.code === "sampling_disabled")) showAiErr("Claude isn't allowed for this page. Allow it from the artifact's permissions to enable coaching.");
     else if (e && e.code === "rate_limited") showAiErr("Too many requests right now. The coach will pick up again in a moment.");
     else if (e && e.name === "AbortError") return;
@@ -576,12 +590,13 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
   }
 
   function maybeIntervene(r) {
-    if (!r.intervene || !r.intervention || !r.intervention.message) return;
-    const cooldown = COOLDOWN[$("sensitivity").value] || 60000;
-    if (state.lastInterventionAt && Date.now() - state.lastInterventionAt < cooldown) return;
+    if (!r.intervene || !r.intervention || !r.intervention.message) return "none";
+    const cooldown = COOLDOWN[$("sensitivity").value] || 45000;
+    if (state.lastInterventionAt && Date.now() - state.lastInterventionAt < cooldown) return "waiting";
     const iv = { kind: "coach", ...r.intervention, at: Date.now() };
     state.lastInterventionAt = iv.at;
     deliver(iv);
+    return "spoke";
   }
 
   function deliver(iv) {
@@ -636,6 +651,7 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
         const wrong = verdict === "incorrect" || verdict === "partly correct";
         if (wrong && ch.matters !== false && fc.correction && $("factCheck").checked && Date.now() - state.lastFactAt > FACT_COOLDOWN) {
           state.lastFactAt = Date.now();
+          setCoachBar(`Coach: fact check at ${clock(Date.now())}.`);
           deliver({ kind: "fact", to: c.speaker, message: fc.correction, strategy: verdict === "incorrect" ? "Correction" : "Clarification", why: fc.explanation, sources, at: Date.now() });
         }
       }
@@ -840,6 +856,10 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
     ul.hidden = !(iv.sources && iv.sources.length);
     $("coachOk").textContent = fact ? "Got it" : "Thanks, we'll try it";
     $("coach").hidden = false;
+    if (iv.at) {
+      try { $("coach").scrollIntoView({ behavior: "smooth", block: "start" }); } catch {}
+      try { navigator.vibrate?.([120, 80, 120]); } catch {}
+    }
     if (iv.at) { if ($("speakAloud").checked) speak(iv.message); else chime(); }
   }
 
@@ -923,7 +943,7 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
       }
     };
     rec.onend = () => { if (state.listening && !state.speaking) { try { rec.start(); } catch {} } };
-    try { rec.start(); state.listening = true; } catch { state.listening = false; }
+    try { rec.start(); state.listening = true; setCoachBar("Coach: listening. It checks in after every couple of lines."); } catch { state.listening = false; }
     requestWakeLock();
     setStatus();
   }
@@ -1126,6 +1146,18 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
   }
 
   // ---------- Wiring ----------
+  // Phones only allow a page to play sound after a tap, so unlock the chime and voice on every button press.
+  function unlockAudio() {
+    try { audioCtx ||= new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume?.(); } catch {}
+    try {
+      if ("speechSynthesis" in window && !unlockAudio.done) {
+        const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); unlockAudio.done = true;
+      }
+    } catch {}
+  }
+  document.addEventListener("pointerdown", unlockAudio, { capture: true });
+  document.addEventListener("keydown", unlockAudio, { capture: true });
+  $("testVoiceBtn").onclick = () => { unlockAudio(); speak("This is how I'll sound when I step in."); };
   $("listenBtn").onclick = () => (state.listening ? stopListening() : startListening());
   $("spkA").onclick = (e) => { if (e.target.tagName !== "INPUT") setSpeaker("A"); };
   $("spkB").onclick = (e) => { if (e.target.tagName !== "INPUT") setSpeaker("B"); };
