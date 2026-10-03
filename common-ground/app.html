@@ -653,11 +653,11 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
     // Mean log2 pitch per person. Until voices are taught: Leslie's higher voice, Patrick's lower voice.
     profiles: { ...DEFAULT_PROFILES },
     async start() {
-      if (this.ctx || this.failed) return !!this.ctx;
+      if (this.analyser || this.failed) return !!this.analyser;
       if (!navigator.mediaDevices?.getUserMedia) { this.failed = true; return false; }
       try {
         this.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.prime();
         await this.ctx.resume?.();
         const src = this.ctx.createMediaStreamSource(this.stream);
         this.analyser = this.ctx.createAnalyser();
@@ -667,6 +667,10 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
         this.timer = setInterval(() => this.sample(), 50);
         return true;
       } catch { this.stop(); this.failed = true; return false; }
+    },
+    // Create the audio processor during a tap; phones keep one made later frozen.
+    prime() {
+      try { this.ctx ||= new (window.AudioContext || window.webkitAudioContext)(); this.ctx.resume?.(); } catch {}
     },
     stop() {
       clearInterval(this.timer); this.timer = null;
@@ -767,6 +771,7 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
   function meterLoop() { $("trainMeter").style.width = Math.round(voice.level * 100) + "%"; train.raf = requestAnimationFrame(meterLoop); }
   async function trainNext() {
     if (train.collecting) return;
+    voice.prime();
     const ok = await voice.start();
     if (!ok) { $("trainDetail").textContent = "The microphone isn't available, so voices can't be learned here. Allow microphone access, or switch Who's talking to \"I'll tap names\"."; return; }
     state.training = true;
@@ -875,21 +880,47 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
   let rec = null, interim = "", utterStart = 0, lastFinalAt = 0;
   function setStatus() {
     $("status").dataset.on = String(state.listening && !state.speaking);
-    $("statusText").textContent = state.speaking ? "Coach speaking" : state.listening ? (voiceMode() && voice.ctx ? "Listening · matching voices" : "Listening") : "Not listening";
+    $("statusText").textContent = state.speaking ? "Coach speaking" : state.listening ? (voiceMode() && voice.analyser ? "Listening · matching voices" : "Listening") : "Not listening";
     $("listenBtn").textContent = state.listening ? "Stop listening" : "Start listening";
   }
   const voiceMode = () => $("speakerMode").value === "voice";
 
-  async function startListening() {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const inFrame = (() => { try { return window.top !== window; } catch { return true; } })();
+  const SITE = "https://patricktimony.github.io/Braille-and-Audio-Design/";
+  let heardSomething = false, voiceStartedAt = 0, voiceTimer = 0;
+
+  function micHelp(code) {
+    const msgs = {
+      frame: `The microphone is blocked inside the Claude app. Open ${SITE} in ${isIOS ? "Safari" : "Chrome"} to have it listen.`,
+      nosr: isIOS ? "This browser can't turn speech into text. Open the page in Safari itself, not inside another app." : "This browser can't turn speech into text. Open the page in Chrome itself, not inside another app.",
+      "not-allowed": isIOS
+        ? "Safari is blocking the microphone for this site. Tap the aA button in the address bar, then Website Settings, then set Microphone to Allow, and reload the page. Also check iPhone Settings › Apps › Safari › Microphone."
+        : "Chrome is blocking the microphone for this site. Tap the icon to the left of the web address, then Permissions, then turn Microphone on, and reload the page. Also check your phone's Settings › Apps › Chrome › Permissions › Microphone.",
+      "service-not-allowed": isIOS
+        ? "Speech recognition is turned off on this iPhone. Turn on Settings › General › Keyboard › Enable Dictation, then reload the page."
+        : "Speech recognition is blocked. Use Chrome itself (not a browser inside another app) and make sure the Google app's speech services are turned on.",
+      "audio-capture": "No microphone could be used. Close other apps that might be using it (calls, voice memos, other tabs) and tap Start listening again.",
+      network: "Speech recognition needs the internet and couldn't reach the speech service. Check your connection and tap Start listening again.",
+      "start-failed": "Listening couldn't start. Tap Start listening again.",
+    };
+    const m = (msgs[code] || "Listening stopped unexpectedly. Tap Start listening again.") + (msgs[code] && !["frame", "nosr"].includes(code) ? ` (code: ${code})` : "");
+    showMicErr(m);
+    setCoachBar(m, "error");
+  }
+
+  // Must stay synchronous: phones only allow speech recognition to start directly inside a tap.
+  function startListening() {
     hideMicErr();
-    if (!SR) { showMicErr("This browser can't transcribe speech. Use Chrome, Edge or Safari, or type lines below."); return; }
+    if (inFrame && sampleFn) { micHelp("frame"); return; }
+    if (!SR) { micHelp("nosr"); return; }
     if (state.example) clearAll();
-    if (voiceMode()) await voice.start();
     rec = new SR();
     rec.continuous = true;
     rec.interimResults = true;
     rec.lang = navigator.language || "en-US";
     rec.onresult = (e) => {
+      heardSomething = true;
       if (!utterStart) utterStart = performance.now();
       interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -900,24 +931,48 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
       renderInterim();
     };
     rec.onerror = (e) => {
-      if (e.error === "audio-capture" && voice.ctx) {
-        // Some phones can't share the microphone between transcription and voice matching.
-        voice.stop(); voice.failed = true;
-        showMicErr("This device can't match voices while transcribing, so tap the speaker's name as you talk. Claude will still fix obvious mix-ups.");
+      if (e.error === "no-speech") return;
+      // Some phones can't share the microphone between transcription and voice matching.
+      // Drop voice matching for good on this device and keep transcribing.
+      if (voice.analyser && Date.now() - voiceStartedAt < 10000) {
+        voice.stop(); voice.failed = true; store.set("cg2.voiceConflict", "1");
+        setStatus();
+        showMicErr("This phone can't match voices while it transcribes, so Claude works out who's talking from what's said. Tap a name on any line to fix it." + (heardSomething ? "" : " If nothing appears, tap Stop listening, then Start listening."));
         return;
       }
-      if (e.error === "not-allowed" || e.error === "service-not-allowed" || e.error === "audio-capture") {
-        state.listening = false; setStatus();
-        showMicErr("The microphone isn't available here. Allow microphone access in your browser settings, or type lines below.");
+      if (e.error === "aborted") return;
+      if (["not-allowed", "service-not-allowed", "audio-capture", "network"].includes(e.error)) {
+        if (heardSomething && e.error !== "network") {
+          // Worked before, so this is a restart the phone refused outside a tap.
+          state.listening = false; setStatus();
+          showMicErr("Listening paused. Tap Start listening to carry on.");
+          setCoachBar("Coach: listening paused. Tap Start listening to carry on.", "error");
+          return;
+        }
+        stopListening();
+        micHelp(e.error);
       }
     };
     rec.onend = () => { if (state.listening && !state.speaking) { try { rec.start(); } catch {} } };
-    try { rec.start(); state.listening = true; setCoachBar("Coach: listening. It checks in after every couple of lines."); } catch { state.listening = false; }
+    try { rec.start(); } catch { micHelp("start-failed"); return; }
+    if (voiceMode() && store.get("cg2.voiceConflict") !== "1") voice.prime();
+    state.listening = true;
+    heardSomething = false;
+    setCoachBar("Coach: listening. It checks in after every couple of lines.");
     requestWakeLock();
     setStatus();
+    // Voice matching opens the microphone a second time, once transcription is running.
+    clearTimeout(voiceTimer);
+    if (voiceMode() && store.get("cg2.voiceConflict") !== "1") {
+      voiceTimer = setTimeout(() => {
+        if (!state.listening) return;
+        voice.start().then((ok) => { if (ok) voiceStartedAt = Date.now(); setStatus(); });
+      }, 1500);
+    }
   }
   function stopListening() {
     state.listening = false;
+    clearTimeout(voiceTimer);
     try { rec && rec.stop(); } catch {}
     voice.stop(); voice.failed = false;
     interim = ""; renderInterim(); setStatus();
@@ -936,7 +991,7 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
     utterStart = 0; lastFinalAt = now;
     if (state.training) return;
     let who = state.current, sure, f0 = null;
-    if (voiceMode() && voice.ctx) {
+    if (voiceMode() && voice.analyser) {
       f0 = voice.feature(from, now);
       if (voice.profiles.A == null && voice.profiles.B == null && f0 != null) voice.profiles[state.current] = f0;
       const c = voice.classify(f0);
@@ -1004,7 +1059,7 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
     if (!interim.trim()) return;
     ol.querySelector(".empty")?.remove();
     const li = el("li", "turn interim"); li.dataset.who = state.current;
-    li.append(el("span", "tag", voiceMode() && voice.ctx ? "…" : state.names[state.current]), el("p", "text", interim));
+    li.append(el("span", "tag", voiceMode() && voice.analyser ? "…" : state.names[state.current]), el("p", "text", interim));
     ol.append(li);
     if (scroll) ol.scrollTop = ol.scrollHeight;
   }
@@ -1151,7 +1206,7 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
   $("factCheck").onchange = (e) => { store.set("cg.facts", e.target.checked ? "1" : "0"); renderFacts(); };
   $("speakerMode").onchange = (e) => {
     store.set("cg.mode", e.target.value);
-    if (state.listening && e.target.value === "voice") voice.start().then(setStatus);
+    if (state.listening && e.target.value === "voice" && store.get("cg2.voiceConflict") !== "1") voice.start().then((ok) => { if (ok) voiceStartedAt = Date.now(); setStatus(); });
     if (e.target.value === "tap") { voice.stop(); setStatus(); }
   };
 
