@@ -238,7 +238,8 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
     <div class="conn-body">
       <label class="label" for="apiKey">Anthropic API key</label>
       <input type="password" id="apiKey" placeholder="sk-ant-…" autocomplete="off" spellcheck="false">
-      <label style="font-size:14px"><input type="checkbox" id="rememberKey"> Remember on this device</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn" id="checkKeyBtn" type="button">Check key</button><label style="font-size:14px"><input type="checkbox" id="rememberKey"> Remember on this device</label></div>
+      <p id="keyStatus" role="status" style="font-weight:700"></p>
       <p>The key is sent only to api.anthropic.com, straight from this browser. Use a key with a spending limit; anyone with access to this browser can read a remembered key. Fact-checking uses web search, which costs about 1 cent per search.</p>
     </div>
   </details>
@@ -339,7 +340,7 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
   let useFallbacks = true;
   let searchAvailable = true;
 
-  function apiKey() { return $("apiKey").value.trim(); }
+  function apiKey() { return $("apiKey").value.replace(/[\s\u200B-\u200D\uFEFF"'“”‘’]/g, ""); }
 
   async function initBackend() {
     if (window.claude && typeof window.claude.use === "function") {
@@ -383,7 +384,7 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
     if (!res.ok) {
       const msg = data?.error?.message || res.statusText || "";
       if (res.status === 400 && useFallbacks && /fallback/i.test(msg)) { useFallbacks = false; return postMessages(body, signal); }
-      if (res.status === 401) throw { friendly: "That API key was rejected. Check it under Connection." };
+      if (res.status === 401) { $("conn").open = true; checkKey(); throw { friendly: "Anthropic rejected the API key. Open Connection at the top and press Check key for details." }; }
       if (res.status === 429) throw { friendly: "Rate limited by the API. The coach will try again shortly." };
       if (res.status === 402 || /credit balance/i.test(msg)) throw { friendly: "Your API account is out of credit. Add credit at console.anthropic.com under Billing." };
       throw { friendly: "The API returned an error: " + msg, status: res.status, raw: msg };
@@ -1199,6 +1200,27 @@ Include at most 2 sources per claim${searchAvailable ? ", only ones you actually
   $("trainCancel").onclick = () => { closeTrain(); $("trainCancel").textContent = "Close"; };
   $("coachOk").onclick = () => { $("coach").hidden = true; };
   $("coachRepeat").onclick = () => { const l = state.log[state.log.length - 1]; if (l) speak(l.message); };
+  // Asks Anthropic whether the key works, using a free request, and explains what's wrong if not.
+  async function checkKey() {
+    const k = apiKey(), out = $("keyStatus");
+    out.style.color = "var(--muted)";
+    if (!k) { out.textContent = "Paste your key in the box first."; return; }
+    const shown = `Your key starts "${k.slice(0, 14)}" and ends "${k.slice(-4)}", ${k.length} characters long.`;
+    if (!k.startsWith("sk-ant-")) { out.style.color = "var(--bad)"; out.textContent = `That isn't an Anthropic API key. Keys start with "sk-ant-api". ${shown}`; return; }
+    if (k.startsWith("sk-ant-admin")) { out.style.color = "var(--bad)"; out.textContent = "That's an Admin key, which can't run Claude. Create a regular key under API Keys in the Claude Console."; return; }
+    out.textContent = "Checking with Anthropic…";
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/models?limit=1", { headers: { "x-api-key": k, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" } });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) { out.style.color = "var(--good)"; out.textContent = "The key works. You're all set."; return; }
+      out.style.color = "var(--bad)";
+      const msg = data?.error?.message ? ` Anthropic said: "${data.error.message}".` : "";
+      if (res.status === 401) out.textContent = `Anthropic doesn't recognise this key.${msg} ${shown} ${k.length < 90 ? "It looks cut off, so copy the whole key again." : "Compare those characters with the key in the Claude Console. If it was deleted, or you can't see the full key any more, create a new one and paste it here."}`;
+      else if (res.status === 403) out.textContent = `This key isn't allowed to use Claude.${msg} Check the key's workspace permissions in the Claude Console.`;
+      else out.textContent = `Couldn't confirm the key (error ${res.status}).${msg}`;
+    } catch { out.style.color = "var(--bad)"; out.textContent = "Couldn't reach Anthropic. Check your internet connection and try again."; }
+  }
+  $("checkKeyBtn").onclick = checkKey;
   $("apiKey").oninput = () => { updateConnSummary(); if ($("rememberKey").checked) store.set("cg.apiKey", apiKey() || null); };
   $("rememberKey").onchange = (e) => store.set("cg.apiKey", e.target.checked ? apiKey() || null : null);
   $("sensitivity").onchange = (e) => store.set("cg.sensitivity", e.target.value);
