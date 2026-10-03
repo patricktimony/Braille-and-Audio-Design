@@ -6,9 +6,18 @@ out loud) when the conversation stops helping either of them.
 
 ## What it does
 
-- **Listens** with the browser's built-in speech recognition. Tap a name (or
-  press `1` / `2`) when the other person starts talking. Tap a name in the
-  transcript to reassign a line. You can also type lines.
+- **Listens** with the browser's built-in speech recognition. Browser
+  transcription can't tell voices apart, so the app also tracks voice pitch on
+  the same microphone and matches each line to the closer of two learned
+  voices. Press **Teach voices** once so each person says a couple of
+  sentences. Tapping a name in the transcript fixes a line and teaches the app.
+  Claude also fixes obvious mix-ups from context. Choose "I'll tap names" to
+  assign speakers by hand instead.
+- **Fact-checks**: Claude picks out checkable factual claims, verifies them
+  with Anthropic's web search tool, and interrupts with a short, friendly
+  correction and its sources when something important is wrong. Searches cost
+  about 1 cent each. In the claude.ai artifact version there is no web search,
+  so checks use Claude's own knowledge.
 - **Builds a theory** with Claude: a plain-language summary, tension and
   "productive" gauges, the conversation's phase, each person's stated position
   versus their underlying need, and the patterns it sees, each tied to a quote

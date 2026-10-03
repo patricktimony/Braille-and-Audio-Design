@@ -146,13 +146,35 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
 .err { color: var(--bad); font-size: 14px; margin: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+/* Voice training, fact checks */
+.train { background: var(--surface); border: 2px solid var(--ink); border-radius: 14px; padding: 18px 20px; display: grid; gap: 10px; }
+.train h2 { font-size: 22px; }
+.train p { margin: 0; max-width: 60ch; }
+.train .big { font-family: var(--font-display); font-size: clamp(20px, 2.6vw, 26px); }
+.train .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.meter { height: 10px; border-radius: 5px; background: var(--sunk); overflow: hidden; max-width: 420px; }
+.meter i { display: block; height: 100%; width: 0; background: var(--good); transition: width .08s linear; }
+.coach[data-kind="fact"] { --coach: var(--b); --coach-soft: var(--b-soft); }
+.coach .sources { margin: 0; padding-left: 18px; font-size: 14px; display: grid; gap: 2px; }
+.coach .sources a, .facts a { color: var(--a); overflow-wrap: anywhere; }
+.turn .tag .unsure { font-weight: 400; opacity: .75; margin-left: 2px; }
+.chip.fact-incorrect { color: var(--bad); }
+.chip.fact-partly { color: var(--coach); }
+.chip.fact-correct { color: var(--good); }
+.chip.fact-unverifiable, .chip.neutral { color: var(--muted); }
+.facts { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.fact { display: grid; gap: 4px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); font-size: 14px; }
+.fact .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.fact .claim { font-weight: 700; font-size: 15px; }
+.fact ul { margin: 0; padding-left: 18px; }
+.muted { color: var(--muted); }
 </style>
 
 <div class="wrap">
   <header class="top">
     <div>
       <h1>Common Ground</h1>
-      <p>Listens to two people talking, builds a working theory of what's going on between them, and steps in gently when the conversation stops helping either of them.</p>
+      <p>Listens to two people talking, builds a working theory of what's going on between them, checks the facts, and steps in gently when the conversation stops helping either of them.</p>
     </div>
     <span class="status" id="status" data-on="false" role="status"><span class="dot"></span><span id="statusText">Not listening</span></span>
   </header>
@@ -172,6 +194,13 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
       </div>
     </div>
     <div class="settings">
+      <label for="speakerMode">Who's talking
+        <select id="speakerMode">
+          <option value="voice" selected>Tell by voice</option>
+          <option value="tap">I'll tap names</option>
+        </select>
+      </label>
+      <button class="btn" id="teachBtn" type="button">Teach voices</button>
       <label for="sensitivity">Coach
         <select id="sensitivity">
           <option value="gentle">Light touch</option>
@@ -179,11 +208,23 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
           <option value="active">Active</option>
         </select>
       </label>
+      <label><input type="checkbox" id="factCheck" checked> Fact-check</label>
       <label><input type="checkbox" id="speakAloud" checked> Speak aloud</label>
       <button class="btn" id="analyzeBtn" type="button">Analyze now</button>
       <button class="btn" id="clearBtn" type="button">Clear</button>
     </div>
-    <p class="note">Tap a name (or press 1 / 2) when the other person starts talking. Tap a name in the transcript to fix a line. Make sure everyone in the room agrees to be listened to.</p>
+    <p class="note" id="modeNote">Press <b>Teach voices</b> first so the app can tell you apart by the sound of your voices. If a line lands under the wrong name, tap the name to fix it and the app learns from that. Make sure everyone in the room agrees to be listened to.</p>
+  </section>
+
+  <section class="train" id="train" hidden aria-live="polite">
+    <h2>Teach voices</h2>
+    <p class="big" id="trainPrompt"></p>
+    <div class="meter" aria-hidden="true"><i id="trainMeter"></i></div>
+    <p class="muted" id="trainDetail"></p>
+    <div class="row">
+      <button class="btn primary" id="trainGo" type="button">Start</button>
+      <button class="btn" id="trainCancel" type="button">Close</button>
+    </div>
   </section>
 
   <details class="conn" id="conn">
@@ -192,14 +233,15 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
       <label class="label" for="apiKey">Anthropic API key</label>
       <input type="password" id="apiKey" placeholder="sk-ant-…" autocomplete="off" spellcheck="false">
       <label style="font-size:14px"><input type="checkbox" id="rememberKey"> Remember on this device</label>
-      <p>The key is sent only to api.anthropic.com, straight from this browser. Use a key with a spending limit; anyone with access to this browser can read a remembered key.</p>
+      <p>The key is sent only to api.anthropic.com, straight from this browser. Use a key with a spending limit; anyone with access to this browser can read a remembered key. Fact-checking uses web search, which costs about 1 cent per search.</p>
     </div>
   </details>
 
   <section class="coach" id="coach" hidden aria-live="assertive" aria-atomic="true">
     <span class="who" id="coachWho">For both of you</span>
     <p class="msg" id="coachMsg"></p>
-    <div class="meta"><span><b>Strategy:</b> <span id="coachStrategy"></span></span><span><b>Why now:</b> <span id="coachWhy"></span></span></div>
+    <div class="meta" id="coachMeta"><span><b id="coachStrategyLabel">Strategy:</b> <span id="coachStrategy"></span></span><span><b>Why now:</b> <span id="coachWhy"></span></span></div>
+    <ul class="sources" id="coachSources" hidden></ul>
     <div class="actions">
       <button class="btn primary" id="coachOk" type="button">Thanks, we'll try it</button>
       <button class="btn" id="coachRepeat" type="button">Say it again</button>
@@ -238,6 +280,10 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
         <ul class="patterns" id="patterns"></ul>
       </div>
       <div>
+        <div class="panel-head" style="margin-bottom:8px"><h3 class="label">Fact checks</h3><span class="thinking" id="factThinking"></span></div>
+        <ul class="facts" id="facts"></ul>
+      </div>
+      <div>
         <h3 class="label" style="margin-bottom:8px">Coaching log</h3>
         <ul class="log" id="log"></ul>
       </div>
@@ -253,19 +299,22 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
     set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} },
   };
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
   const COOLDOWN = { gentle: 120000, balanced: 60000, active: 30000 };
+  const FACT_COOLDOWN = 20000;
   const MODEL = "claude-opus-5-5";
+  const WINDOW = 60;
 
   const EXAMPLE = {
     names: { A: "Priya", B: "Sam" },
     turns: [
       { who: "A", text: "We said the beta would ship on the 14th. I don't understand why it's slipping again." },
-      { who: "B", text: "It's slipping because design changed the onboarding flow twice last week. That's not on my team." },
-      { who: "A", text: "You always have a reason. Every single launch it's someone else's fault." },
-      { who: "B", text: "Okay, that's not fair. I've been here until nine every night." },
-      { who: "A", text: "I'm not saying you're not working hard. I'm saying I can't keep telling leadership a new date." },
-      { who: "B", text: "Fine. Whatever. Tell them whatever you want." },
+      { who: "B", text: "It's slipping because design changed the onboarding flow twice last week. That's not on my team.", flags: [{ label: "Defensiveness", kind: "unproductive" }] },
+      { who: "A", text: "You always have a reason. Every single launch it's someone else's fault.", flags: [{ label: "Criticism", kind: "unproductive" }] },
+      { who: "B", text: "Okay, that's not fair. I've been here until nine every night. And with all these meetings nobody can focus anyway. Attention spans are down to eight seconds now, shorter than a goldfish.", facts: ["incorrect"] },
+      { who: "A", text: "I'm not saying you're not working hard. I'm saying I can't keep telling leadership a new date.", flags: [{ label: "Repair attempt", kind: "productive" }] },
+      { who: "B", text: "Fine. Whatever. Tell them whatever you want.", flags: [{ label: "Withdrawing", kind: "unproductive" }] },
     ],
     theory: {
       summary: "Priya is under pressure from leadership and reads the slip as a reliability problem. Sam hears that as a verdict on his effort and is starting to withdraw. They are arguing about blame, and neither has named the shared problem: a date both of them can stand behind.",
@@ -281,30 +330,40 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
         { name: "Repair attempt", kind: "productive", speaker: "A", evidence: "I'm not saying you're not working hard.", framework: "Gottman: repair attempts" },
       ],
     },
+    facts: [
+      { claim: "Human attention spans are down to eight seconds, shorter than a goldfish's.", speaker: "B", verdict: "incorrect", explanation: "The eight-second figure traces back to a marketing report, not to research measuring attention spans, and there is no good evidence that goldfish attention spans are nine seconds either.", correction: "Quick fact check, Sam: the goldfish attention-span statistic is a myth. It came from a marketing report, not from attention research.", sources: [], searched: false },
+    ],
     log: [
-      { to: "both", message: "Quick pause. You both want a date you can trust. Priya, what does leadership need to hear? Sam, what would make a date realistic? Try starting with \"I need\" instead of \"you always\".", strategy: "Shift from positions to interests", at: null },
+      { kind: "coach", to: "both", message: "Quick pause. You both want a date you can trust. Priya, what does leadership need to hear? Sam, what would make a date realistic? Try starting with \"I need\" instead of \"you always\".", strategy: "Shift from positions to interests", at: null },
     ],
   };
 
   const state = {
     names: { A: "Priya", B: "Sam" },
     current: "A",
-    turns: [],          // {who, text, t, flags?:[]}
+    turns: [],          // {who, text, t, f0?, sure?, manual?, aiFixed?, flags?, facts?}
     theory: null,
-    log: [],            // interventions
+    log: [],            // interventions {kind, to, message, strategy, why, sources, at}
+    facts: [],          // fact checks
+    checkedClaims: new Set(),
+    factQueue: [],
     example: true,
     listening: false,
     speaking: false,
     analyzing: false,
+    factChecking: false,
+    training: false,
     lastAnalyzedCount: 0,
     lastAnalysisAt: 0,
     lastInterventionAt: 0,
-    pending: null,
+    lastFactAt: 0,
   };
 
   // ---------- Claude backends ----------
-  let sampleFn = null;            // artifact viewer: viewer's own Claude account
+  let sampleFn = null;            // artifact viewer: viewer's own Claude account (no web search there)
   let backendReady = false;
+  let useFallbacks = true;
+  let searchAvailable = true;
 
   function apiKey() { return $("apiKey").value.trim(); }
 
@@ -315,6 +374,7 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
     backendReady = true;
     if (sampleFn) {
       $("conn").hidden = true;
+      searchAvailable = false;
     } else {
       const k = store.get("cg.apiKey");
       if (k) { $("apiKey").value = k; $("rememberKey").checked = true; }
@@ -326,92 +386,136 @@ form.add input { padding: 10px; border-radius: 8px; border: 1px solid var(--line
   }
 
   function parseJSON(text) {
-    const t = text.trim();
+    const t = String(text || "").trim();
     try { return JSON.parse(t); } catch {}
     const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (fence) { try { return JSON.parse(fence[1]); } catch {} }
     const s = t.indexOf("{"), e = t.lastIndexOf("}");
-    if (s >= 0 && e > s) return JSON.parse(t.slice(s, e + 1));
-    throw new Error("The coach replied without readable JSON.");
+    if (s >= 0 && e > s) { try { return JSON.parse(t.slice(s, e + 1)); } catch {} }
+    throw { friendly: "The coach replied without readable JSON." };
   }
 
-  async function askClaude(prompt, signal) {
-    if (sampleFn) {
-      return await sampleFn.json(prompt, { cache: false, signal });
-    }
-    const key = apiKey();
-    if (!key) throw { friendly: "Add an Anthropic API key under Connection so the coach can think." };
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      signal,
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "anthropic-beta": "server-side-fallback-2026-07-01",
-        "anthropic-dangerous-direct-browser-access": "true",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 8000,
-        fallbacks: "default",
-        output_config: { effort: "low" },
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
+  async function postMessages(body, signal) {
+    const headers = {
+      "content-type": "application/json",
+      "x-api-key": apiKey(),
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+    };
+    let payload = body;
+    if (useFallbacks) { headers["anthropic-beta"] = "server-side-fallback-2026-07-01"; payload = { ...body, fallbacks: "default" }; }
+    const res = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", signal, headers, body: JSON.stringify(payload) });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const msg = data?.error?.message || res.statusText;
+      const msg = data?.error?.message || res.statusText || "";
+      if (res.status === 400 && useFallbacks && /fallback/i.test(msg)) { useFallbacks = false; return postMessages(body, signal); }
       if (res.status === 401) throw { friendly: "That API key was rejected. Check it under Connection." };
       if (res.status === 429) throw { friendly: "Rate limited by the API. The coach will try again shortly." };
-      throw { friendly: "The API returned an error: " + msg };
+      if (res.status === 402 || /credit balance/i.test(msg)) throw { friendly: "Your API account is out of credit. Add credit at console.anthropic.com under Billing." };
+      throw { friendly: "The API returned an error: " + msg, status: res.status, raw: msg };
     }
-    if (data.stop_reason === "refusal") throw { friendly: "Claude declined to analyze this stretch of conversation." };
-    const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
-    return parseJSON(text);
+    return data;
   }
 
-  // ---------- Prompt ----------
+  // Calls Claude and returns parsed JSON. With search, runs Anthropic's server-side web search tool.
+  async function askClaude(prompt, { signal, search = false } = {}) {
+    if (sampleFn) return await sampleFn.json(prompt, { cache: false, signal });
+    if (!apiKey()) throw { friendly: "Add an Anthropic API key under Connection so the coach can think." };
+    const base = { model: MODEL, max_tokens: 8000, output_config: { effort: "low" } };
+    if (search) base.tools = [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }];
+    let messages = [{ role: "user", content: prompt }];
+    let data;
+    for (let round = 0; round < 4; round++) {
+      data = await postMessages({ ...base, messages }, signal);
+      if (data.stop_reason !== "pause_turn") break;
+      messages = [messages[0], { role: "assistant", content: data.content }];
+    }
+    if (data.stop_reason === "refusal") throw { friendly: "Claude declined to analyze this stretch of conversation." };
+    const blocks = data.content || [];
+    let lastTool = -1;
+    blocks.forEach((b, i) => { if (b.type === "server_tool_use" || /_tool_result$/.test(b.type)) lastTool = i; });
+    const text = blocks.slice(lastTool + 1).filter((b) => b.type === "text").map((b) => b.text).join("");
+    const out = parseJSON(text);
+    if (search && out && typeof out === "object") {
+      const cites = [];
+      for (const b of blocks) for (const c of (b.citations || [])) if (c.url) cites.push({ title: c.title || c.url, url: c.url });
+      out._citations = cites;
+    }
+    return out;
+  }
+
+  // ---------- Prompts ----------
+  function windowTurns() { return state.turns.slice(-WINDOW); }
+  function transcriptText() {
+    const N = state.names;
+    return windowTurns().map((t, i) => `${i + 1}. ` + (t.who === "coach" ? `[Coach, spoken aloud]: ${t.text}` : `${N[t.who]} (${t.who}${t.sure === false ? ", speaker uncertain" : ""}): ${t.text}`)).join("\n");
+  }
+
   function buildPrompt() {
     const N = state.names;
-    const recent = state.turns.slice(-60).map((t, i) => `${i + 1}. ` + (t.who === "coach" ? `[Coach, spoken aloud]: ${t.text}` : `${N[t.who]} (${t.who}): ${t.text}`)).join("\n");
     const sinceLast = state.lastInterventionAt ? Math.round((Date.now() - state.lastInterventionAt) / 1000) + " seconds ago" : "never";
     const prev = state.theory ? JSON.stringify({ summary: state.theory.summary, phase: state.theory.phase, tension: state.theory.tension, speakers: state.theory.speakers }) : "none yet";
     const pastCoaching = state.log.slice(-4).map((l) => `- to ${l.to}: ${l.message}`).join("\n") || "none";
-    return `You are Common Ground, a warm, even-handed conversation coach trained in couples and workplace mediation. You are silently listening to a live conversation between two people, A (${N.A}) and B (${N.B}). The transcript comes from speech recognition, so expect missing punctuation, misheard words, and occasionally a line attributed to the wrong person.
+    const checked = [...state.checkedClaims].slice(-20).map((c) => "- " + c).join("\n") || "none";
+    const factOn = $("factCheck").checked;
+    return `You are Common Ground, a warm, even-handed conversation coach trained in couples and workplace mediation. You are silently listening to a live conversation between two people, A (${N.A}) and B (${N.B}). The transcript comes from speech recognition, so expect missing punctuation and misheard words. Speakers are assigned automatically from voice pitch, so some lines may be under the wrong name.
 
 Your job each time you are called:
-1. Update a working psychological theory of what is going on between them. Draw on established frameworks where they genuinely fit, and name the framework: Gottman's Four Horsemen (criticism, contempt, defensiveness, stonewalling) and their antidotes (gentle start-up, appreciation, taking responsibility, self-soothing), repair attempts and flooding; Fisher and Ury's interests versus positions; Nonviolent Communication (observations, feelings, needs, requests); demand-withdraw cycles; active listening and reflecting; mind-reading, always/never generalizing, scorekeeping, topic drift, talking past each other. Also note productive moves. Treat the theory as a hypothesis that you revise as evidence arrives; keep what still fits from the previous theory.
-2. Decide whether to interrupt right now. Interrupt only when a gentle nudge would clearly help: an unproductive pattern is repeating or escalating, someone is withdrawing or flooding, they are stuck in positions, or a productive move deserves brief reinforcement so they keep doing it. Do not interrupt for a single mild slip. Coaching intensity requested: ${document.getElementById("sensitivity").value} (light touch = only when clearly needed; balanced; active = coach more freely). Last interruption: ${sinceLast}. Never repeat advice you already gave unless the pattern clearly persists, and then phrase it differently.
-3. If you interrupt, write the words that will be spoken aloud to them. Address one person by name (choose whoever has the most leverage to change the pattern right now) or both. At most 45 words. Warm, specific, non-blaming, never takes sides, never diagnoses anyone, never lectures. Acknowledge what the person is likely feeling or needing, then offer one concrete thing to try next, ideally with example words they could say. Encourage cooperation toward their shared goal.
+1. Check who said what. If the content makes it clear that a line was said by the other person (for example it answers the previous line from the same "speaker", uses "I" about something only the other person did, or addresses the labelled speaker by name), list it in speaker_fixes. Only include fixes you are confident about. Use the corrected speakers in the rest of your analysis.
+2. Update a working psychological theory of what is going on between them. Draw on established frameworks where they genuinely fit, and name the framework: Gottman's Four Horsemen (criticism, contempt, defensiveness, stonewalling) and their antidotes (gentle start-up, appreciation, taking responsibility, self-soothing), repair attempts and flooding; Fisher and Ury's interests versus positions; Nonviolent Communication (observations, feelings, needs, requests); demand-withdraw cycles; active listening and reflecting; mind-reading, always/never generalizing, scorekeeping, topic drift, talking past each other. Also note productive moves. Treat the theory as a hypothesis that you revise as evidence arrives; keep what still fits from the previous theory.
+3. Decide whether to interrupt right now. Interrupt only when a gentle nudge would clearly help: an unproductive pattern is repeating or escalating, someone is withdrawing or flooding, they are stuck in positions, or a productive move deserves brief reinforcement so they keep doing it. Do not interrupt for a single mild slip. Coaching intensity requested: ${$("sensitivity").value} (gentle = only when clearly needed; balanced; active = coach more freely). Last interruption: ${sinceLast}. Never repeat advice you already gave unless the pattern clearly persists, and then phrase it differently.
+4. If you interrupt, write the words that will be spoken aloud to them. Address one person by name (choose whoever has the most leverage to change the pattern right now) or both. At most 45 words. Warm, specific, non-blaming, never takes sides, never diagnoses anyone, never lectures. Acknowledge what the person is likely feeling or needing, then offer one concrete thing to try next, ideally with example words they could say. Encourage cooperation toward their shared goal.
+${factOn ? `5. List checkable factual claims about the world made in the transcript (statistics, dates, history, science, health, money, laws, how things work, what a public source says). Skip opinions, feelings, plans, and personal facts about their own lives that no outside source could check. Skip claims already checked (listed below). At most 3, most consequential first.` : ""}
 
 Safety: if anything suggests threats, intimidation, abuse, or someone being unsafe, do not coach them toward cooperating; set intervene to true and gently suggest pausing the conversation and getting support from someone trusted or a professional.
 
 Previous theory: ${prev}
 Recent coaching already given:
 ${pastCoaching}
+Claims already checked:
+${checked}
 
 Transcript (oldest first):
-${recent}
+${transcriptText()}
 
 Reply with only one JSON object, no other text, in exactly this shape:
-{"summary": "2-3 sentence working theory in plain language",
+{"speaker_fixes": [{"line": transcript line number, "who": "A" | "B"}],
+ "summary": "2-3 sentence working theory in plain language",
  "phase": "warming up" | "exploring" | "escalating" | "stuck" | "repairing" | "collaborating",
  "tension": 0-10,
  "productive": 0-100 (share of the recent exchange that moves them toward a shared solution),
  "speakers": {"A": {"position": "what they are asking for", "underlying_need": "the interest or need beneath it", "state": "likely emotional state"}, "B": {same}},
  "patterns": [{"name": "short label", "kind": "unproductive" | "productive", "speaker": "A" | "B" | "both", "evidence": "short quote from the transcript", "framework": "source framework"}],
  "flag_lines": [{"line": transcript line number, "label": "short label", "kind": "unproductive" | "productive"}],
+ "claims": [{"line": transcript line number, "speaker": "A" | "B", "claim": "the claim restated as one clear, self-contained sentence"}],
  "intervene": true | false,
  "intervention": {"to": "A" | "B" | "both", "message": "the words to speak", "strategy": "name of the strategy", "why": "one sentence on why now"} or null}
 List at most 5 patterns and 6 flag_lines, most important first.`;
+  }
+
+  function buildFactPrompt(claims) {
+    const N = state.names;
+    const list = claims.map((c, i) => `${i + 1}. ${N[c.speaker] || "Someone"} (${c.speaker}) said: "${c.quote}"\n   Claim: ${c.claim}`).join("\n");
+    const today = new Date().toISOString().slice(0, 10);
+    return `You are the fact-checker for Common Ground, a gentle conversation coach listening to ${N.A} (A) and ${N.B} (B). Today is ${today}. Check these factual claims from their conversation.
+${searchAvailable ? "Use web search to verify each claim against reliable sources (official statistics, reputable news, encyclopedias, peer-reviewed or institutional sources). Search only as much as you need." : "You cannot search the web here, so judge from your own knowledge. If you are not confident, use \"unverifiable\"."}
+
+Claims:
+${list}
+
+For each claim decide a verdict: "correct", "partly correct", "incorrect", or "unverifiable". Decide whether the error matters to their discussion ("matters": true) or is a trivial slip not worth interrupting for.
+For "incorrect" or "partly correct" claims, write a correction to be spoken aloud: at most 35 words, addressed to the speaker by name, friendly and face-saving (for example "Quick fact check, ${N.B}: …"), stating the accurate information plainly. Never take sides in their disagreement beyond the facts.
+
+Reply with only one JSON object, no other text:
+{"checks": [{"n": claim number, "verdict": "correct" | "partly correct" | "incorrect" | "unverifiable", "matters": true | false, "explanation": "one or two sentences on what is accurate", "correction": "spoken correction or null", "sources": [{"title": "source name", "url": "https://..."}]}]}
+Include at most 2 sources per claim${searchAvailable ? ", only ones you actually found" : "; leave sources empty"}.`;
   }
 
   // ---------- Analysis loop ----------
   let analysisCtl = null;
   async function analyze(manual = false) {
     if (state.analyzing || !backendReady) return;
-    if (state.turns.length < 2) { if (manual) showAiErr("Add at least two lines of conversation first."); return; }
+    if (spokenCount() < 2) { if (manual) showAiErr("Add at least two lines of conversation first."); return; }
     if (!sampleFn && !apiKey()) { $("conn").open = true; showAiErr("Add an Anthropic API key under Connection so the coach can think."); return; }
     state.analyzing = true;
     hideAiErr();
@@ -420,36 +524,53 @@ List at most 5 patterns and 6 flag_lines, most important first.`;
     $("analyzeBtn").disabled = true;
     analysisCtl = new AbortController();
     try {
-      const r = await askClaude(buildPrompt(), analysisCtl.signal);
+      const r = await askClaude(buildPrompt(), { signal: analysisCtl.signal });
       if (!r || typeof r !== "object") throw { friendly: "The coach sent back something unreadable." };
       state.lastAnalyzedCount = countAtStart;
       state.lastAnalysisAt = Date.now();
-      applyFlags(r.flag_lines, countAtStart);
+      const offset = Math.max(0, countAtStart - WINDOW);
+      applySpeakerFixes(r.speaker_fixes, offset);
+      applyFlags(r.flag_lines, offset);
       state.theory = r;
       renderTheory();
+      queueClaims(r.claims, offset);
       maybeIntervene(r);
-      $("thinking").textContent = "Updated " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      $("thinking").textContent = "Updated " + clock(Date.now());
     } catch (e) {
       $("thinking").textContent = "";
-      if (e && e.code === "cancelled") return;
-      if (e && (e.code === "not_granted" || e.code === "sampling_disabled")) showAiErr("Claude isn't allowed for this page. Allow it from the artifact's permissions to enable coaching.");
-      else if (e && e.code === "rate_limited") showAiErr("Too many requests right now. The coach will pick up again in a moment.");
-      else showAiErr((e && (e.friendly || e.message)) || "Something went wrong reaching Claude.");
+      handleAiError(e);
     } finally {
       state.analyzing = false;
       $("analyzeBtn").disabled = false;
     }
   }
 
-  function applyFlags(flags, count) {
-    if (!Array.isArray(flags)) return;
-    const offset = Math.max(0, count - 60);
+  function handleAiError(e) {
+    if (e && e.code === "cancelled") return;
+    if (e && (e.code === "not_granted" || e.code === "sampling_disabled")) showAiErr("Claude isn't allowed for this page. Allow it from the artifact's permissions to enable coaching.");
+    else if (e && e.code === "rate_limited") showAiErr("Too many requests right now. The coach will pick up again in a moment.");
+    else if (e && e.name === "AbortError") return;
+    else showAiErr((e && (e.friendly || e.message)) || "Something went wrong reaching Claude.");
+  }
+
+  function applySpeakerFixes(fixes, offset) {
+    if (!Array.isArray(fixes)) return;
+    for (const f of fixes) {
+      const t = state.turns[offset + Number(f.line) - 1];
+      if (!t || t.who === "coach" || t.manual || (f.who !== "A" && f.who !== "B") || t.who === f.who) continue;
+      t.who = f.who; t.aiFixed = true; t.sure = true;
+      voice.learn(f.who, t.f0, 0.15);
+    }
+  }
+
+  function applyFlags(flags, offset) {
     for (const t of state.turns) t.flags = [];
-    for (const f of flags.slice(0, 6)) {
-      const idx = offset + Number(f.line) - 1;
-      const turn = state.turns[idx];
-      if (!turn || !f.label) continue;
-      (turn.flags ||= []).push({ label: String(f.label), kind: f.kind === "productive" ? "productive" : "unproductive" });
+    if (Array.isArray(flags)) {
+      for (const f of flags.slice(0, 6)) {
+        const turn = state.turns[offset + Number(f.line) - 1];
+        if (!turn || turn.who === "coach" || !f.label) continue;
+        turn.flags.push({ label: String(f.label), kind: f.kind === "productive" ? "productive" : "unproductive" });
+      }
     }
     renderTranscript();
   }
@@ -458,35 +579,268 @@ List at most 5 patterns and 6 flag_lines, most important first.`;
     if (!r.intervene || !r.intervention || !r.intervention.message) return;
     const cooldown = COOLDOWN[$("sensitivity").value] || 60000;
     if (state.lastInterventionAt && Date.now() - state.lastInterventionAt < cooldown) return;
-    const iv = { ...r.intervention, at: Date.now() };
+    const iv = { kind: "coach", ...r.intervention, at: Date.now() };
     state.lastInterventionAt = iv.at;
+    deliver(iv);
+  }
+
+  function deliver(iv) {
     state.log.push(iv);
-    state.turns.push({ who: "coach", text: iv.message, t: iv.at });
+    state.turns.push({ who: "coach", text: iv.message, t: iv.at, kind: iv.kind });
     showCoach(iv);
     renderTranscript();
     renderLog();
   }
 
+  // ---------- Fact checking ----------
+  const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+  function queueClaims(claims, offset) {
+    if (!$("factCheck").checked || !Array.isArray(claims)) return;
+    for (const c of claims.slice(0, 3)) {
+      const key = norm(c.claim);
+      if (!key || state.checkedClaims.has(key)) continue;
+      state.checkedClaims.add(key);
+      const turn = state.turns[offset + Number(c.line) - 1];
+      state.factQueue.push({ claim: String(c.claim), speaker: turn && turn.who !== "coach" ? turn.who : (c.speaker === "B" ? "B" : "A"), quote: turn ? turn.text.slice(0, 300) : "", turn });
+    }
+    runFactChecks();
+  }
+
+  async function runFactChecks() {
+    if (state.factChecking || !state.factQueue.length) return;
+    state.factChecking = true;
+    const batch = state.factQueue.splice(0, 3);
+    $("factThinking").textContent = searchAvailable ? "Searching…" : "Checking…";
+    try {
+      let r;
+      try {
+        r = await askClaude(buildFactPrompt(batch), { search: searchAvailable });
+      } catch (e) {
+        // Web search can be switched off for an API organization; fall back to Claude's own knowledge.
+        if (searchAvailable && e && e.status === 400 && /search|tool/i.test(e.raw || "")) {
+          searchAvailable = false;
+          showAiErr("Web search is turned off for this API account, so fact checks use Claude's own knowledge. An admin can turn web search on in the Claude Console settings.");
+          r = await askClaude(buildFactPrompt(batch), { search: false });
+        } else throw e;
+      }
+      const cites = (r && r._citations) || [];
+      for (const ch of (r && Array.isArray(r.checks) ? r.checks : [])) {
+        const c = batch[Number(ch.n) - 1];
+        if (!c) continue;
+        const verdict = ["correct", "partly correct", "incorrect", "unverifiable"].includes(ch.verdict) ? ch.verdict : "unverifiable";
+        let sources = (Array.isArray(ch.sources) ? ch.sources : []).filter((s) => s && /^https?:\/\//.test(s.url || "")).slice(0, 2);
+        if (!sources.length && searchAvailable) sources = cites.slice(0, 2);
+        const fc = { claim: c.claim, speaker: c.speaker, verdict, explanation: ch.explanation || "", correction: ch.correction || "", sources, searched: searchAvailable, at: Date.now() };
+        state.facts.push(fc);
+        if (c.turn) (c.turn.facts ||= []).push(verdict);
+        const wrong = verdict === "incorrect" || verdict === "partly correct";
+        if (wrong && ch.matters !== false && fc.correction && $("factCheck").checked && Date.now() - state.lastFactAt > FACT_COOLDOWN) {
+          state.lastFactAt = Date.now();
+          deliver({ kind: "fact", to: c.speaker, message: fc.correction, strategy: verdict === "incorrect" ? "Correction" : "Clarification", why: fc.explanation, sources, at: Date.now() });
+        }
+      }
+      $("factThinking").textContent = "";
+      renderFacts(); renderTranscript();
+    } catch (e) {
+      $("factThinking").textContent = "";
+      handleAiError(e);
+    } finally {
+      state.factChecking = false;
+      if (state.factQueue.length) setTimeout(runFactChecks, 1000);
+    }
+  }
+
   // Auto-trigger: when new lines arrive and the conversation has had a moment to develop.
+  function spokenCount() { return state.turns.filter((t) => t.who !== "coach").length; }
+  function analyzedSpoken() { return state.turns.slice(0, state.lastAnalyzedCount).filter((t) => t.who !== "coach").length; }
   setInterval(() => {
-    if (state.analyzing || state.example) return;
-    const fresh = spokenCount() - state.lastAnalyzedCountSpoken();
+    if (state.analyzing || state.example || state.training || sampleFn) return;
+    const fresh = spokenCount() - analyzedSpoken();
     if (fresh <= 0) return;
     const since = Date.now() - state.lastAnalysisAt;
-    if (!sampleFn && (fresh >= 2 && since > 8000 || since > 25000)) analyze();
+    if ((fresh >= 2 && since > 8000) || since > 25000) analyze();
   }, 2000);
-  state.lastAnalyzedCountSpoken = () => state.turns.slice(0, state.lastAnalyzedCount).filter((t) => t.who !== "coach").length;
-  function spokenCount() { return state.turns.filter((t) => t.who !== "coach").length; }
 
-  // ---------- Coach UI + voice ----------
+  // ---------- Voice matching (pitch) ----------
+  // Browser speech recognition can't tell voices apart, so we listen to the same microphone,
+  // track voice pitch, and match each finished line to the closer of the two learned voices.
+  const voice = {
+    stream: null, ctx: null, analyser: null, buf: null, timer: null, frames: [], noise: 0.01, level: 0, failed: false,
+    profiles: { A: null, B: null },   // mean log2 pitch
+    async start() {
+      if (this.ctx || this.failed) return !!this.ctx;
+      if (!navigator.mediaDevices?.getUserMedia) { this.failed = true; return false; }
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        await this.ctx.resume?.();
+        const src = this.ctx.createMediaStreamSource(this.stream);
+        this.analyser = this.ctx.createAnalyser();
+        this.analyser.fftSize = 2048;
+        src.connect(this.analyser);
+        this.buf = new Float32Array(this.analyser.fftSize);
+        this.timer = setInterval(() => this.sample(), 50);
+        return true;
+      } catch { this.stop(); this.failed = true; return false; }
+    },
+    stop() {
+      clearInterval(this.timer); this.timer = null;
+      try { this.stream?.getTracks().forEach((t) => t.stop()); } catch {}
+      try { this.ctx?.close(); } catch {}
+      this.stream = this.ctx = this.analyser = null;
+    },
+    sample() {
+      if (!this.analyser) return;
+      this.analyser.getFloatTimeDomainData(this.buf);
+      let sum = 0;
+      for (let i = 0; i < this.buf.length; i++) sum += this.buf[i] * this.buf[i];
+      const rms = Math.sqrt(sum / this.buf.length);
+      this.noise = rms < this.noise ? rms : this.noise * 1.002 + 1e-6;
+      this.level = Math.min(1, rms * 12);
+      const now = performance.now();
+      if (state.speaking) return;
+      let f0 = null;
+      if (rms > Math.max(0.006, this.noise * 3)) f0 = detectPitch(this.buf, this.ctx.sampleRate);
+      this.frames.push({ t: now, f0 });
+      while (this.frames.length && now - this.frames[0].t > 30000) this.frames.shift();
+    },
+    feature(from, to) {
+      const v = this.frames.filter((f) => f.t >= from && f.t <= to && f.f0).map((f) => Math.log2(f.f0)).sort((a, b) => a - b);
+      if (v.length < 5) return null;
+      return v[v.length >> 1];
+    },
+    classify(f) {
+      const { A, B } = this.profiles;
+      if (f == null) return null;
+      if (A == null && B == null) return null;
+      if (A == null || B == null) {
+        const known = A == null ? "B" : "A", other = known === "A" ? "B" : "A";
+        const d = Math.abs(f - this.profiles[known]);
+        if (d > 0.2) { this.profiles[other] = f; return { who: other, sure: false }; }
+        return { who: known, sure: d < 0.1 };
+      }
+      const dA = Math.abs(f - A), dB = Math.abs(f - B);
+      const gap = Math.abs(A - B) || 1e-6;
+      return { who: dA <= dB ? "A" : "B", sure: Math.abs(dA - dB) / gap > 0.3 };
+    },
+    learn(who, f, w) {
+      if (f == null || (who !== "A" && who !== "B")) return;
+      const p = this.profiles[who];
+      this.profiles[who] = p == null ? f : p + (f - p) * w;
+      saveProfiles();
+    },
+  };
+
+  function detectPitch(buf, sr) {
+    // Downsample by 2, then normalized autocorrelation with first-strong-peak picking (McLeod-style).
+    const n = buf.length >> 1, x = new Float32Array(n);
+    for (let i = 0; i < n; i++) x[i] = (buf[2 * i] + buf[2 * i + 1]) / 2;
+    const rate = sr / 2;
+    const minLag = Math.floor(rate / 400), maxLag = Math.min(Math.floor(rate / 70), n >> 1);
+    const nsdf = new Float32Array(maxLag + 2);
+    for (let lag = minLag; lag <= maxLag + 1; lag++) {
+      let ac = 0, m = 0;
+      for (let i = 0; i < n - lag; i++) { ac += x[i] * x[i + lag]; m += x[i] * x[i] + x[i + lag] * x[i + lag]; }
+      nsdf[lag] = m > 0 ? (2 * ac) / m : 0;
+    }
+    let best = 0;
+    for (let lag = minLag + 1; lag <= maxLag; lag++) best = Math.max(best, nsdf[lag]);
+    if (best < 0.6) return null;
+    for (let lag = minLag + 1; lag <= maxLag; lag++) {
+      if (nsdf[lag] >= 0.9 * best && nsdf[lag] >= nsdf[lag - 1] && nsdf[lag] >= nsdf[lag + 1]) {
+        const a = nsdf[lag - 1], b = nsdf[lag], c = nsdf[lag + 1];
+        const shift = (a - c) / (2 * (a - 2 * b + c) || 1);
+        return rate / (lag + (isFinite(shift) ? shift : 0));
+      }
+    }
+    return null;
+  }
+
+  function saveProfiles() { store.set("cg.voices", JSON.stringify(voice.profiles)); }
+  function loadProfiles() {
+    try { const p = JSON.parse(store.get("cg.voices") || "null"); if (p && typeof p === "object") voice.profiles = { A: p.A ?? null, B: p.B ?? null }; } catch {}
+  }
+  const hz = (lg) => (lg == null ? "–" : Math.round(2 ** lg) + " Hz");
+
+  // ---------- Teach voices ----------
+  const train = { step: 0, raf: 0, collecting: false };
+  function openTrain() {
+    if (state.example) clearAll();
+    $("train").hidden = false;
+    train.step = 0;
+    $("trainPrompt").textContent = `Each of you will say a couple of sentences in your normal voice, one at a time. ${state.names.A} goes first.`;
+    $("trainDetail").textContent = voice.profiles.A != null && voice.profiles.B != null ? `Current voices: ${state.names.A} about ${hz(voice.profiles.A)}, ${state.names.B} about ${hz(voice.profiles.B)}.` : "Takes about 15 seconds.";
+    $("trainGo").textContent = "Start";
+    $("trainGo").hidden = false;
+    $("trainGo").focus();
+  }
+  function closeTrain() {
+    $("train").hidden = true; state.training = false; train.collecting = false;
+    cancelAnimationFrame(train.raf);
+    if (!state.listening) voice.stop();
+  }
+  function meterLoop() { $("trainMeter").style.width = Math.round(voice.level * 100) + "%"; train.raf = requestAnimationFrame(meterLoop); }
+  async function trainNext() {
+    if (train.collecting) return;
+    const ok = await voice.start();
+    if (!ok) { $("trainDetail").textContent = "The microphone isn't available, so voices can't be learned here. Allow microphone access, or switch Who's talking to \"I'll tap names\"."; return; }
+    state.training = true;
+    cancelAnimationFrame(train.raf); meterLoop();
+    const who = train.step === 0 ? "A" : "B";
+    const name = state.names[who];
+    train.collecting = true;
+    $("trainGo").hidden = true;
+    const lines = ["Tell us what you had for breakfast and what you're doing later today.", "Describe the room you're in, and how your week has been so far."];
+    const start = performance.now();
+    for (let s = 5; s > 0; s--) {
+      $("trainPrompt").textContent = `${name}, talk now. ${lines[train.step]}`;
+      $("trainDetail").textContent = `${s} seconds left…`;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+    const f = voice.feature(start, performance.now());
+    train.collecting = false;
+    $("trainGo").hidden = false;
+    if (f == null) {
+      $("trainPrompt").textContent = `Didn't catch enough of ${name}'s voice.`;
+      $("trainDetail").textContent = "Try again a little closer to the phone, in a normal speaking voice.";
+      $("trainGo").textContent = "Try again";
+      return;
+    }
+    voice.profiles[who] = f; saveProfiles();
+    if (train.step === 0) {
+      train.step = 1;
+      $("trainPrompt").textContent = `Got it. Now ${state.names.B}.`;
+      $("trainDetail").textContent = `${name}: about ${hz(f)}.`;
+      $("trainGo").textContent = `${state.names.B}, start`;
+    } else {
+      state.training = false;
+      const gap = Math.abs(voice.profiles.A - voice.profiles.B) * 12;
+      $("trainPrompt").textContent = "Voices learned.";
+      $("trainDetail").textContent = `${state.names.A}: about ${hz(voice.profiles.A)}. ${state.names.B}: about ${hz(voice.profiles.B)}. ` +
+        (gap < 2 ? "Your voices are close in pitch, so some lines may land under the wrong name. Tap a name in the transcript to fix it and the app keeps learning." : "Those are far enough apart to tell you apart well.");
+      $("trainGo").hidden = true;
+      $("trainCancel").textContent = "Done";
+      $("speakerMode").value = "voice";
+    }
+  }
+
+  // ---------- Coach UI + speech ----------
   function nameFor(to) { return to === "both" ? "both of you" : state.names[to] || "you"; }
   function showCoach(iv) {
-    $("coachWho").textContent = "For " + nameFor(iv.to);
+    const fact = iv.kind === "fact";
+    $("coach").dataset.kind = fact ? "fact" : "coach";
+    $("coachWho").textContent = (fact ? "Fact check for " : "For ") + nameFor(iv.to);
     $("coachMsg").textContent = iv.message;
+    $("coachStrategyLabel").textContent = fact ? "Verdict:" : "Strategy:";
     $("coachStrategy").textContent = iv.strategy || "–";
+    $("coachWhy").previousElementSibling.textContent = fact ? "Details:" : "Why now:";
     $("coachWhy").textContent = iv.why || "–";
+    const ul = $("coachSources"); ul.textContent = "";
+    for (const s of (iv.sources || [])) { const li = el("li"); const a = el("a", null, s.title || s.url); a.href = s.url; a.target = "_blank"; a.rel = "noopener"; li.append(a); ul.append(li); }
+    ul.hidden = !(iv.sources && iv.sources.length);
+    $("coachOk").textContent = fact ? "Got it" : "Thanks, we'll try it";
     $("coach").hidden = false;
-    if (iv.at) { chime(); speak(iv.message); }
+    if (iv.at) { if ($("speakAloud").checked) speak(iv.message); else chime(); }
   }
 
   let audioCtx = null;
@@ -506,46 +860,66 @@ List at most 5 patterns and 6 flag_lines, most important first.`;
     } catch {}
   }
 
+  const speechQ = [];
   function speak(text) {
-    if (!$("speakAloud").checked || !("speechSynthesis" in window)) return;
-    pauseRecognitionForSpeech();
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 0.95; u.pitch = 1;
-    u.onend = u.onerror = () => { state.speaking = false; resumeRecognition(); };
+    if (!("speechSynthesis" in window)) { chime(); return; }
+    speechQ.push(text);
+    if (!state.speaking) nextSpeech();
+  }
+  function nextSpeech() {
+    const text = speechQ.shift();
+    if (!text) { state.speaking = false; resumeRecognition(); return; }
     state.speaking = true;
+    pauseRecognitionForSpeech();
+    chime();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.95;
+    let done = false;
+    const finish = () => { if (done) return; done = true; setTimeout(nextSpeech, 400); };
+    u.onend = u.onerror = finish;
     setTimeout(() => { speechSynthesis.cancel(); speechSynthesis.speak(u); }, 700);
+    setTimeout(finish, 4000 + text.split(/\s+/).length * 550); // some browsers never fire onend
   }
 
   // ---------- Speech recognition ----------
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let rec = null, interim = "";
+  let rec = null, interim = "", utterStart = 0, lastFinalAt = 0;
   function setStatus() {
     $("status").dataset.on = String(state.listening && !state.speaking);
-    $("statusText").textContent = state.speaking ? "Coach speaking" : state.listening ? "Listening" : "Not listening";
+    $("statusText").textContent = state.speaking ? "Coach speaking" : state.listening ? (voiceMode() && voice.ctx ? "Listening · matching voices" : "Listening") : "Not listening";
     $("listenBtn").textContent = state.listening ? "Stop listening" : "Start listening";
   }
+  const voiceMode = () => $("speakerMode").value === "voice";
 
-  function startListening() {
+  async function startListening() {
     hideMicErr();
     if (!SR) { showMicErr("This browser can't transcribe speech. Use Chrome, Edge or Safari, or type lines below."); return; }
     if (state.example) clearAll();
+    if (voiceMode()) await voice.start();
     rec = new SR();
     rec.continuous = true;
     rec.interimResults = true;
     rec.lang = navigator.language || "en-US";
     rec.onresult = (e) => {
+      if (!utterStart) utterStart = performance.now();
       interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const r = e.results[i];
-        if (r.isFinal) addLine(state.current, r[0].transcript);
+        if (r.isFinal) finalLine(r[0].transcript);
         else interim += r[0].transcript;
       }
       renderInterim();
     };
     rec.onerror = (e) => {
+      if (e.error === "audio-capture" && voice.ctx) {
+        // Some phones can't share the microphone between transcription and voice matching.
+        voice.stop(); voice.failed = true;
+        showMicErr("This device can't match voices while transcribing, so tap the speaker's name as you talk. Claude will still fix obvious mix-ups.");
+        return;
+      }
       if (e.error === "not-allowed" || e.error === "service-not-allowed" || e.error === "audio-capture") {
         state.listening = false; setStatus();
-        showMicErr("The microphone isn't available here. Allow microphone access, or open the downloadable version of Common Ground in Chrome. You can also type lines below.");
+        showMicErr("The microphone isn't available here. Allow microphone access in your browser settings, or type lines below.");
       }
     };
     rec.onend = () => { if (state.listening && !state.speaking) { try { rec.start(); } catch {} } };
@@ -556,6 +930,7 @@ List at most 5 patterns and 6 flag_lines, most important first.`;
   function stopListening() {
     state.listening = false;
     try { rec && rec.stop(); } catch {}
+    voice.stop(); voice.failed = false;
     interim = ""; renderInterim(); setStatus();
     releaseWakeLock();
   }
@@ -566,52 +941,72 @@ List at most 5 patterns and 6 flag_lines, most important first.`;
   async function requestWakeLock() { try { wakeLock = await navigator.wakeLock?.request("screen"); } catch {} }
   function releaseWakeLock() { try { wakeLock && wakeLock.release(); } catch {} wakeLock = null; }
 
-  function addLine(who, raw) {
+  function finalLine(raw) {
+    const now = performance.now();
+    const from = Math.max(lastFinalAt, (utterStart || now) - 1500);
+    utterStart = 0; lastFinalAt = now;
+    if (state.training) return;
+    let who = state.current, sure, f0 = null;
+    if (voiceMode() && voice.ctx) {
+      f0 = voice.feature(from, now);
+      if (voice.profiles.A == null && voice.profiles.B == null && f0 != null) voice.profiles[state.current] = f0;
+      const c = voice.classify(f0);
+      if (c) { who = c.who; sure = c.sure; if (sure) voice.learn(who, f0, 0.05); setSpeaker(who); }
+      else if (f0 == null) sure = false;
+    }
+    addLine(who, raw, { f0, sure });
+  }
+
+  function addLine(who, raw, meta = {}) {
     const text = String(raw || "").trim();
     if (!text) return;
     const last = state.turns[state.turns.length - 1];
-    if (last && last.who === who && Date.now() - last.t < 4000) {
+    if (last && last.who === who && !last.manual && Date.now() - last.t < 4000 && last.sure !== false && meta.sure !== false) {
       last.text += " " + text; last.t = Date.now();
     } else {
-      state.turns.push({ who, text, t: Date.now() });
+      state.turns.push({ who, text, t: Date.now(), f0: meta.f0 ?? null, sure: meta.sure });
     }
     renderTranscript();
   }
 
   // ---------- Rendering ----------
+  const clock = (ms) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const factLabel = { "incorrect": "Incorrect", "partly correct": "Partly correct", "correct": "Checks out", "unverifiable": "Can't verify" };
+  const factClass = { "incorrect": "fact-incorrect", "partly correct": "fact-partly", "correct": "fact-correct", "unverifiable": "fact-unverifiable" };
+
   function renderTranscript() {
     const ol = $("transcript");
     ol.textContent = "";
     $("exampleFlag").hidden = !state.example;
     if (!state.turns.length) {
-      const li = document.createElement("li");
-      li.className = "empty";
-      li.textContent = "Press Start listening and talk normally. Each line appears here under whoever is highlighted above.";
-      ol.append(li);
+      ol.append(el("li", "empty", "Press Start listening and talk normally. Each line appears here under whoever is speaking."));
     }
-    state.turns.forEach((t, i) => {
-      const li = document.createElement("li");
+    for (const t of state.turns) {
+      const li = el("li");
       if (t.who === "coach") {
         li.className = "turn coachline";
-        li.textContent = "Coach: " + t.text;
-        ol.append(li); return;
+        li.textContent = (t.kind === "fact" ? "Fact check: " : "Coach: ") + t.text;
+        ol.append(li); continue;
       }
       li.className = "turn"; li.dataset.who = t.who;
-      const tag = document.createElement("button");
-      tag.type = "button"; tag.className = "tag";
-      tag.textContent = state.names[t.who];
+      const tag = el("button", "tag", state.names[t.who]);
+      tag.type = "button";
+      if (t.sure === false && !t.manual) tag.append(el("span", "unsure", "?"));
       tag.title = "Switch speaker for this line";
-      tag.setAttribute("aria-label", `${state.names[t.who]} said this. Press to reassign to ${state.names[t.who === "A" ? "B" : "A"]}.`);
-      tag.onclick = () => { t.who = t.who === "A" ? "B" : "A"; renderTranscript(); };
-      const p = document.createElement("p"); p.className = "text"; p.textContent = t.text;
-      li.append(tag, p);
-      if (t.flags && t.flags.length) {
-        const f = document.createElement("div"); f.className = "flags";
-        for (const fl of t.flags) { const c = document.createElement("span"); c.className = "chip " + fl.kind; c.textContent = fl.label; f.append(c); }
-        li.append(f);
-      }
+      tag.setAttribute("aria-label", `${state.names[t.who]} said this${t.sure === false && !t.manual ? " (not sure)" : ""}. Press to reassign to ${state.names[t.who === "A" ? "B" : "A"]}.`);
+      tag.onclick = () => {
+        t.who = t.who === "A" ? "B" : "A"; t.manual = true; t.sure = true;
+        voice.learn(t.who, t.f0, 0.3);
+        renderTranscript();
+      };
+      li.append(tag, el("p", "text", t.text));
+      const chips = [];
+      for (const fl of (t.flags || [])) chips.push(el("span", "chip " + fl.kind, fl.label));
+      for (const v of (t.facts || [])) chips.push(el("span", "chip " + (factClass[v] || "neutral"), "Fact: " + (factLabel[v] || v)));
+      if (t.aiFixed && !t.manual) chips.push(el("span", "chip neutral", "speaker fixed by Claude"));
+      if (chips.length) { const f = el("div", "flags"); f.append(...chips); li.append(f); }
       ol.append(li);
-    });
+    }
     renderInterim(false);
     ol.scrollTop = ol.scrollHeight;
   }
@@ -620,11 +1015,9 @@ List at most 5 patterns and 6 flag_lines, most important first.`;
     ol.querySelector(".interim")?.remove();
     if (!interim.trim()) return;
     ol.querySelector(".empty")?.remove();
-    const li = document.createElement("li");
-    li.className = "turn interim"; li.dataset.who = state.current;
-    const tag = document.createElement("span"); tag.className = "tag"; tag.textContent = state.names[state.current];
-    const p = document.createElement("p"); p.className = "text"; p.textContent = interim;
-    li.append(tag, p); ol.append(li);
+    const li = el("li", "turn interim"); li.dataset.who = state.current;
+    li.append(el("span", "tag", voiceMode() && voice.ctx ? "…" : state.names[state.current]), el("p", "text", interim));
+    ol.append(li);
     if (scroll) ol.scrollTop = ol.scrollHeight;
   }
 
@@ -649,36 +1042,50 @@ List at most 5 patterns and 6 flag_lines, most important first.`;
     $("gPhase").textContent = th.phase || "–";
     for (const who of ["A", "B"]) {
       const s = (th.speakers && th.speakers[who]) || {};
-      const d = document.createElement("div"); d.className = "person"; d.dataset.who = who;
-      const h = document.createElement("h3"); h.textContent = state.names[who];
-      const dl = document.createElement("dl");
-      for (const [k, label] of [["position", "Says they want"], ["underlying_need", "Seems to need"], ["state", "Likely feeling"]]) {
-        const dt = document.createElement("dt"); dt.textContent = label;
-        const dd = document.createElement("dd"); dd.textContent = s[k] || "–";
-        dl.append(dt, dd);
-      }
-      d.append(h, dl); ppl.append(d);
+      const d = el("div", "person"); d.dataset.who = who;
+      const dl = el("dl");
+      for (const [k, label] of [["position", "Says they want"], ["underlying_need", "Seems to need"], ["state", "Likely feeling"]]) dl.append(el("dt", null, label), el("dd", null, s[k] || "–"));
+      d.append(el("h3", null, state.names[who]), dl); ppl.append(d);
     }
     for (const p of (th.patterns || []).slice(0, 5)) {
-      const li = document.createElement("li"); li.className = "pattern";
-      const row = document.createElement("div"); row.className = "row";
-      const n = document.createElement("span"); n.className = "name"; n.textContent = p.name;
-      const c = document.createElement("span"); c.className = "chip " + (p.kind === "productive" ? "productive" : "unproductive"); c.textContent = p.kind === "productive" ? "helping" : "not helping";
-      const w = document.createElement("span"); w.className = "fw"; w.textContent = p.speaker === "both" ? "Both" : state.names[p.speaker] || "";
-      row.append(n, c, w); li.append(row);
-      if (p.evidence) { const q = document.createElement("q"); q.textContent = p.evidence; li.append(q); }
-      if (p.framework) { const f = document.createElement("span"); f.className = "fw"; f.textContent = p.framework; li.append(f); }
+      const li = el("li", "pattern");
+      const row = el("div", "row");
+      row.append(el("span", "name", p.name), el("span", "chip " + (p.kind === "productive" ? "productive" : "unproductive"), p.kind === "productive" ? "helping" : "not helping"), el("span", "fw", p.speaker === "both" ? "Both" : state.names[p.speaker] || ""));
+      li.append(row);
+      if (p.evidence) li.append(el("q", null, p.evidence));
+      if (p.framework) li.append(el("span", "fw", p.framework));
       pats.append(li);
     }
   }
+
+  function renderFacts() {
+    const ul = $("facts"); ul.textContent = "";
+    if (!state.facts.length) {
+      ul.append(el("li", "muted", $("factCheck").checked ? "No factual claims checked yet. When someone states a fact, it's checked " + (searchAvailable ? "with a web search." : "against Claude's knowledge.") : "Fact-checking is off."));
+      return;
+    }
+    for (const f of state.facts.slice().reverse()) {
+      const li = el("li", "fact");
+      const row = el("div", "row");
+      row.append(el("span", "chip " + (factClass[f.verdict] || "neutral"), factLabel[f.verdict] || f.verdict), el("span", "fw muted", (state.names[f.speaker] || "") + (f.searched ? " · searched the web" : " · from Claude's knowledge")));
+      li.append(row, el("span", "claim", f.claim));
+      if (f.explanation) li.append(el("span", null, f.explanation));
+      if (f.sources && f.sources.length) {
+        const s = el("ul");
+        for (const src of f.sources) { const a = el("a", null, src.title || src.url); a.href = src.url; a.target = "_blank"; a.rel = "noopener"; const i = el("li"); i.append(a); s.append(i); }
+        li.append(s);
+      }
+      ul.append(li);
+    }
+  }
+
   function renderLog() {
     const ul = $("log"); ul.textContent = "";
-    if (!state.log.length) { const li = document.createElement("li"); li.style.color = "var(--muted)"; li.textContent = "No interruptions yet."; ul.append(li); return; }
+    if (!state.log.length) { ul.append(el("li", "muted", "No interruptions yet.")); return; }
     for (const l of state.log.slice().reverse()) {
-      const li = document.createElement("li");
-      const tm = document.createElement("time"); tm.textContent = (l.at ? new Date(l.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Example") + " · to " + nameFor(l.to) + (l.strategy ? " · " + l.strategy : "");
-      const p = document.createElement("span"); p.textContent = l.message;
-      li.append(tm, p); ul.append(li);
+      const li = el("li");
+      li.append(el("time", null, (l.at ? clock(l.at) : "Example") + " · " + (l.kind === "fact" ? "fact check for " : "to ") + nameFor(l.to) + (l.strategy ? " · " + l.strategy : "")), el("span", null, l.message));
+      ul.append(li);
     }
   }
   function clamp(n, lo, hi) { return isNaN(n) ? NaN : Math.min(hi, Math.max(lo, Math.round(n))); }
@@ -696,27 +1103,25 @@ List at most 5 patterns and 6 flag_lines, most important first.`;
 
   function clearAll() {
     analysisCtl?.abort();
-    state.turns = []; state.theory = null; state.log = []; state.example = false;
-    state.lastAnalyzedCount = 0; state.lastAnalysisAt = 0; state.lastInterventionAt = 0;
+    Object.assign(state, { turns: [], theory: null, log: [], facts: [], factQueue: [], example: false, lastAnalyzedCount: 0, lastAnalysisAt: 0, lastInterventionAt: 0, lastFactAt: 0 });
+    state.checkedClaims = new Set();
+    for (const who of ["A", "B"]) { const n = store.get("cg.name" + who); if (n) { state.names[who] = n; $("name" + who).value = n; } }
     $("coach").hidden = true; hideAiErr();
     $("thinking").textContent = "";
-    renderTranscript(); renderTheory(); renderLog();
+    renderTranscript(); renderTheory(); renderLog(); renderFacts();
   }
 
   function loadExample() {
     state.names = { ...EXAMPLE.names };
     $("nameA").value = state.names.A; $("nameB").value = state.names.B;
-    state.turns = EXAMPLE.turns.map((t) => ({ ...t, t: 0 }));
-    state.turns[2].flags = [{ label: "Criticism", kind: "unproductive" }];
-    state.turns[1].flags = [{ label: "Defensiveness", kind: "unproductive" }];
-    state.turns[4].flags = [{ label: "Repair attempt", kind: "productive" }];
-    state.turns[5].flags = [{ label: "Withdrawing", kind: "unproductive" }];
-    state.turns.push({ who: "coach", text: EXAMPLE.log[0].message, t: 0 });
+    state.turns = EXAMPLE.turns.map((t) => ({ ...t, t: 0, sure: true }));
+    state.turns.push({ who: "coach", text: EXAMPLE.log[0].message, t: 0, kind: "coach" });
     state.theory = EXAMPLE.theory;
+    state.facts = EXAMPLE.facts.map((f) => ({ ...f }));
     state.log = EXAMPLE.log.map((l) => ({ ...l }));
     state.lastAnalyzedCount = state.turns.length;
     state.example = true;
-    renderTranscript(); renderTheory(); renderLog();
+    renderTranscript(); renderTheory(); renderLog(); renderFacts();
     showCoach({ ...EXAMPLE.log[0], why: "Sam is starting to shut down while Priya escalates; naming the shared goal can interrupt the cycle.", at: null });
   }
 
@@ -727,7 +1132,7 @@ List at most 5 patterns and 6 flag_lines, most important first.`;
   $("nameA").onfocus = () => setSpeaker("A");
   $("nameB").onfocus = () => setSpeaker("B");
   for (const who of ["A", "B"]) {
-    $("name" + who).oninput = (e) => { state.names[who] = e.target.value.trim() || (who === "A" ? "Person 1" : "Person 2"); renderTranscript(); renderTheory(); renderLog(); };
+    $("name" + who).oninput = (e) => { state.names[who] = e.target.value.trim() || (who === "A" ? "Person 1" : "Person 2"); if (!state.example) store.set("cg.name" + who, state.names[who]); renderTranscript(); renderTheory(); renderLog(); renderFacts(); };
   }
   document.addEventListener("keydown", (e) => {
     if (e.target.matches("input, textarea, select")) return;
@@ -739,7 +1144,7 @@ List at most 5 patterns and 6 flag_lines, most important first.`;
     const v = $("typed").value.trim();
     if (!v) return;
     if (state.example) clearAll();
-    state.turns.push({ who: state.current, text: v, t: Date.now() });
+    state.turns.push({ who: state.current, text: v, t: Date.now(), sure: true });
     $("typed").value = "";
     renderTranscript();
     setSpeaker(state.current === "A" ? "B" : "A");
@@ -748,18 +1153,30 @@ List at most 5 patterns and 6 flag_lines, most important first.`;
   };
   $("analyzeBtn").onclick = () => { if (state.example) { state.example = false; $("exampleFlag").hidden = true; } analyze(true); };
   $("clearBtn").onclick = () => { stopListening(); clearAll(); };
-  $("coachOk").onclick = () => { $("coach").hidden = true; window.speechSynthesis?.cancel(); };
-  $("coachRepeat").onclick = () => { const l = state.log[state.log.length - 1]; if (l) { const was = $("speakAloud").checked; $("speakAloud").checked = true; speak(l.message); $("speakAloud").checked = was; } };
+  $("teachBtn").onclick = openTrain;
+  $("trainGo").onclick = trainNext;
+  $("trainCancel").onclick = () => { closeTrain(); $("trainCancel").textContent = "Close"; };
+  $("coachOk").onclick = () => { $("coach").hidden = true; };
+  $("coachRepeat").onclick = () => { const l = state.log[state.log.length - 1]; if (l) speak(l.message); };
   $("apiKey").oninput = () => { updateConnSummary(); if ($("rememberKey").checked) store.set("cg.apiKey", apiKey() || null); };
   $("rememberKey").onchange = (e) => store.set("cg.apiKey", e.target.checked ? apiKey() || null : null);
   $("sensitivity").onchange = (e) => store.set("cg.sensitivity", e.target.value);
   $("speakAloud").onchange = (e) => store.set("cg.speak", e.target.checked ? "1" : "0");
+  $("factCheck").onchange = (e) => { store.set("cg.facts", e.target.checked ? "1" : "0"); renderFacts(); };
+  $("speakerMode").onchange = (e) => {
+    store.set("cg.mode", e.target.value);
+    if (state.listening && e.target.value === "voice") voice.start().then(setStatus);
+    if (e.target.value === "tap") { voice.stop(); setStatus(); }
+  };
 
   const sens = store.get("cg.sensitivity"); if (sens && COOLDOWN[sens]) $("sensitivity").value = sens;
   if (store.get("cg.speak") === "0") $("speakAloud").checked = false;
+  if (store.get("cg.facts") === "0") $("factCheck").checked = false;
+  if (store.get("cg.mode") === "tap") $("speakerMode").value = "tap";
+  loadProfiles();
 
   loadExample();
   setStatus();
-  initBackend();
+  initBackend().then(renderFacts);
 })();
 </script>
