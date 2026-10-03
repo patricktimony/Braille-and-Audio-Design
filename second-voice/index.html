@@ -118,7 +118,8 @@ textarea { min-height: 84px; resize: vertical; }
 
 form.ask { display: flex; gap: 8px; margin-top: 10px; }
 form.ask input { flex: 1; min-width: 0; }
-.err { color: var(--live); font-size: 0.9rem; }
+.err { color: var(--live); font-size: 1rem; font-weight: 700; margin: 0; }
+.status { margin: 0; font-size: 1.05rem; padding: 10px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
 .meter { font: 400 0.8rem/1.4 var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
 </style>
 </head>
@@ -133,6 +134,9 @@ form.ask input { flex: 1; min-width: 0; }
       <button id="listenBtn" type="button" class="primary">Start listening</button>
     </div>
   </header>
+
+  <p class="status" id="status" role="status">Tap <b>Start listening</b>. Claude will say “I'm listening.”</p>
+  <p class="err" id="err" role="alert" hidden></p>
 
   <div class="notice" id="consent">
     <strong>Tell people they are being listened to.</strong> This app sends what your microphone hears to Claude.
@@ -210,7 +214,6 @@ form.ask input { flex: 1; min-width: 0; }
       <div class="scroll" id="feed" aria-live="polite">
         <p class="empty" id="fEmpty">Fact-checks, cool-down prompts and phrases to try will appear here and be spoken aloud.</p>
       </div>
-      <p class="err" id="err" role="alert" hidden></p>
     </section>
   </div>
 </div>
@@ -378,7 +381,8 @@ function startListening() {
   if (!startRecognition()) { state.listening = false; return; }
   $("listenBtn").textContent = "Stop listening"; $("listenBtn").classList.add("listening");
   setMic(true, "Listening");
-  chime();
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance("I'm listening."); u.rate = Number($("rate").value); speechSynthesis.speak(u); } catch {}
+  setStatus("Listening. Say “Claude, can you hear me?”");
 }
 function stopListening() {
   state.listening = false;
@@ -410,11 +414,19 @@ function showInterim(text) {
 }
 
 const WAKE = /^(?:hey |ok |okay )?claude[\s,.!?:]+(.+)/i;
+const HEAR = /\b(can|do) you hear me\b|\bare you (there|listening|working)\b|\bhello,? claude\b/i;
 function addLine(text) {
   if (!text) return;
   showInterim("");
   const wake = $("wakeWord").checked && text.match(WAKE);
+  if (HEAR.test(text)) {
+    setStatus("Heard: “" + text + "”");
+    addCard({ kind: "answer", say: "Yes, I can hear you.", detail: "", try_saying: "" }, true);
+    if ($("speakAloud").checked) speak("Yes, I can hear you. Just talk, and I'll jump in.");
+    return;
+  }
   if (wake) { askDirect(wake[1]); return; }
+  setStatus("Heard: “" + text + "”");
   const who = state.speaker === "auto" ? "?" : state.speaker;
   state.lines.push({ who, text, t: Date.now() });
   $("tEmpty").hidden = true;
@@ -503,6 +515,7 @@ ${transcriptText()}
 Newest lines since you last looked:
 ${newLines}
 
+If the user seems to be talking to you rather than to another person (a question to you, a greeting, testing whether you work), always interrupt and answer them briefly, with kind "insight".
 Decide whether to interrupt right now, and with what. If a claim needs checking and web search is available, check it.
 ${JSON_SPEC}`;
   setThinking(true);
@@ -512,7 +525,8 @@ ${JSON_SPEC}`;
     const out = parseJson(text);
     if (!out) throw new Error("Claude's reply could not be read. It will try again on the next line.");
     hideError();
-    if (out.interrupt && out.say) await deliver(out);
+    if (out.interrupt && out.say) { setStatus("Claude cut in."); await deliver(out); }
+    else setStatus("Claude listened and had nothing to add yet.");
   } catch (e) {
     handleError(e);
   } finally {
@@ -556,6 +570,7 @@ ${transcriptText() || "(nothing yet)"}
 The user's question: ${question}`);
     const answer = text.trim();
     card.querySelector(".say").textContent = answer;
+    setStatus("Claude answered.");
     state.interventions.push({ kind: "answer", say: answer.slice(0, 140), t: Date.now() });
     hideError();
     if ($("speakAloud").checked) await speak(answer);
@@ -590,11 +605,13 @@ function addCard(out, isAnswer = false) {
 }
 
 // ---------- Status & errors ----------
-function setThinking(on) { $("thinkPill").hidden = !on; $("thinkPill").classList.toggle("think", on); }
+function setStatus(t) { $("status").textContent = t; }
+function setThinking(on) { if (on) setStatus("Claude is thinking…"); $("thinkPill").hidden = !on; $("thinkPill").classList.toggle("think", on); }
 function showError(msg) { $("err").textContent = msg; $("err").hidden = false; }
 function hideError() { $("err").hidden = true; }
 function handleError(e) {
   if (e?.message === "no-key") return;
+  setStatus("Something went wrong. See the red message.");
   if (e instanceof Anthropic.AuthenticationError) { showError("Anthropic rejected the API key. Check it in Settings."); $("settings").open = true; stopListening(); return; }
   if (e instanceof Anthropic.PermissionDeniedError) { showError("This API key can't use the chosen model. Pick another model in Settings."); return; }
   if (e instanceof Anthropic.RateLimitError) { showError("Rate limited by Anthropic. Claude will catch up on the next line; lower the interruption level if this keeps happening."); return; }
