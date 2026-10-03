@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Second Voice</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one-screen console. Left = what was said (live transcript), right = what the coach says back. */
+:root {
+  --bg: #f3f5f2;
+  --panel: #ffffff;
+  --fg: #1d2622;
+  --muted: #5d6b65;
+  --line: #d9e0db;
+  --accent: #2f6f5e;       /* calm teal-green: "cooling the room" */
+  --accent-ink: #ffffff;
+  --live: #c2452d;         /* recording red */
+  --fact: #3c5fb0;
+  --calm: #2f6f5e;
+  --steer: #8a5a12;
+  --warm: #9b3d6b;
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121816; --panel: #1a2220; --fg: #e4ebe7; --muted: #95a59e; --line: #2c3833;
+    --accent: #6fbfa6; --accent-ink: #0d1412; --live: #ff7a5f; --fact: #8eaaf0; --calm: #6fbfa6; --steer: #e0ae5c; --warm: #e58ab6;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121816; --panel: #1a2220; --fg: #e4ebe7; --muted: #95a59e; --line: #2c3833;
+  --accent: #6fbfa6; --accent-ink: #0d1412; --live: #ff7a5f; --fact: #8eaaf0; --calm: #6fbfa6; --steer: #e0ae5c; --warm: #e58ab6;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font: 16px/1.5 var(--font-body);
+  padding-inline: 16px; padding-block: 12px 24px;
+}
+[hidden] { display: none !important; }
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 14px; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; justify-content: space-between; }
+h1 { font: 700 1.9rem/1.1 var(--font-display); margin: 0; letter-spacing: -0.01em; }
+h1 small { display: block; font: 400 0.9rem/1.3 var(--font-body); color: var(--muted); letter-spacing: 0; margin-top: 4px; }
+h2 { font: 600 0.75rem/1 var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin: 0 0 10px; }
+button, select, input, textarea { font: inherit; color: inherit; }
+button {
+  border: 1px solid var(--line); background: var(--panel); border-radius: 10px;
+  padding: 9px 14px; cursor: pointer;
+}
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+button.primary.listening { background: var(--live); border-color: var(--live); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pill { font: 600 0.75rem/1 var(--font-mono); padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); white-space: nowrap; }
+.pill.on { color: var(--live); border-color: var(--live); }
+.pill.think { color: var(--accent); border-color: var(--accent); }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: 1px; }
+.pill.on .dot { animation: pulse 1.2s infinite; }
+@keyframes pulse { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .pill.on .dot { animation: none; } }
+
+.notice { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 0.92rem; color: var(--muted); }
+.notice strong { color: var(--fg); }
+
+details.settings { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+details.settings summary { cursor: pointer; padding: 12px 14px; font-weight: 700; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; padding: 0 14px 14px; }
+label { display: grid; gap: 4px; font-size: 0.9rem; }
+label .hint { color: var(--muted); font-size: 0.8rem; }
+input[type=text], input[type=password], select, textarea {
+  width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 8px 10px;
+}
+textarea { min-height: 84px; resize: vertical; }
+.check { display: flex; gap: 8px; align-items: flex-start; }
+.check input { margin-top: 4px; }
+.span2 { grid-column: 1 / -1; }
+
+.main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 14px; min-height: 60vh; }
+@media (max-width: 820px) { .main { grid-template-columns: 1fr; } }
+.pane { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; min-width: 0; min-height: 320px; }
+.scroll { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; max-height: 62vh; padding: 5px; }
+.line { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 8px; font-size: 0.98rem; }
+.who { font: 600 0.72rem/1.9 var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.who.me { color: var(--accent); }
+.who.them { color: var(--steer); }
+.line.interim { opacity: 0.55; font-style: italic; }
+.empty { color: var(--muted); font-size: 0.92rem; margin: auto 0; text-align: center; padding: 20px; }
+
+.speaker { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.speaker button { border: 0; border-radius: 0; padding: 7px 12px; }
+.speaker button[aria-pressed=true] { background: var(--fg); color: var(--bg); }
+
+.card { border: 1px solid var(--line); border-left: 4px solid var(--kind, var(--accent)); border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; background: var(--bg); }
+.card.new { animation: flash 1.4s ease-out; }
+@keyframes flash { from { box-shadow: 0 0 0 4px var(--kind, var(--accent)); } to { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .card.new { animation: none; } }
+.card .meta { display: flex; gap: 8px; align-items: center; font: 600 0.72rem/1 var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--kind, var(--accent)); }
+.card .meta time { color: var(--muted); margin-left: auto; font-weight: 400; }
+.card .say { font: 600 1.08rem/1.35 var(--font-display); }
+.card .detail { font-size: 0.93rem; color: var(--muted); }
+.card .try { font-size: 0.95rem; border-top: 1px dashed var(--line); padding-top: 6px; }
+.card .try b { font: 600 0.72rem/1 var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); display: block; margin-bottom: 4px; }
+.card.answer { --kind: var(--fg); }
+.kind-fact_check { --kind: var(--fact); }
+.kind-de_escalate, .kind-empathy { --kind: var(--calm); }
+.kind-reframe, .kind-steer { --kind: var(--steer); }
+.kind-encourage, .kind-insight { --kind: var(--warm); }
+
+form.ask { display: flex; gap: 8px; margin-top: 10px; }
+form.ask input { flex: 1; min-width: 0; }
+.err { color: var(--live); font-size: 0.9rem; }
+.meter { font: 400 0.8rem/1.4 var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Second Voice <small>Claude listens to your conversation and cuts in to fact-check, calm things down and help you get along.</small></h1>
+    <div class="controls">
+      <span id="micPill" class="pill"><span class="dot"></span><span id="micText">Mic off</span></span>
+      <span id="thinkPill" class="pill" hidden><span class="dot"></span>Claude is thinking</span>
+      <button id="hushBtn" type="button" title="Stop Claude talking (Esc)">Hush</button>
+      <button id="listenBtn" type="button" class="primary">Start listening</button>
+    </div>
+  </header>
+
+  <div class="notice" id="consent">
+    <strong>Tell people they are being listened to.</strong> This app sends what your microphone hears to Claude.
+    Recording someone without their knowledge is illegal in many places and erodes the trust this app is meant to build.
+    Second Voice is a coach, not a therapist. If anyone is in danger, contact local emergency services.
+  </div>
+
+  <details class="settings" id="settings">
+    <summary>Settings</summary>
+    <div class="grid">
+      <label>Anthropic API key
+        <input type="password" id="apiKey" autocomplete="off" placeholder="sk-ant-…">
+        <span class="hint">Calls go straight from this browser to Anthropic.</span>
+      </label>
+      <label class="check"><input type="checkbox" id="rememberKey"> <span>Remember the key on this device</span></label>
+      <label>Model
+        <select id="model">
+          <option value="claude-opus-5-5">Claude Opus 5.5 (default)</option>
+          <option value="claude-fable-5-1">Claude Fable 5.1 (most capable, slowest)</option>
+          <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (faster)</option>
+        </select>
+      </label>
+      <label>Thinking effort
+        <select id="effort">
+          <option value="low">Low: fastest interruptions</option>
+          <option value="medium">Medium</option>
+          <option value="high" selected>High</option>
+          <option value="xhigh">Extra high</option>
+          <option value="max">Max: all its thinking power, slower</option>
+        </select>
+      </label>
+      <label>How often Claude cuts in: <b id="levelText"></b>
+        <input type="range" id="level" min="1" max="5" step="1" value="5">
+        <span class="hint">5 interrupts whenever it has anything useful to add.</span>
+      </label>
+      <label>Voice
+        <select id="voice"></select>
+      </label>
+      <label>Speaking speed
+        <input type="range" id="rate" min="0.8" max="1.5" step="0.05" value="1.1">
+      </label>
+      <label class="check"><input type="checkbox" id="speakAloud" checked> <span>Speak interruptions out loud (otherwise chime and show them on screen)</span></label>
+      <label class="check"><input type="checkbox" id="webSearch" checked> <span>Check facts on the web (more accurate, a few seconds slower)</span></label>
+      <label class="check"><input type="checkbox" id="wakeWord" checked> <span>Say “Claude, …” to talk to Claude directly</span></label>
+      <label class="span2">What should Claude know?
+        <textarea id="context" placeholder="Example: I'm talking with my sister about splitting the cost of Mom's care. I get defensive when she brings up money. I want us to end this call still on good terms."></textarea>
+      </label>
+    </div>
+  </details>
+
+  <div class="main">
+    <section class="pane" aria-labelledby="tTitle">
+      <div class="controls" style="justify-content: space-between; margin-bottom: 10px;">
+        <h2 id="tTitle" style="margin:0">What's being said</h2>
+        <div class="speaker" role="group" aria-label="Who is speaking now (keyboard shortcut: S)">
+          <button type="button" data-spk="auto" aria-pressed="true">Auto</button>
+          <button type="button" data-spk="me" aria-pressed="false">Me</button>
+          <button type="button" data-spk="them" aria-pressed="false">Them</button>
+        </div>
+      </div>
+      <div class="scroll" id="transcript" aria-live="off">
+        <p class="empty" id="tEmpty">Press <b>Start listening</b> and talk normally. Tap <b>Me</b> or <b>Them</b> when the speaker changes, or leave it on Auto and Claude will work out who is who.</p>
+      </div>
+      <form class="ask" id="lineForm">
+        <input type="text" id="lineInput" placeholder="Type a line of the conversation, or “Claude, …” to ask" aria-label="Add a line">
+        <button type="submit">Add</button>
+      </form>
+    </section>
+
+    <section class="pane" aria-labelledby="cTitle">
+      <div class="controls" style="justify-content: space-between; margin-bottom: 10px;">
+        <h2 id="cTitle" style="margin:0">Claude cuts in</h2>
+        <span class="meter" id="meter">0 interruptions</span>
+      </div>
+      <div class="scroll" id="feed" aria-live="polite">
+        <p class="empty" id="fEmpty">Fact-checks, cool-down prompts and phrases to try will appear here and be spoken aloud.</p>
+      </div>
+      <p class="err" id="err" role="alert" hidden></p>
+    </section>
+  </div>
+</div>
+
+<script type="module">
+import Anthropic from "https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@0.131.0/+esm";
+
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("sv:" + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("sv:" + k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem("sv:" + k); } catch {} },
+};
+
+// Per level: how long to wait after speech before analysing, and the minimum gap between spoken interruptions.
+const LEVELS = {
+  1: { name: "Rarely", debounce: 6000, cooldown: 90000, rule: "Only interrupt for a clear factual error or a conversation that is turning hostile." },
+  2: { name: "Sometimes", debounce: 4500, cooldown: 45000, rule: "Interrupt for factual errors, rising tension, or a clearly missed chance to connect." },
+  3: { name: "Often", debounce: 3000, cooldown: 25000, rule: "Interrupt whenever you have a useful fact-check, de-escalation, reframe or relationship insight." },
+  4: { name: "Very often", debounce: 2000, cooldown: 12000, rule: "Interrupt readily. Small course-corrections count: tone, word choice, listening, assumptions." },
+  5: { name: "Constantly", debounce: 1200, cooldown: 4000, rule: "Be a very active interrupter. Cut in after nearly every exchange that gives you anything useful: a fact-check, a gentler phrasing, a question the user should ask, a read on what the other person is feeling, or encouragement when the user handles something well. Stay silent only if you would repeat yourself." },
+};
+
+const COACH_RULES = `You are Second Voice, a live conversation coach that listens to the user's real, in-person or phone conversation and interrupts them through their speaker or earpiece.
+
+Your goals, in order:
+1. Help the user get along better with the people they are talking to: lower the temperature, build understanding, protect the relationship.
+2. Fact-check claims made by anyone in the conversation. Say plainly what is true, what is false and what is uncertain. Do not invent facts; if you are unsure, say so.
+3. Give psychological insight: what the other person may be feeling or needing, what the user may be doing that escalates things (interrupting, sarcasm, absolutes like "always/never", defensiveness, mind-reading), and better moves (reflect back, validate, ask an open question, name the shared goal, take a pause).
+4. Gently steer the conversation toward connection and practical agreement. Coach the user only. Your influence must be honest: no manipulation tactics, no deceiving the other person, no scripts that pressure or guilt them. Respect the other person's autonomy and right to disagree.
+
+The user hears your "say" line spoken aloud mid-conversation, so it must be short (ideally under 20 words), warm and immediately usable. Put longer reasoning in "detail". "try_saying" is an optional exact sentence the user could say next, in natural spoken language.
+If anything suggests abuse, a threat of violence, or someone at risk of self-harm, interrupt immediately, prioritize safety, and suggest contacting emergency services or a crisis line.
+The transcript comes from speech recognition, so expect missing punctuation and misheard words. Speaker labels may be "?" when unknown; infer who is who from context.`;
+
+const JSON_SPEC = `Reply with only one JSON object, no other text:
+{"interrupt": true|false, "kind": "fact_check"|"de_escalate"|"empathy"|"reframe"|"steer"|"insight"|"encourage", "say": "short line to speak aloud", "detail": "1-3 sentences shown on screen", "try_saying": "optional sentence for the user, or empty string"}`;
+
+const state = {
+  lines: [],             // {who: "me"|"them"|"?", text, t}
+  interventions: [],     // {kind, say, t}
+  speaker: "auto",
+  listening: false,
+  analysedUpTo: 0,
+  inflight: false,
+  dirty: false,
+  lastSpokenAt: 0,
+  debounceTimer: null,
+  count: 0,
+};
+
+// ---------- Settings ----------
+const settingIds = ["model", "effort", "level", "rate", "speakAloud", "webSearch", "wakeWord", "context"];
+for (const id of settingIds) {
+  const el = $(id);
+  const saved = store.get(id, undefined);
+  if (saved !== undefined) { if (el.type === "checkbox") el.checked = saved; else el.value = saved; }
+  el.addEventListener("change", () => store.set(id, el.type === "checkbox" ? el.checked : el.value));
+}
+$("context").addEventListener("input", () => store.set("context", $("context").value));
+const savedKey = store.get("apiKey", "");
+if (savedKey) { $("apiKey").value = savedKey; $("rememberKey").checked = true; }
+else $("settings").open = true;
+const saveKey = () => { if ($("rememberKey").checked) store.set("apiKey", $("apiKey").value.trim()); else store.del("apiKey"); };
+$("apiKey").addEventListener("change", saveKey);
+$("rememberKey").addEventListener("change", saveKey);
+const showLevel = () => { $("levelText").textContent = `${$("level").value} · ${LEVELS[$("level").value].name}`; };
+$("level").addEventListener("input", showLevel); showLevel();
+
+// ---------- Voice out ----------
+let voices = [];
+function loadVoices() {
+  voices = speechSynthesis.getVoices();
+  const sel = $("voice"); const want = store.get("voice", "");
+  sel.innerHTML = "";
+  const local = voices.filter(v => v.lang.startsWith((navigator.language || "en").slice(0, 2)));
+  for (const v of (local.length ? local : voices)) {
+    const o = document.createElement("option"); o.value = v.name; o.textContent = `${v.name} (${v.lang})`;
+    if (v.name === want) o.selected = true;
+    sel.append(o);
+  }
+}
+if ("speechSynthesis" in window) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
+$("voice").addEventListener("change", () => store.set("voice", $("voice").value));
+
+let audioCtx;
+function chime() {
+  try {
+    audioCtx ||= new AudioContext();
+    const now = audioCtx.currentTime;
+    [660, 880].forEach((f, i) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.frequency.value = f; o.type = "sine";
+      g.gain.setValueAtTime(0.0001, now + i * 0.12);
+      g.gain.exponentialRampToValueAtTime(0.18, now + i * 0.12 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.12 + 0.25);
+      o.connect(g).connect(audioCtx.destination); o.start(now + i * 0.12); o.stop(now + i * 0.12 + 0.3);
+    });
+  } catch {}
+}
+
+function speak(text) {
+  return new Promise((resolve) => {
+    if (!("speechSynthesis" in window) || !text) return resolve();
+    pauseRecognitionForSpeech();
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    const v = voices.find(v => v.name === $("voice").value); if (v) u.voice = v;
+    u.rate = Number($("rate").value);
+    u.onend = u.onerror = () => { resumeRecognitionAfterSpeech(); resolve(); };
+    speechSynthesis.speak(u);
+  });
+}
+function hush() { try { speechSynthesis.cancel(); } catch {} resumeRecognitionAfterSpeech(); }
+$("hushBtn").addEventListener("click", hush);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") hush();
+  if (e.target.matches("input, textarea, select")) return;
+  if (e.key === "s" || e.key === "S") setSpeaker(state.speaker === "me" ? "them" : "me");
+});
+
+// ---------- Voice in ----------
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, speakingNow = false, interimEl = null;
+
+function setMic(on, text) {
+  $("micPill").classList.toggle("on", on);
+  $("micText").textContent = text;
+}
+
+function startRecognition() {
+  if (!SR) { showError("This browser has no built-in speech recognition. Use Chrome, Edge or Safari, or type lines below."); return false; }
+  rec = new SR();
+  rec.continuous = true; rec.interimResults = true; rec.lang = navigator.language || "en-US";
+  rec.onresult = (ev) => {
+    let interim = "";
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const r = ev.results[i];
+      if (r.isFinal) addLine(r[0].transcript.trim());
+      else interim += r[0].transcript;
+    }
+    showInterim(interim.trim());
+  };
+  rec.onerror = (ev) => {
+    if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
+      showError("Microphone access was blocked. Allow the microphone for this page in your browser's site settings, then press Start listening again.");
+      stopListening();
+    }
+  };
+  rec.onend = () => { if (state.listening && !speakingNow) { try { rec.start(); } catch {} } };
+  try { rec.start(); } catch {}
+  return true;
+}
+// Stop listening while Claude talks, so it does not transcribe itself.
+function pauseRecognitionForSpeech() { speakingNow = true; if (rec && state.listening) { try { rec.abort(); } catch {} setMic(true, "Claude speaking"); } }
+function resumeRecognitionAfterSpeech() {
+  if (!speakingNow) return;
+  speakingNow = false;
+  if (rec && state.listening) { try { rec.start(); } catch {} setMic(true, "Listening"); }
+}
+
+function startListening() {
+  if (!getClient()) return;
+  state.listening = true;
+  if (!startRecognition()) { state.listening = false; return; }
+  $("listenBtn").textContent = "Stop listening"; $("listenBtn").classList.add("listening");
+  setMic(true, "Listening");
+  chime();
+}
+function stopListening() {
+  state.listening = false;
+  try { rec?.abort(); } catch {}
+  $("listenBtn").textContent = "Start listening"; $("listenBtn").classList.remove("listening");
+  setMic(false, "Mic off"); showInterim("");
+}
+$("listenBtn").addEventListener("click", () => state.listening ? stopListening() : startListening());
+
+// ---------- Transcript ----------
+function setSpeaker(s) {
+  state.speaker = s;
+  document.querySelectorAll(".speaker button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.spk === s)));
+}
+document.querySelectorAll(".speaker button").forEach(b => b.addEventListener("click", () => setSpeaker(b.dataset.spk)));
+
+function lineEl(who, text, cls = "") {
+  const d = document.createElement("div"); d.className = "line " + cls;
+  const w = document.createElement("span"); w.className = "who " + who; w.textContent = who === "?" ? "—" : who;
+  const t = document.createElement("span"); t.textContent = text;
+  d.append(w, t); return d;
+}
+function showInterim(text) {
+  if (!text) { interimEl?.remove(); interimEl = null; return; }
+  $("tEmpty").hidden = true;
+  if (!interimEl) { interimEl = lineEl("?", ""); interimEl.classList.add("interim"); $("transcript").append(interimEl); }
+  interimEl.lastChild.textContent = text;
+  $("transcript").scrollTop = $("transcript").scrollHeight;
+}
+
+const WAKE = /^(?:hey |ok |okay )?claude[\s,.!?:]+(.+)/i;
+function addLine(text) {
+  if (!text) return;
+  showInterim("");
+  const wake = $("wakeWord").checked && text.match(WAKE);
+  if (wake) { askDirect(wake[1]); return; }
+  const who = state.speaker === "auto" ? "?" : state.speaker;
+  state.lines.push({ who, text, t: Date.now() });
+  $("tEmpty").hidden = true;
+  $("transcript").append(lineEl(who, text));
+  $("transcript").scrollTop = $("transcript").scrollHeight;
+  scheduleAnalysis();
+}
+$("lineForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const v = $("lineInput").value.trim(); if (!v) return;
+  $("lineInput").value = "";
+  if (!$("wakeWord").checked && /^claude\b/i.test(v)) { askDirect(v.replace(/^claude[\s,.!?:]*/i, "")); return; }
+  addLine(v);
+});
+
+// ---------- Claude ----------
+let client = null, clientKey = "";
+function getClient() {
+  const key = $("apiKey").value.trim();
+  if (!key) { showError("Add your Anthropic API key in Settings first."); $("settings").open = true; $("apiKey").focus(); return null; }
+  if (!client || key !== clientKey) { client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true }); clientKey = key; }
+  return client;
+}
+
+function transcriptText(maxLines = 60) {
+  return state.lines.slice(-maxLines).map(l => `[${l.who === "?" ? "?" : l.who.toUpperCase()}] ${l.text}`).join("\n");
+}
+
+async function callClaude(prompt, { maxTokens = 8000 } = {}) {
+  const c = getClient(); if (!c) throw new Error("no-key");
+  const params = {
+    model: $("model").value,
+    max_tokens: maxTokens,
+    output_config: { effort: $("effort").value },
+    betas: ["server-side-fallback-2026-07-01"],
+    fallbacks: "default",
+    messages: [{ role: "user", content: prompt }],
+  };
+  if ($("webSearch").checked) params.tools = [{ type: "web_search_20260209", name: "web_search", max_uses: 3 }];
+  let res = await c.beta.messages.create(params);
+  // Web search can pause a long turn; let it continue a couple of times.
+  for (let i = 0; i < 2 && res.stop_reason === "pause_turn"; i++) {
+    params.messages = [...params.messages, { role: "assistant", content: res.content }];
+    res = await c.beta.messages.create(params);
+  }
+  if (res.stop_reason === "refusal") throw Object.assign(new Error("Claude declined to respond to this part of the conversation."), { soft: true });
+  // With web search the answer arrives as several text blocks after the tool results; keep the final run of text.
+  const blocks = res.content;
+  let start = blocks.length;
+  while (start > 0 && blocks[start - 1].type === "text") start--;
+  return blocks.slice(start).map(b => b.text).join("");
+}
+
+function parseJson(text) {
+  const a = text.indexOf("{"), b = text.lastIndexOf("}");
+  if (a < 0 || b <= a) return null;
+  try { return JSON.parse(text.slice(a, b + 1)); } catch { return null; }
+}
+
+function scheduleAnalysis() {
+  clearTimeout(state.debounceTimer);
+  state.debounceTimer = setTimeout(runAnalysis, LEVELS[$("level").value].debounce);
+}
+
+async function runAnalysis() {
+  if (state.inflight) { state.dirty = true; return; }
+  if (state.lines.length <= state.analysedUpTo) return;
+  state.inflight = true; state.dirty = false;
+  const upTo = state.lines.length;
+  const level = LEVELS[$("level").value];
+  const recent = state.interventions.slice(-8).map(i => `- (${i.kind}) ${i.say}`).join("\n") || "(none yet)";
+  const newLines = state.lines.slice(state.analysedUpTo).map(l => `[${l.who === "?" ? "?" : l.who.toUpperCase()}] ${l.text}`).join("\n");
+  const prompt = `${COACH_RULES}
+
+Interruption level ${$("level").value}/5: ${level.rule}
+
+What the user told you about this conversation:
+${$("context").value.trim() || "(nothing)"}
+
+Your recent interruptions (do not repeat them):
+${recent}
+
+Conversation so far (ME = the user, THEM = the other person, ? = unknown):
+${transcriptText()}
+
+Newest lines since you last looked:
+${newLines}
+
+Decide whether to interrupt right now, and with what. If a claim needs checking and web search is available, check it.
+${JSON_SPEC}`;
+  setThinking(true);
+  try {
+    const text = await callClaude(prompt);
+    state.analysedUpTo = upTo;
+    const out = parseJson(text);
+    if (!out) throw new Error("Claude's reply could not be read. It will try again on the next line.");
+    hideError();
+    if (out.interrupt && out.say) await deliver(out);
+  } catch (e) {
+    handleError(e);
+  } finally {
+    setThinking(false);
+    state.inflight = false;
+    if (state.dirty || state.lines.length > state.analysedUpTo) scheduleAnalysis();
+  }
+}
+
+async function deliver(out) {
+  state.interventions.push({ kind: out.kind || "insight", say: out.say, t: Date.now() });
+  addCard(out);
+  const cooled = Date.now() - state.lastSpokenAt >= LEVELS[$("level").value].cooldown;
+  const urgent = out.kind === "fact_check" || out.kind === "de_escalate";
+  if (cooled || urgent) {
+    state.lastSpokenAt = Date.now();
+    chime();
+    if ($("speakAloud").checked) {
+      await new Promise(r => setTimeout(r, 350));
+      await speak(out.try_saying ? `${out.say} Try: ${out.try_saying}` : out.say);
+    }
+  }
+}
+
+async function askDirect(question) {
+  $("tEmpty").hidden = true;
+  $("transcript").append(lineEl("me", "Claude, " + question));
+  const card = addCard({ kind: "answer", say: "…", detail: "", try_saying: "" }, true);
+  setThinking(true);
+  try {
+    const text = await callClaude(`${COACH_RULES}
+
+The user has turned to you directly, in the middle of the conversation below, and asked you something. Answer out loud like a calm friend in their ear: plain spoken sentences, no lists or markdown, usually under 60 words.
+
+What the user told you about this conversation:
+${$("context").value.trim() || "(nothing)"}
+
+Conversation so far:
+${transcriptText() || "(nothing yet)"}
+
+The user's question: ${question}`);
+    const answer = text.trim();
+    card.querySelector(".say").textContent = answer;
+    state.interventions.push({ kind: "answer", say: answer.slice(0, 140), t: Date.now() });
+    hideError();
+    if ($("speakAloud").checked) await speak(answer);
+  } catch (e) {
+    card.remove();
+    handleError(e);
+  } finally { setThinking(false); }
+}
+
+// ---------- Feed ----------
+const KIND_LABEL = { fact_check: "Fact check", de_escalate: "Cool it down", empathy: "Empathy", reframe: "Reframe", steer: "Steer", insight: "Insight", encourage: "Nice move", answer: "You asked" };
+function addCard(out, isAnswer = false) {
+  $("fEmpty").hidden = true;
+  const kind = KIND_LABEL[out.kind] ? out.kind : "insight";
+  const c = document.createElement("article");
+  c.className = `card new kind-${kind}` + (isAnswer ? " answer" : "");
+  const meta = document.createElement("div"); meta.className = "meta";
+  meta.textContent = KIND_LABEL[kind];
+  const time = document.createElement("time"); time.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  meta.append(time);
+  const say = document.createElement("div"); say.className = "say"; say.textContent = out.say;
+  c.append(meta, say);
+  if (out.detail) { const d = document.createElement("div"); d.className = "detail"; d.textContent = out.detail; c.append(d); }
+  if (out.try_saying) {
+    const t = document.createElement("div"); t.className = "try";
+    const b = document.createElement("b"); b.textContent = "Try saying";
+    t.append(b, document.createTextNode(`“${out.try_saying}”`)); c.append(t);
+  }
+  $("feed").prepend(c);
+  if (!isAnswer) { state.count++; $("meter").textContent = `${state.count} interruption${state.count === 1 ? "" : "s"}`; }
+  return c;
+}
+
+// ---------- Status & errors ----------
+function setThinking(on) { $("thinkPill").hidden = !on; $("thinkPill").classList.toggle("think", on); }
+function showError(msg) { $("err").textContent = msg; $("err").hidden = false; }
+function hideError() { $("err").hidden = true; }
+function handleError(e) {
+  if (e?.message === "no-key") return;
+  if (e instanceof Anthropic.AuthenticationError) { showError("Anthropic rejected the API key. Check it in Settings."); $("settings").open = true; stopListening(); return; }
+  if (e instanceof Anthropic.PermissionDeniedError) { showError("This API key can't use the chosen model. Pick another model in Settings."); return; }
+  if (e instanceof Anthropic.RateLimitError) { showError("Rate limited by Anthropic. Claude will catch up on the next line; lower the interruption level if this keeps happening."); return; }
+  if (e instanceof Anthropic.APIConnectionError) { showError("Couldn't reach Anthropic. Check your internet connection."); return; }
+  if (e instanceof Anthropic.APIError) { showError(`Anthropic API error ${e.status ?? ""}: ${e.message}`); return; }
+  showError(e?.message || String(e));
+}
+</script>
+</body>
+</html>
