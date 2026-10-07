@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Living Network</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+/* High contrast throughout: pure black/white with one strong accent. Dark is the default look; light follows the system. */
+:root {
+  --bg: #000000; --panel: #0d0d0d; --fg: #ffffff; --muted: #d6d6d6; --line: #ffffff;
+  --accent: #ffd400; --accent-ink: #000000; --live: #ff5c5c;
+  --p0: #ffd400; --p1: #00e5ff; --p2: #ff7ad9; --p3: #7dff7d; --p4: #ffa64d; --p5: #c9a6ff;
+  --font: "Atkinson Hyperlegible", system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #ffffff; --panel: #f4f4f4; --fg: #000000; --muted: #2b2b2b; --line: #000000;
+    --accent: #0033cc; --accent-ink: #ffffff; --live: #b00000;
+    --p0: #0033cc; --p1: #a3005a; --p2: #006b2e; --p3: #7a3e00; --p4: #5a00a3; --p5: #00626b;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #ffffff; --panel: #f4f4f4; --fg: #000000; --muted: #2b2b2b; --line: #000000;
+  --accent: #0033cc; --accent-ink: #ffffff; --live: #b00000;
+  --p0: #0033cc; --p1: #a3005a; --p2: #006b2e; --p3: #7a3e00; --p4: #5a00a3; --p5: #00626b;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 1.125rem/1.5 var(--font); padding: 16px 16px 48px; }
+[hidden] { display: none !important; }
+main { max-width: 860px; margin: 0 auto; display: grid; gap: 20px; }
+h1 { font-size: 2rem; line-height: 1.1; margin: 0; }
+h1 + p { margin: 6px 0 0; color: var(--muted); }
+h2 { font-size: 1.25rem; margin: 0 0 10px; letter-spacing: 0.04em; text-transform: uppercase; }
+section { border: 2px solid var(--line); border-radius: 12px; padding: 14px; background: var(--panel); min-width: 0; }
+button, input, select { font: inherit; color: inherit; }
+button { background: var(--bg); border: 2px solid var(--line); border-radius: 10px; padding: 10px 16px; min-height: 48px; cursor: pointer; }
+:focus-visible { outline: 4px solid var(--accent); outline-offset: 3px; }
+button.big { width: 100%; min-height: 88px; font-size: 1.5rem; font-weight: 700; letter-spacing: 0.04em; border-width: 3px; }
+#recBtn { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+#recBtn[aria-pressed="true"] { background: var(--live); border-color: var(--live); color: #000; }
+#showBtn { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+input[type=text], input[type=password], select { background: var(--bg); border: 2px solid var(--line); border-radius: 8px; padding: 10px; min-height: 48px; width: 100%; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.row > input { flex: 1 1 180px; width: auto; }
+.check { display: flex; gap: 10px; align-items: center; }
+.check input { width: 24px; height: 24px; flex: none; }
+.status { font-weight: 700; }
+.status .dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: currentColor; margin-right: 8px; vertical-align: -1px; }
+.status.on { color: var(--live); }
+.hint { color: var(--muted); font-size: 0.95rem; margin: 8px 0 0; }
+kbd { border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font: inherit; font-size: 0.9em; }
+
+/* People chips */
+#people { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+.chip { display: inline-flex; border: 3px solid var(--pc); border-radius: 999px; overflow: hidden; }
+.chip button { border: 0; border-radius: 0; min-height: 48px; background: transparent; }
+.chip .pick { font-weight: 700; padding-inline: 16px; }
+.chip .pick[aria-pressed="true"] { background: var(--pc); color: var(--bg); }
+.chip .ren { border-left: 2px solid var(--pc); padding-inline: 12px; font-size: 0.9rem; }
+
+/* Transcript */
+#transcript { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 40vh; overflow-y: auto; }
+#transcript li { display: grid; grid-template-columns: minmax(110px, 30%) 1fr; gap: 10px; align-items: start; }
+#transcript select { min-height: 40px; padding: 4px 6px; font-weight: 700; border-color: var(--pc, var(--line)); color: var(--pc, var(--fg)); }
+#interim { font-style: italic; color: var(--muted); min-height: 1.5em; margin: 8px 0 0; }
+
+/* Network */
+svg#net { width: 100%; height: auto; display: block; background: var(--bg); border-radius: 8px; border: 2px solid var(--line); }
+svg text { fill: var(--fg); paint-order: stroke; stroke: var(--bg); stroke-width: 5px; stroke-linejoin: round; }
+.netlist { margin: 12px 0 0; padding-left: 1.2em; }
+.netlist ul { padding-left: 1.2em; }
+details summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; }
+
+/* Results */
+#results h2 { margin-top: 18px; }
+#results h2:first-of-type { margin-top: 0; }
+#results ol, #results ul { padding-left: 1.3em; }
+#results li { margin-bottom: 12px; }
+.from { list-style: none; padding-left: 0 !important; margin: 6px 0 0; border-left: 4px solid var(--accent); }
+.from li { margin: 4px 0 4px 10px !important; }
+.from b { color: var(--pc, var(--fg)); }
+.tally { display: grid; gap: 4px; font-size: 1.25rem; font-weight: 700; border-top: 3px solid var(--line); padding-top: 14px; margin-top: 18px; font-variant-numeric: tabular-nums; }
+.closing { font-size: 1.6rem; line-height: 1.25; font-weight: 700; margin: 22px 0 6px; }
+.err { color: var(--live); font-weight: 700; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Living Network</h1>
+    <p>Records your group, maps who said what and how your ideas connect. The AI only listens and links. Every idea comes from a person.</p>
+  </header>
+
+  <p class="hint"><strong>Tell everyone you are recording.</strong> Speech is turned into text by your browser, and the text is sent to Claude to find ideas. Nothing is stored except on this device.</p>
+
+  <button id="recBtn" class="big" type="button" aria-pressed="false" aria-describedby="recHint">RECORD CONVERSATION</button>
+  <p id="recHint" class="hint">Shortcuts: <kbd>R</kbd> record or stop, <kbd>1</kbd>–<kbd>9</kbd> choose who is speaking, <kbd>S</kbd> show what we created.
+    You can also say <q>my name is …</q>, <q>switch to …</q>, <q>stop recording</q> or <q>show us what we created</q>.</p>
+  <p id="status" class="status" role="status"><span class="dot" aria-hidden="true"></span><span id="statusText">Not recording</span></p>
+  <p id="err" class="err" role="alert" hidden></p>
+
+  <section aria-labelledby="peopleH">
+    <h2 id="peopleH">Who is speaking</h2>
+    <div id="people" role="group" aria-label="Choose who is speaking now"></div>
+    <form id="addForm" class="row">
+      <input id="addName" type="text" placeholder="Add a person's name" aria-label="New person's name" autocomplete="off">
+      <button type="submit">Add person</button>
+    </form>
+  </section>
+
+  <section aria-labelledby="tH">
+    <h2 id="tH">What was said</h2>
+    <ol id="transcript" aria-label="Transcript"></ol>
+    <p id="tEmpty" class="hint">Nothing yet. Press Record and talk. Choose the speaker's name when the speaker changes.</p>
+    <p id="interim" aria-hidden="true"></p>
+    <form id="typeForm" class="row" style="margin-top:10px">
+      <input id="typeLine" type="text" placeholder="Or type what someone said" aria-label="Type a line for the person who is speaking now" autocomplete="off">
+      <button type="submit">Add line</button>
+    </form>
+  </section>
+
+  <section aria-labelledby="nH">
+    <h2 id="nH">Our network</h2>
+    <svg id="net" viewBox="0 0 1000 680" role="img" aria-labelledby="netSum"></svg>
+    <p id="netSum" class="hint" aria-live="polite">No ideas yet.</p>
+    <details>
+      <summary>The network as a list</summary>
+      <ul id="netList" class="netlist"></ul>
+    </details>
+  </section>
+
+  <button id="showBtn" class="big" type="button">SHOW US WHAT WE CREATED</button>
+
+  <section id="results" aria-labelledby="rH" hidden tabindex="-1">
+    <h2 id="rH">What each person brought</h2>
+    <ul id="brought"></ul>
+    <h2>Connections</h2>
+    <ol id="conns"></ol>
+    <h2>Emergent ideas</h2>
+    <ol id="emergent"></ol>
+    <div class="tally">
+      <div>HUMAN CONTRIBUTIONS: <span id="cHuman">0</span></div>
+      <div>CONNECTIONS FOUND: <span id="cConn">0</span></div>
+      <div>EMERGENT IDEAS: <span id="cEmerg">0</span></div>
+      <div>AI-ORIGINATED IDEAS: 0</div>
+    </div>
+    <p class="closing">THE PEOPLE ARE THE INTELLIGENCE.<br>AI HELPS THEM HEAR THE WHOLE.</p>
+    <div class="row"><button id="readBtn" type="button">Read it aloud</button></div>
+  </section>
+
+  <section aria-labelledby="setH">
+    <details id="settings">
+      <summary id="setH">Settings and session</summary>
+      <div style="display:grid; gap:12px; margin-top:10px">
+        <label>Anthropic API key (needed to find ideas and connections)
+          <input id="apiKey" type="password" autocomplete="off" placeholder="sk-ant-…">
+        </label>
+        <label class="check"><input id="rememberKey" type="checkbox"> Remember the key on this device</label>
+        <label>Model
+          <select id="model">
+            <option value="claude-opus-5-5">Claude Opus 5.5</option>
+            <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (faster)</option>
+          </select>
+        </label>
+        <label class="check"><input id="autoRead" type="checkbox" checked> Read the results aloud when they are ready</label>
+        <p class="hint">Without a key, each sentence becomes its own idea and no connections are found.</p>
+        <div class="row"><button id="newBtn" type="button">Start a new session</button></div>
+      </div>
+    </details>
+  </section>
+
+  <div id="announce" class="visually-hidden" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></div>
+</main>
+
+<script type="module">
+import Anthropic from "https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@0.131.0/+esm";
+
+const $ = (id) => document.getElementById(id);
+const KEY = "living-network:";
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(KEY + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(KEY + k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(KEY + k); } catch {} },
+};
+
+// ---------- Session state (saved on this device only) ----------
+const blank = () => ({ people: [], lines: [], ideas: [], links: [], current: null, extractedUpTo: 0, n: { p: 0, l: 0, i: 0 }, result: null });
+let S = Object.assign(blank(), store.get("session", {}));
+const save = () => store.set("session", S);
+
+const person = (id) => S.people.find(p => p.id === id);
+const nameOf = (id) => person(id)?.name ?? "Unknown";
+const colorOf = (id) => `var(--p${Math.max(0, S.people.findIndex(p => p.id === id)) % 6})`;
+const lineById = (id) => S.lines.find(l => l.id === id);
+const ideaById = (id) => S.ideas.find(i => i.id === id);
+const speakerOfIdea = (i) => lineById(i.lineId)?.speaker;
+// A link only counts when it joins two different people; reassigning a line can invalidate one.
+const validLinks = () => S.links.filter(k => { const a = ideaById(k.from), b = ideaById(k.to); return a && b && speakerOfIdea(a) !== speakerOfIdea(b); });
+
+function addPerson(name) {
+  name = name.trim().replace(/\s+/g, " ").slice(0, 40);
+  if (!name) return null;
+  const existing = S.people.find(p => p.name.toLowerCase() === name.toLowerCase());
+  if (existing) return existing;
+  const p = { id: "P" + (++S.n.p), name };
+  S.people.push(p); save(); return p;
+}
+function setCurrent(id, say = true) {
+  S.current = id; save(); renderPeople();
+  if (say) announce(`${nameOf(id)} is speaking.`);
+}
+
+// ---------- Announcements, errors, speech out ----------
+function announce(msg) { const a = $("announce"); a.textContent = ""; setTimeout(() => { a.textContent = msg; }, 30); }
+function showError(msg) { $("err").textContent = msg; $("err").hidden = false; }
+function hideError() { $("err").hidden = true; }
+function setStatus(on, text) { $("status").classList.toggle("on", on); $("statusText").textContent = text; }
+
+let speaking = false;
+function speak(text) {
+  return new Promise(resolve => {
+    if (!("speechSynthesis" in window)) return resolve();
+    speechSynthesis.cancel();
+    pauseRecognition();
+    const u = new SpeechSynthesisUtterance(text);
+    u.onend = u.onerror = () => { resumeRecognition(); resolve(); };
+    speechSynthesis.speak(u);
+  });
+}
+
+// ---------- Rendering ----------
+function renderPeople() {
+  const box = $("people"); box.replaceChildren();
+  S.people.forEach((p, idx) => {
+    const chip = document.createElement("span"); chip.className = "chip"; chip.style.setProperty("--pc", colorOf(p.id));
+    const pick = document.createElement("button"); pick.type = "button"; pick.className = "pick";
+    pick.textContent = (idx < 9 ? `${idx + 1}. ` : "") + p.name;
+    pick.setAttribute("aria-pressed", String(S.current === p.id));
+    pick.addEventListener("click", () => setCurrent(p.id));
+    const ren = document.createElement("button"); ren.type = "button"; ren.className = "ren";
+    ren.textContent = "Rename"; ren.setAttribute("aria-label", `Rename ${p.name}`);
+    ren.addEventListener("click", () => {
+      const v = prompt(`New name for ${p.name}`, p.name);
+      if (v && v.trim()) { p.name = v.trim().slice(0, 40); save(); renderAll(); announce(`Renamed to ${p.name}.`); }
+    });
+    chip.append(pick, ren); box.append(chip);
+  });
+}
+
+function speakerSelect(line) {
+  const sel = document.createElement("select");
+  sel.setAttribute("aria-label", `Speaker for: ${line.text.slice(0, 60)}`);
+  for (const p of S.people) { const o = new Option(p.name, p.id, false, p.id === line.speaker); sel.add(o); }
+  sel.style.setProperty("--pc", colorOf(line.speaker));
+  sel.addEventListener("change", () => { line.speaker = sel.value; save(); renderTranscript(); renderNetwork(); announce(`Line given to ${nameOf(sel.value)}.`); });
+  return sel;
+}
+function renderTranscript() {
+  const ol = $("transcript"); ol.replaceChildren();
+  for (const l of S.lines) {
+    const li = document.createElement("li");
+    const t = document.createElement("span"); t.textContent = l.text;
+    li.append(speakerSelect(l), t); ol.append(li);
+  }
+  $("tEmpty").hidden = S.lines.length > 0;
+  ol.scrollTop = ol.scrollHeight;
+}
+
+// Small hand-rolled force layout: people repel each other, ideas orbit their person, links pull ideas together.
+const pos = new Map();
+function seed(id) { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) | 0; return ((h >>> 0) % 1000) / 1000; }
+// Phones get a narrower canvas so nodes and labels stay readable when scaled down.
+let W = 1000, H = 680;
+function sizeCanvas() {
+  const narrow = $("net").clientWidth < 600;
+  const w = narrow ? 520 : 1000, h = narrow ? 720 : 680;
+  if (w !== W) pos.clear();
+  W = w; H = h; $("net").setAttribute("viewBox", `0 0 ${W} ${H}`);
+}
+function layout(nodes, edges) {
+  for (const n of nodes) {
+    if (pos.has(n.id)) Object.assign(n, pos.get(n.id));
+    else {
+      const anchor = n.owner && pos.get(n.owner);
+      const a = seed(n.id) * Math.PI * 2;
+      n.x = anchor ? anchor.x + Math.cos(a) * 90 : W / 2 + Math.cos(a) * 220;
+      n.y = anchor ? anchor.y + Math.sin(a) * 90 : H / 2 + Math.sin(a) * 180;
+    }
+    n.vx = 0; n.vy = 0;
+  }
+  const byId = new Map(nodes.map(n => [n.id, n]));
+  for (let step = 0; step < 300; step++) {
+    for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+      const a = nodes[i], b = nodes[j];
+      let dx = a.x - b.x, dy = a.y - b.y; const d2 = Math.max(dx * dx + dy * dy, 25);
+      const k = (a.space + b.space) * (a.space + b.space) * 0.6 / d2;
+      const d = Math.sqrt(d2); dx /= d; dy /= d;
+      a.vx += dx * k; a.vy += dy * k; b.vx -= dx * k; b.vy -= dy * k;
+    }
+    for (const e of edges) {
+      const a = byId.get(e.a), b = byId.get(e.b); if (!a || !b) continue;
+      const dx = b.x - a.x, dy = b.y - a.y, d = Math.max(Math.hypot(dx, dy), 1);
+      const f = (d - e.len) * e.k;
+      a.vx += dx / d * f; a.vy += dy / d * f; b.vx -= dx / d * f; b.vy -= dy / d * f;
+    }
+    for (const n of nodes) {
+      n.vx += (W / 2 - n.x) * 0.003; n.vy += (H / 2 - n.y) * 0.003;
+      n.x += Math.max(-20, Math.min(20, n.vx)); n.y += Math.max(-20, Math.min(20, n.vy));
+      n.vx *= 0.6; n.vy *= 0.6;
+      // Keep labels inside the frame: idea labels are wide, every label hangs below its circle.
+      const mx = n.kind === "idea" ? 100 : n.r + 30, mb = n.kind === "idea" ? 62 : n.r + 36;
+      n.x = Math.max(mx, Math.min(W - mx, n.x)); n.y = Math.max(n.r + 10, Math.min(H - mb, n.y));
+    }
+  }
+  for (const n of nodes) pos.set(n.id, { x: n.x, y: n.y });
+  return byId;
+}
+function wrap(text, max = 22, lines = 2) {
+  const words = text.split(/\s+/); const out = [""];
+  for (const w of words) {
+    if ((out[out.length - 1] + " " + w).trim().length <= max) out[out.length - 1] = (out[out.length - 1] + " " + w).trim();
+    else if (out.length < lines) out.push(w);
+    else { out[out.length - 1] = out[out.length - 1].replace(/.?$/, "…"); break; }
+  }
+  return out;
+}
+const svgEl = (tag, attrs = {}) => { const e = document.createElementNS("http://www.w3.org/2000/svg", tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
+
+function renderNetwork() {
+  const speakers = S.people.filter(p => S.lines.some(l => l.speaker === p.id));
+  const ideas = S.ideas.filter(i => lineById(i.lineId));
+  const links = validLinks();
+  const nodes = [
+    ...speakers.map(p => ({ id: p.id, kind: "person", r: 40, space: 95 })),
+    ...ideas.map(i => ({ id: i.id, kind: "idea", r: 16, space: 62, owner: speakerOfIdea(i) })),
+  ];
+  const edges = [
+    ...ideas.map(i => ({ a: i.id, b: speakerOfIdea(i), len: W < 600 ? 95 : 110, k: 0.08 })),
+    ...links.map(k => ({ a: k.from, b: k.to, len: W < 600 ? 130 : 170, k: 0.02 })),
+  ];
+  sizeCanvas();
+  const at = layout(nodes, edges);
+  const svg = $("net"); svg.replaceChildren();
+  const defs = svgEl("defs"); const m = svgEl("marker", { id: "arrow", viewBox: "0 0 10 10", refX: 10, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" });
+  m.append(svgEl("path", { d: "M0,0 L10,5 L0,10 z", fill: "var(--accent)" })); defs.append(m); svg.append(defs);
+  for (const i of ideas) {
+    const a = at.get(i.id), b = at.get(speakerOfIdea(i)); if (!a || !b) continue;
+    svg.append(svgEl("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: colorOf(speakerOfIdea(i)), "stroke-width": 2, opacity: 0.7 }));
+  }
+  for (const k of links) {
+    const a = at.get(k.from), b = at.get(k.to); if (!a || !b) continue;
+    const d = Math.max(Math.hypot(b.x - a.x, b.y - a.y), 1), ux = (b.x - a.x) / d, uy = (b.y - a.y) / d;
+    const ln = svgEl("line", { x1: a.x + ux * 18, y1: a.y + uy * 18, x2: b.x - ux * 20, y2: b.y - uy * 20, stroke: "var(--accent)", "stroke-width": 5, "stroke-dasharray": "12 6", "marker-end": "url(#arrow)" });
+    const t = svgEl("title"); t.textContent = `${nameOf(speakerOfIdea(ideaById(k.to)))} built on ${nameOf(speakerOfIdea(ideaById(k.from)))}: ${k.how}`; ln.append(t);
+    svg.append(ln);
+  }
+  for (const n of nodes) {
+    const g = svgEl("g", { transform: `translate(${n.x.toFixed(1)},${n.y.toFixed(1)})` });
+    if (n.kind === "person") {
+      g.append(svgEl("circle", { r: n.r, fill: colorOf(n.id), stroke: "var(--fg)", "stroke-width": 3 }));
+      const t = svgEl("text", { "text-anchor": "middle", y: n.r + 26, "font-size": 26, "font-weight": 700 }); t.textContent = nameOf(n.id); g.append(t);
+    } else {
+      const idea = ideaById(n.id);
+      g.append(svgEl("circle", { r: n.r, fill: "var(--bg)", stroke: colorOf(n.owner), "stroke-width": 5 }));
+      const t = svgEl("text", { "text-anchor": "middle", "font-size": 17 });
+      wrap(idea.text).forEach((s, idx) => { const ts = svgEl("tspan", { x: 0, y: n.r + 20 + idx * 19 }); ts.textContent = s; t.append(ts); });
+      const tt = svgEl("title"); tt.textContent = `${nameOf(n.owner)}: ${idea.text}`; g.append(tt, t);
+    }
+    svg.append(g);
+  }
+  $("netSum").textContent = ideas.length
+    ? `${speakers.length} ${speakers.length === 1 ? "person" : "people"}, ${ideas.length} ${ideas.length === 1 ? "idea" : "ideas"}, ${links.length} ${links.length === 1 ? "connection" : "connections"} between people.`
+    : "No ideas yet.";
+
+  const list = $("netList"); list.replaceChildren();
+  for (const p of speakers) {
+    const li = document.createElement("li"); const b = document.createElement("strong"); b.textContent = p.name; li.append(b);
+    const ul = document.createElement("ul");
+    for (const i of ideas.filter(i => speakerOfIdea(i) === p.id)) {
+      const ii = document.createElement("li"); ii.textContent = i.text;
+      for (const k of links.filter(k => k.to === i.id)) {
+        const src = ideaById(k.from);
+        ii.append(document.createTextNode(` — builds on ${nameOf(speakerOfIdea(src))}'s idea “${src.text}”: ${k.how}`));
+      }
+      ul.append(ii);
+    }
+    li.append(ul); list.append(li);
+  }
+}
+function renderAll() { renderPeople(); renderTranscript(); renderNetwork(); if (S.result) renderResults(S.result); }
+
+// ---------- Speech in ----------
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, recording = false;
+function startRecording() {
+  if (!SR) { showError("This browser can't turn speech into text. Use Chrome, Edge or Safari, or type lines instead."); return; }
+  if (!S.people.length) setCurrent(addPerson("Person 1").id, false);
+  if (!S.current) setCurrent(S.people[0].id, false);
+  rec = new SR(); rec.continuous = true; rec.interimResults = true; rec.lang = navigator.language || "en-US";
+  rec.onresult = (ev) => {
+    let interim = "";
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const r = ev.results[i];
+      if (r.isFinal) handleSpeech(r[0].transcript.trim()); else interim += r[0].transcript;
+    }
+    $("interim").textContent = interim;
+  };
+  rec.onerror = (ev) => {
+    if (ev.error === "not-allowed" || ev.error === "service-not-allowed") { showError("The microphone is blocked. Allow it in your browser's site settings, then press Record again."); stopRecording(); }
+  };
+  rec.onend = () => { if (recording && !speaking) { try { rec.start(); } catch {} } };
+  try { rec.start(); } catch {}
+  recording = true;
+  $("recBtn").setAttribute("aria-pressed", "true"); $("recBtn").textContent = "STOP RECORDING";
+  setStatus(true, `Recording. ${nameOf(S.current)} is speaking.`);
+}
+function stopRecording() {
+  recording = false; try { rec?.abort(); } catch {}
+  $("recBtn").setAttribute("aria-pressed", "false"); $("recBtn").textContent = "RECORD CONVERSATION";
+  $("interim").textContent = ""; setStatus(false, "Not recording");
+}
+function pauseRecognition() { speaking = true; if (recording) { try { rec.abort(); } catch {} } }
+function resumeRecognition() { speaking = false; if (recording) { try { rec.start(); } catch {} } }
+$("recBtn").addEventListener("click", () => recording ? stopRecording() : startRecording());
+
+// Spoken commands: names and controls are handled here and never become ideas.
+function handleSpeech(text) {
+  $("interim").textContent = "";
+  if (!text) return;
+  const t = text.toLowerCase().replace(/[.,!?]/g, "").trim();
+  if (/^show us what we (created|made)$/.test(t)) { showWhatWeCreated(true); return; }
+  if (/^stop recording$/.test(t)) { stopRecording(); announce("Recording stopped."); return; }
+  let m = text.match(/^(?:my name is|my name's)\s+([\p{L}'-]+)[.,!]?\s*(?:and\s+)?(.*)$/iu);
+  if (m) {
+    const p = addPerson(m[1].replace(/^\p{L}/u, c => c.toUpperCase()));
+    setCurrent(p.id); setStatus(true, `Recording. ${p.name} is speaking.`);
+    if (m[2]) addLine(m[2]);
+    return;
+  }
+  m = t.match(/^switch to\s+(.+)$/);
+  if (m) {
+    const p = S.people.find(p => p.name.toLowerCase() === m[1].trim());
+    if (p) { setCurrent(p.id); setStatus(true, `Recording. ${p.name} is speaking.`); return; }
+  }
+  addLine(text);
+}
+
+function addLine(text) {
+  if (!S.current) { if (!S.people.length) addPerson("Person 1"); S.current = S.people[0].id; renderPeople(); }
+  S.lines.push({ id: "L" + (++S.n.l), speaker: S.current, text: text.trim(), t: Date.now() });
+  S.result = null; save();
+  renderTranscript(); scheduleExtract();
+}
+$("typeForm").addEventListener("submit", (e) => { e.preventDefault(); const v = $("typeLine").value.trim(); if (!v) return; $("typeLine").value = ""; handleSpeech(v); });
+$("addForm").addEventListener("submit", (e) => {
+  e.preventDefault(); const p = addPerson($("addName").value); if (!p) return;
+  $("addName").value = ""; setCurrent(p.id); announce(`Added ${p.name}. ${p.name} is speaking.`);
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.target.matches("input, select, textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === "r" || e.key === "R") { e.preventDefault(); $("recBtn").click(); }
+  else if (e.key === "s" || e.key === "S") { e.preventDefault(); showWhatWeCreated(false); }
+  else if (/^[1-9]$/.test(e.key)) { const p = S.people[+e.key - 1]; if (p) { setCurrent(p.id); if (recording) setStatus(true, `Recording. ${p.name} is speaking.`); } }
+  else if (e.key === "Escape" && "speechSynthesis" in window) speechSynthesis.cancel();
+});
+
+// ---------- Claude ----------
+let client = null, clientKey = "";
+function getClient() {
+  const key = $("apiKey").value.trim(); if (!key) return null;
+  if (!client || key !== clientKey) { client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true }); clientKey = key; }
+  return client;
+}
+$("apiKey").value = store.get("apiKey", ""); $("rememberKey").checked = !!$("apiKey").value;
+const saveKey = () => { if ($("rememberKey").checked) store.set("apiKey", $("apiKey").value.trim()); else store.del("apiKey"); };
+$("apiKey").addEventListener("change", saveKey); $("rememberKey").addEventListener("change", saveKey);
+$("model").value = store.get("model", "claude-opus-5-5"); $("model").addEventListener("change", () => store.set("model", $("model").value));
+$("autoRead").checked = store.get("autoRead", true); $("autoRead").addEventListener("change", () => store.set("autoRead", $("autoRead").checked));
+
+async function askJson(prompt, schema, effort) {
+  const res = await getClient().beta.messages.create({
+    model: $("model").value,
+    max_tokens: 16000,
+    output_config: { effort, format: { type: "json_schema", schema } },
+    betas: ["server-side-fallback-2026-07-01"],
+    fallbacks: "default",
+    messages: [{ role: "user", content: prompt }],
+  });
+  if (res.stop_reason === "refusal") throw new Error("Claude declined to analyse this part of the conversation.");
+  const text = res.content.filter(b => b.type === "text").map(b => b.text).join("");
+  return JSON.parse(text);
+}
+function handleError(e) {
+  if (e instanceof Anthropic.AuthenticationError) return showError("Anthropic rejected the API key. Check it in Settings.");
+  if (e instanceof Anthropic.RateLimitError) return showError("Too many requests to Claude. It will catch up on the next line.");
+  if (e instanceof Anthropic.APIConnectionError) return showError("Couldn't reach Claude. Check the internet connection.");
+  if (e instanceof Anthropic.APIError) return showError(`Claude API error ${e.status ?? ""}: ${e.message}`);
+  showError(e?.message || String(e));
+}
+
+const RULES = `You help a group hear its own thinking. You must NEVER contribute ideas of your own.
+Only extract and connect what the humans actually said. If nobody said it, it does not exist.`;
+
+const EXTRACT_SCHEMA = {
+  type: "object", additionalProperties: false, required: ["ideas", "connections"],
+  properties: {
+    ideas: { type: "array", items: { type: "object", additionalProperties: false, required: ["key", "line_id", "text", "quote"],
+      properties: { key: { type: "string" }, line_id: { type: "string" }, text: { type: "string" }, quote: { type: "string" } } } },
+    connections: { type: "array", items: { type: "object", additionalProperties: false, required: ["from", "to", "how"],
+      properties: { from: { type: "string" }, to: { type: "string" }, how: { type: "string" } } } },
+  },
+};
+
+const norm = (s) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+let extractTimer = null, extracting = false;
+function scheduleExtract() { clearTimeout(extractTimer); extractTimer = setTimeout(extract, 2500); }
+
+// Turn new lines into short ideas and find where a later idea builds on another person's earlier one.
+async function extract() {
+  if (extracting || S.extractedUpTo >= S.lines.length) return;
+  const fresh = S.lines.slice(S.extractedUpTo);
+  const upTo = S.lines.length;
+  if (!getClient()) {
+    // No key: every sentence stands as its own idea, in the speaker's exact words.
+    for (const l of fresh) S.ideas.push({ id: "I" + (++S.n.i), lineId: l.id, text: l.text.split(/\s+/).slice(0, 12).join(" "), quote: l.text });
+    S.extractedUpTo = upTo; save(); renderNetwork(); return;
+  }
+  extracting = true;
+  const ideasSoFar = S.ideas.slice(-60).map(i => `${i.id} [${nameOf(speakerOfIdea(i))}] ${i.text}`).join("\n") || "(none)";
+  const context = S.lines.slice(Math.max(0, S.extractedUpTo - 20), S.extractedUpTo).map(l => `${l.id} [${nameOf(l.speaker)}] ${l.text}`).join("\n") || "(none)";
+  const newLines = fresh.map(l => `${l.id} [${nameOf(l.speaker)}] ${l.text}`).join("\n");
+  const prompt = `${RULES}
+
+Ideas already on the map:
+${ideasSoFar}
+
+Earlier lines, for context:
+${context}
+
+NEW lines to process (speech-to-text, may contain errors):
+${newLines}
+
+1. ideas: for each NEW line that contains a real idea, proposal, question, concern or piece of knowledge, extract it.
+   - key: "N1", "N2", … for each new idea.
+   - line_id: the line it came from.
+   - quote: the exact words from that line that carry the idea (copied verbatim).
+   - text: the idea in 3–10 words, in the speaker's own words where possible. Add nothing they did not say.
+   Skip filler, greetings and pure agreement ("yeah", "ok"). A line may hold zero, one or several ideas.
+2. connections: where an idea builds on, answers, extends or challenges an idea from a DIFFERENT person.
+   - from: the earlier idea (an existing id like "I3", or a new key like "N1").
+   - to: the later idea that builds on it (always one of the new keys).
+   - how: under 12 words, describing only the relationship.
+   Only include connections that are clearly there in what was said.`;
+  try {
+    const out = await askJson(prompt, EXTRACT_SCHEMA, "low");
+    const keyToId = new Map();
+    for (const it of out.ideas || []) {
+      const line = fresh.find(l => l.id === it.line_id);
+      // Guard: the quote must really appear in what the person said, otherwise the idea is dropped.
+      if (!line || !it.text?.trim() || !it.quote || !norm(line.text).includes(norm(it.quote))) continue;
+      const idea = { id: "I" + (++S.n.i), lineId: line.id, text: it.text.trim().slice(0, 90), quote: it.quote };
+      S.ideas.push(idea); keyToId.set(it.key, idea.id);
+      announce(`New idea from ${nameOf(line.speaker)}: ${idea.text}`);
+    }
+    for (const c of out.connections || []) {
+      const from = keyToId.get(c.from) || (ideaById(c.from) ? c.from : null);
+      const to = keyToId.get(c.to);
+      if (!from || !to || from === to) continue;
+      if (speakerOfIdea(ideaById(from)) === speakerOfIdea(ideaById(to))) continue;
+      S.links.push({ from, to, how: (c.how || "").trim().slice(0, 100) });
+      announce(`Connection: ${nameOf(speakerOfIdea(ideaById(to)))} built on ${nameOf(speakerOfIdea(ideaById(from)))}'s idea.`);
+    }
+    S.extractedUpTo = upTo; save(); hideError(); renderNetwork();
+  } catch (e) { handleError(e); }
+  finally { extracting = false; if (S.extractedUpTo < S.lines.length) scheduleExtract(); }
+}
+
+// ---------- Show us what we created ----------
+const SYNTH_SCHEMA = {
+  type: "object", additionalProperties: false, required: ["people", "emergent"],
+  properties: {
+    people: { type: "array", items: { type: "object", additionalProperties: false, required: ["name", "brought"],
+      properties: { name: { type: "string" }, brought: { type: "string" } } } },
+    emergent: { type: "array", items: { type: "object", additionalProperties: false, required: ["idea", "line_ids"],
+      properties: { idea: { type: "string" }, line_ids: { type: "array", items: { type: "string" } } } } },
+  },
+};
+
+async function showWhatWeCreated(byVoice) {
+  if (!S.lines.length) { announce("Nothing has been said yet."); return; }
+  const btn = $("showBtn"); btn.disabled = true; btn.textContent = "LISTENING TO THE WHOLE…";
+  announce("Putting it together.");
+  try {
+    clearTimeout(extractTimer);
+    while (extracting) await new Promise(r => setTimeout(r, 300));
+    await extract();
+    let result = { people: [], emergent: [] };
+    if (getClient()) {
+      const lines = S.lines.map(l => `${l.id} [${nameOf(l.speaker)}] ${l.text}`).join("\n");
+      const links = validLinks().map(k => `${k.from} → ${k.to}: ${k.how}`).join("\n") || "(none)";
+      const ideas = S.ideas.map(i => `${i.id} (from ${i.lineId}) [${nameOf(speakerOfIdea(i))}] ${i.text}`).join("\n");
+      const out = await askJson(`${RULES}
+
+The full conversation (line id, [speaker], words):
+${lines}
+
+Ideas extracted:
+${ideas}
+
+Connections found between people:
+${links}
+
+1. people: for each speaker, ONE plain sentence describing what they brought to the conversation, based only on their own lines.
+2. emergent: conclusions that no single person stated, but that follow from combining statements by TWO OR MORE different people.
+   - idea: one short sentence.
+   - line_ids: every line that produced it. It must cite lines from at least two different speakers.
+   Each emergent idea must be fully supported by the cited lines: do not add facts, advice or opinions of your own.
+   If nothing genuinely emerges, return an empty list.`, SYNTH_SCHEMA, "medium");
+      const speakerIds = new Set(S.lines.map(l => l.speaker));
+      result.people = (out.people || []).filter(p => [...speakerIds].some(id => nameOf(id).toLowerCase() === p.name.trim().toLowerCase()));
+      // Guard: an emergent idea counts only if it cites real lines from at least two people.
+      result.emergent = (out.emergent || []).map(e => ({ idea: e.idea.trim(), lineIds: [...new Set(e.line_ids)].filter(id => lineById(id)) }))
+        .filter(e => e.idea && new Set(e.lineIds.map(id => lineById(id).speaker)).size >= 2);
+    } else {
+      showError("Add an Anthropic API key in Settings to find connections and emergent ideas.");
+    }
+    S.result = result; save(); hideError();
+    renderResults(result);
+    $("results").focus();
+    if (byVoice || $("autoRead").checked) readResults();
+  } catch (e) { handleError(e); }
+  finally { btn.disabled = false; btn.textContent = "SHOW US WHAT WE CREATED"; }
+}
+$("showBtn").addEventListener("click", () => showWhatWeCreated(false));
+
+function statementList(lineIds) {
+  const ul = document.createElement("ul"); ul.className = "from"; ul.setAttribute("aria-label", "From these statements");
+  for (const id of lineIds) {
+    const l = lineById(id); if (!l) continue;
+    const li = document.createElement("li"); li.style.setProperty("--pc", colorOf(l.speaker));
+    const b = document.createElement("b"); b.textContent = nameOf(l.speaker) + ": ";
+    li.append(b, document.createTextNode(`“${l.text}”`)); ul.append(li);
+  }
+  return ul;
+}
+function renderResults(r) {
+  $("results").hidden = false;
+  const brought = $("brought"); brought.replaceChildren();
+  for (const p of S.people.filter(p => S.lines.some(l => l.speaker === p.id))) {
+    const li = document.createElement("li"); const b = document.createElement("strong"); b.textContent = p.name + ": ";
+    const found = r.people.find(x => x.name.trim().toLowerCase() === p.name.toLowerCase());
+    li.append(b, document.createTextNode(found ? found.brought : `${S.ideas.filter(i => speakerOfIdea(i) === p.id).length} ideas shared.`));
+    brought.append(li);
+  }
+  const conns = $("conns"); conns.replaceChildren();
+  const links = validLinks();
+  for (const k of links) {
+    const a = ideaById(k.from), b = ideaById(k.to);
+    const li = document.createElement("li");
+    li.append(document.createTextNode(`${nameOf(speakerOfIdea(b))} built on ${nameOf(speakerOfIdea(a))}: ${k.how}`), statementList([a.lineId, b.lineId]));
+    conns.append(li);
+  }
+  if (!links.length) conns.append(Object.assign(document.createElement("li"), { textContent: "No connections between people were found yet." }));
+  const em = $("emergent"); em.replaceChildren();
+  for (const e of r.emergent) {
+    const li = document.createElement("li"); const s = document.createElement("strong"); s.textContent = e.idea;
+    li.append(s, statementList(e.lineIds)); em.append(li);
+  }
+  if (!r.emergent.length) em.append(Object.assign(document.createElement("li"), { textContent: "No emergent ideas yet. Keep talking and building on each other." }));
+  $("cHuman").textContent = S.ideas.filter(i => lineById(i.lineId)).length;
+  $("cConn").textContent = links.length;
+  $("cEmerg").textContent = r.emergent.length;
+}
+function readResults() {
+  const r = S.result; if (!r) return;
+  const parts = ["What each person brought."];
+  for (const li of $("brought").children) parts.push(li.textContent);
+  parts.push(`Emergent ideas: ${r.emergent.length}.`);
+  r.emergent.forEach((e, i) => parts.push(`${i + 1}. ${e.idea}. From ${[...new Set(e.lineIds.map(id => nameOf(lineById(id).speaker)))].join(" and ")}.`));
+  parts.push(`Human contributions: ${$("cHuman").textContent}. Connections found: ${$("cConn").textContent}. AI-originated ideas: zero.`);
+  parts.push("The people are the intelligence. AI helps them hear the whole.");
+  speak(parts.join(" "));
+}
+$("readBtn").addEventListener("click", readResults);
+
+$("newBtn").addEventListener("click", () => {
+  if (!confirm("Clear this conversation and start a new session?")) return;
+  stopRecording(); S = blank(); pos.clear(); save(); $("results").hidden = true; renderAll(); announce("New session started.");
+});
+
+renderAll();
+let resizeT; addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(renderNetwork, 200); });
+if (S.extractedUpTo < S.lines.length) scheduleExtract();
+</script>
+</body>
+</html>
