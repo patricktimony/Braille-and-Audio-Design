@@ -40,10 +40,12 @@ Each search uses about 200 of YouTube's free 10,000 daily quota units and is cac
 The Mac must stay awake with Terminal open while you use it.
 
 **Option B: host it online (works anywhere, Mac can be off).**
-The repo includes `render.yaml` for [Render](https://render.com):
+The repo includes `render.yaml` for [Render](https://render.com). One tap:
 
-1. Sign in to Render with GitHub → **New** → **Blueprint** → choose this repository.
-2. When asked, fill in `APP_PASSWORD` (pick one; it stops strangers from spending your API credits) and your API keys.
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/patricktimony/Braille-and-Audio-Design/tree/claude/social-mirror)
+
+1. Sign in to Render with GitHub.
+2. Fill in `APP_PASSWORD` (pick one; it stops strangers from spending your API credits), `YOUTUBE_API_KEY` and `ANTHROPIC_API_KEY`, then tap **Deploy Blueprint**. To add Reddit later, use the service's **Environment** tab.
 3. When the deploy finishes, open the `https://social-mirror-….onrender.com` address on your iPhone and enter the password (any username).
 
 The free plan sleeps when idle; the first visit after a while takes about a minute to wake up.
