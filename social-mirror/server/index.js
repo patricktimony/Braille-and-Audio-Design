@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import express from 'express';
+import { timingSafeEqual } from 'node:crypto';
 import { existsSync } from 'node:fs';
+import { networkInterfaces } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cached } from './cache.js';
@@ -12,6 +14,21 @@ import {
 import { demoComments, demoLabels } from './demo.js';
 
 const app = express();
+app.get('/healthz', (_req, res) => res.send('ok')); // for hosting health checks; reveals nothing
+
+// Optional password for when the app is reachable by others (hosted, or on shared Wi-Fi),
+// so strangers can't spend your API credits. Any username works; the password must match.
+const APP_PASSWORD = (process.env.APP_PASSWORD || '').trim();
+if (APP_PASSWORD) {
+  app.use((req, res, next) => {
+    const [scheme, encoded] = (req.headers.authorization || '').split(' ');
+    const given = Buffer.from(scheme === 'Basic' && encoded ? Buffer.from(encoded, 'base64').toString().split(':').slice(1).join(':') : '');
+    const want = Buffer.from(APP_PASSWORD);
+    if (given.length === want.length && timingSafeEqual(given, want)) return next();
+    res.set('WWW-Authenticate', 'Basic realm="Social Mirror", charset="UTF-8"').status(401).send('Password required.');
+  });
+}
+
 app.use(express.json());
 
 // Node's fetch reports network failures as a bare "fetch failed"; surface the underlying cause.
@@ -174,4 +191,16 @@ const port = Number(process.env.PORT || 3001);
 app.listen(port, () => {
   const k = keys();
   console.log(`Social Mirror API on http://localhost:${port}  keys: youtube=${k.youtube} anthropic=${k.anthropic} reddit=${k.reddit}`);
+  if (process.env.NODE_ENV === 'production') {
+    console.log(`\n  Open on this computer:  http://localhost:${port}`);
+    for (const ip of lanAddresses()) console.log(`  Open on your phone:     http://${ip}:${port}   (same Wi-Fi)`);
+    console.log(APP_PASSWORD ? '  Password protection: ON\n' : '  Password protection: off (set APP_PASSWORD in .env to turn it on)\n');
+  }
 });
+
+function lanAddresses() {
+  return Object.values(networkInterfaces())
+    .flat()
+    .filter((a) => a && a.family === 'IPv4' && !a.internal)
+    .map((a) => a.address);
+}

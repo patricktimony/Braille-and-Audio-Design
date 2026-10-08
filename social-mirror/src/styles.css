@@ -119,6 +119,16 @@ button:disabled { opacity: 0.6; cursor: progress; }
   line-height: 1.15;
   font-weight: 700;
   border-radius: 8px;
+  font-size: calc(1.05rem + var(--s) * 2.4rem);
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .word { font-size: calc(0.95rem + var(--s) * 1.5rem); }
+  .cloud { min-height: 0; }
+}
+/* Touch screens: at least 44px tap targets (Apple's guideline). */
+@media (pointer: coarse) {
+  .word, .chip, button, input { min-height: 44px; }
 }
 .word:hover { border-color: var(--line); }
 .word[aria-pressed='true'] { border-color: currentColor; background: color-mix(in srgb, currentColor 12%, transparent); }

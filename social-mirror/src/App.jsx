@@ -123,7 +123,7 @@ export default function App() {
             <div className="video">
               {data.video.id ? (
                 <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${data.video.id}`}
+                  src={`https://www.youtube-nocookie.com/embed/${data.video.id}?playsinline=1`}
                   title={`YouTube video: ${data.video.title}`}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
@@ -225,7 +225,7 @@ function WordCloud({ terms, selected, onSelect, aiStatus }) {
             <button
               type="button"
               className={`word ${t.polarity}`}
-              style={{ fontSize: `${1.05 + scale * 2.4}rem` }}
+              style={{ '--s': scale }}
               aria-pressed={selected === t.term}
               aria-label={`${t.term}: ${plural(t.commenters, 'commenter')}, ${p.label}, ${CATEGORY_LABELS[t.category]}`}
               onClick={() => onSelect(selected === t.term ? null : t.term)}

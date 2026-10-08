@@ -15,6 +15,27 @@ Open **http://localhost:5173**. The API server runs on port 3001, and Vite proxi
 
 **Demo mode** works with no keys. It uses clearly labeled, fictional sample data.
 
+## Use it on your iPhone
+
+**Option A: from your Mac on the same Wi-Fi (free, simplest).**
+
+1. On the Mac, run `npm start` (not `npm run dev`). It prints a line like
+   `Open on your phone: http://192.168.1.23:3001`.
+2. Type that address into Safari on the iPhone. The phone and Mac must be on the same Wi-Fi.
+3. If macOS asks whether to allow **node** to accept incoming connections, click **Allow**.
+4. Optional: in Safari, tap Share → **Add to Home Screen** to get an app icon.
+
+The Mac must stay awake with Terminal open while you use it.
+
+**Option B: host it online (works anywhere, Mac can be off).**
+The repo includes `render.yaml` for [Render](https://render.com):
+
+1. Sign in to Render with GitHub → **New** → **Blueprint** → choose this repository.
+2. When asked, fill in `APP_PASSWORD` (pick one; it stops strangers from spending your API credits) and your API keys.
+3. When the deploy finishes, open the `https://social-mirror-….onrender.com` address on your iPhone and enter the password (any username).
+
+The free plan sleeps when idle; the first visit after a while takes about a minute to wake up.
+
 ## API keys (server only, in `social-mirror/.env`)
 
 | Variable | Needed for | Where to get it |
@@ -22,6 +43,7 @@ Open **http://localhost:5173**. The API server runs on port 3001, and Vite proxi
 | `YOUTUBE_API_KEY` | Real YouTube comments | Google Cloud Console → enable **YouTube Data API v3** → Credentials → Create API key |
 | `ANTHROPIC_API_KEY` | Building the word cloud (AI labeling) | https://console.anthropic.com → API keys |
 | `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USER_AGENT` | Reddit comments (optional) | https://www.reddit.com/prefs/apps → create app → type **script** |
+| `APP_PASSWORD` | Optional password prompt (any username) | Choose one. Recommended when hosted or on shared Wi-Fi |
 
 Restart `npm run dev` after editing `.env`. The header shows which keys the server sees. Keys never reach the browser.
 

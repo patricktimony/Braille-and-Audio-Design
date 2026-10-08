@@ -1,0 +1,26 @@
+# One-click hosting for social-mirror/ on Render (https://render.com).
+# Render → New → Blueprint → pick this repo. It will ask for the secret values below.
+services:
+  - type: web
+    name: social-mirror
+    runtime: node
+    rootDir: social-mirror
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: node server/index.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_PASSWORD
+        sync: false
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: REDDIT_CLIENT_ID
+        sync: false
+      - key: REDDIT_CLIENT_SECRET
+        sync: false
+      - key: REDDIT_USER_AGENT
+        sync: false
