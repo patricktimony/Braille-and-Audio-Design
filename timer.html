@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<title>Talking Timer</title>
+<style>
+  :root {
+    --bg: #000000;
+    --fg: #ffffff;
+    --accent: #ffe600;
+    --alarm-bg: #ffe600;
+    --alarm-fg: #000000;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, system-ui, "Helvetica Neue", Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior: none;
+  }
+  #main {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+    border: 8px solid var(--accent);
+    border-radius: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    text-align: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  #main:focus-visible { outline: 6px solid var(--fg); outline-offset: -20px; }
+  #main.ringing { background: var(--alarm-bg); color: var(--alarm-fg); border-color: var(--alarm-fg); }
+  #headline {
+    font-size: clamp(2rem, 9vw, 4.5rem);
+    font-weight: 800;
+    line-height: 1.15;
+    color: var(--accent);
+  }
+  #main.ringing #headline { color: var(--alarm-fg); }
+  #timers {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: clamp(1.75rem, 8vw, 4rem);
+    font-weight: 700;
+    line-height: 1.25;
+    font-variant-numeric: tabular-nums;
+  }
+  #last {
+    font-size: clamp(1.25rem, 5.5vw, 2.25rem);
+    font-weight: 600;
+    line-height: 1.3;
+    max-width: 30ch;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    margin: -1px; padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+</style>
+</head>
+<body>
+  <button id="main" type="button" aria-label="Tap anywhere to start listening">
+    <span id="headline" aria-hidden="true">Tap anywhere to start listening</span>
+    <ul id="timers" aria-hidden="true"></ul>
+    <span id="last" aria-hidden="true"></span>
+  </button>
+  <div id="status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<script>
+"use strict";
+
+// ---------------------------------------------------------------------------
+// PARSER-START  (pure functions; tested in Node before publishing)
+// ---------------------------------------------------------------------------
+const ONES = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7,
+  eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13,
+  fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18,
+  nineteen: 19
+};
+const TENS = {
+  twenty: 20, thirty: 30, forty: 40, fourty: 40, fifty: 50, sixty: 60,
+  seventy: 70, eighty: 80, ninety: 90
+};
+const UNIT_MS = { h: 3600000, m: 60000, s: 1000 };
+const UNIT_RE = "(hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)";
+
+// Words that are never part of a timer's name.
+const NAME_STOP = new Set((
+  "a an the my your our this that another new second first next other " +
+  "set start create make add begin put give run " +
+  "please hey hi okay ok so um uh oh and can could would will you i me we " +
+  "want need like to for of on in with up called named " +
+  "cancel stop delete remove clear kill end turn off silence dismiss " +
+  "how much long time is left remaining whats what check status about " +
+  "all every everything any " +
+  "hour hours hr hrs minute minutes min mins second seconds sec secs h m s"
+).split(" "));
+
+function unitKey(u) {
+  if (u[0] === "h") return "h";
+  if (u[0] === "m") return "m";
+  return "s";
+}
+
+// Lowercase, strip punctuation, split "5min" into "5 min", turn hyphens into spaces.
+function normalize(text) {
+  let t = String(text).toLowerCase();
+  t = t.replace(/[’']/g, "");
+  t = t.replace(/(\d),(\d{3})/g, "$1$2");
+  t = t.replace(/-/g, " ");
+  t = t.replace(/[^a-z0-9.: ]+/g, " ");
+  t = t.replace(/(\d)\.(?!\d)/g, "$1 ");     // trailing sentence period
+  t = t.replace(/\.(?!\d)/g, " ");
+  t = t.replace(/(\d)([a-z])/g, "$1 $2");
+  t = t.replace(/([a-z])(\d)/g, "$1 $2");
+  return t.replace(/\s+/g, " ").trim();
+}
+
+// "one hundred and five" -> "105", "twenty five" -> "25". Separate numbers stay separate.
+function wordsToDigits(t) {
+  const w = t.split(" ");
+  const out = [];
+  let i = 0;
+  while (i < w.length) {
+    const first = w[i];
+    if (!(first in ONES) && !(first in TENS)) { out.push(first); i++; continue; }
+    let cur = 0, last = null, j = i;
+    while (j < w.length) {
+      const tok = w[j];
+      if (tok in ONES) {
+        const v = ONES[tok];
+        if (last === "ones" || last === "teen") break;
+        if (last === "tens" && (v >= 10 || v === 0)) break;
+        cur += v; last = v >= 10 ? "teen" : "ones";
+      } else if (tok in TENS) {
+        if (last !== null && last !== "hundred" && last !== "and") break;
+        cur += TENS[tok]; last = "tens";
+      } else if (tok === "hundred") {
+        if (last !== "ones" && last !== "teen" && last !== "tens") break;
+        cur *= 100; last = "hundred";
+      } else if (tok === "and" && last === "hundred" && j + 1 < w.length &&
+                 (w[j + 1] in ONES || w[j + 1] in TENS)) {
+        last = "and";
+      } else {
+        break;
+      }
+      j++;
+    }
+    out.push(String(cur));
+    i = j;
+  }
+  return out.join(" ");
+}
+
+// Full preprocessing: normalize, fractions, number words, "an hour" -> "1 hour".
+function prepare(text) {
+  let t = normalize(text);
+  t = t.replace(/\b(?:a )?half (?:an |a )?hour\b/g, "30 minutes");
+  t = t.replace(/\b(?:a )?half (?:a )?minute\b/g, "30 seconds");
+  t = t.replace(/\bthree quarters? of an hour\b/g, "45 minutes");
+  t = t.replace(/\b(?:a )?quarter (?:of an )?hour\b/g, "15 minutes");
+  t = t.replace(/\ba couple(?: of)?\b/g, "2");
+  t = t.replace(/\ba hundred\b/g, "one hundred");
+  t = wordsToDigits(t);
+  // "an hour" -> "1 hour", but "a second timer" means another timer.
+  t = t.replace(/\b(?:a|an)\s+(hours?|minutes?|seconds?|hrs?|mins?|secs?)\b(?!\s+timers?\b)/g, "1 $1");
+  // Common mis-hearings: "two minutes" -> "to minutes", "four minutes" -> "for minutes".
+  t = t.replace(/\b(?:to|too)\s+(hours?|minutes?|seconds?)\b/g, "2 $1");
+  t = t.replace(/\bfor\s+(hours?|minutes?|seconds?)\b/g, "4 $1");
+  // "1 and a half minutes" / "1 hour and a half"
+  t = t.replace(/(\d+(?:\.\d+)?) and a half (hours?|minutes?|seconds?)\b/g,
+    (_, n, u) => (parseFloat(n) + 0.5) + " " + u);
+  t = t.replace(/(\d+(?:\.\d+)?) (hours?|minutes?|seconds?) and a half\b/g,
+    (_, n, u) => (parseFloat(n) + 0.5) + " " + u);
+  return t.replace(/\s+/g, " ").trim();
+}
+
+// Returns total milliseconds named in prepared text, or 0 if no unit was found.
+function extractDuration(t) {
+  let ms = 0;
+  const clock = t.match(/\b(\d{1,2}):(\d{2})(?::(\d{2}))?\b/);
+  if (clock) {
+    if (clock[3] !== undefined) ms += (+clock[1]) * 3600000 + (+clock[2]) * 60000 + (+clock[3]) * 1000;
+    else ms += (+clock[1]) * 60000 + (+clock[2]) * 1000;
+  }
+  const re = new RegExp("(\\d+(?:\\.\\d+)?)\\s*" + UNIT_RE + "\\b", "g");
+  let m;
+  while ((m = re.exec(t)) !== null) ms += parseFloat(m[1]) * UNIT_MS[unitKey(m[2])];
+  return Math.round(ms);
+}
+
+function cleanName(s) {
+  const words = s.split(" ").filter(Boolean);
+  while (words.length && NAME_STOP.has(words[0])) words.shift();
+  while (words.length && NAME_STOP.has(words[words.length - 1])) words.pop();
+  if (words.some(w => /\d/.test(w))) return "";
+  return words.slice(0, 3).join(" ");
+}
+
+// "set a pasta timer", "timer called pasta", "timer for the eggs for 5 minutes"
+function extractName(t) {
+  let m = t.match(/\b(?:called|named|labell?ed)\s+(.+?)(?=\s+(?:for|timer|timers|with|at|in)\b|\s+\d|$)/);
+  if (m) { const n = cleanName(m[1]); if (n) return n; }
+  m = t.match(/\btimers?\s+for\s+(?!\d)(.+?)(?=\s+(?:for|in)\b|\s+\d|$)/);
+  if (m) { const n = cleanName(m[1]); if (n) return n; }
+  const idx = t.search(/\btimers?\b/);
+  if (idx > 0) {
+    const words = t.slice(0, idx).trim().split(" ");
+    const out = [];
+    for (let k = words.length - 1; k >= 0 && out.length < 3; k--) {
+      const w = words[k];
+      if (NAME_STOP.has(w) || /\d/.test(w)) break;
+      out.unshift(w);
+    }
+    return out.join(" ");
+  }
+  return "";
+}
+
+// Turns a heard phrase into a command object.
+function parseCommand(text) {
+  const t = prepare(text);
+  const ms = extractDuration(t);
+  const name = extractName(t);
+  const has = re => re.test(t);
+
+  if (!t) return { type: "none", text: t };
+  if (has(/\b(help|what can i say|what can you do|commands|instructions)\b/)) return { type: "help", text: t };
+  if (has(/\b(cancel|stop|delete|remove|clear|kill|turn off|silence|dismiss|never ?mind|quiet|shut up|enough)\b/)) {
+    if (has(/\b(all|every|everything)\b/)) return { type: "cancelAll", text: t };
+    return { type: "cancel", name, ms, text: t };
+  }
+  if (has(/\b(how (much|long)|left|remaining|remain|status|check|whats the time|what time|time is it|list|what timers)\b/)) {
+    return { type: "left", name, ms, text: t };
+  }
+  if (ms > 0) return { type: "set", ms, name, text: t };
+  if (has(/\b(timers?|set|start)\b/)) {
+    const bare = t.match(/\b(\d+(?:\.\d+)?)\b/);
+    if (bare) return { type: "set", ms: Math.round(parseFloat(bare[1]) * 60000), name, assumedMinutes: true, text: t };
+    return { type: "setNoTime", name, text: t };
+  }
+  const bare = t.match(/^(?:for )?(\d+(?:\.\d+)?)$/);
+  if (bare) return { type: "bareNumber", ms: Math.round(parseFloat(bare[1]) * 60000), text: t };
+  return { type: "unknown", text: t };
+}
+
+function plural(n, word) { return n + " " + word + (n === 1 ? "" : "s"); }
+
+// 4500000 -> "1 hour and 15 minutes"
+function speakDuration(ms) {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), s = total % 60;
+  const parts = [];
+  if (h) parts.push(plural(h, "hour"));
+  if (m) parts.push(plural(m, "minute"));
+  if (s) parts.push(plural(s, "second"));
+  if (!parts.length) return "0 seconds";
+  if (parts.length === 1) return parts[0];
+  return parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1];
+}
+
+// 4500000 -> "1 hour 15 minute" (as in "your 1 hour 15 minute timer")
+function adjDuration(ms) {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), s = total % 60;
+  const parts = [];
+  if (h) parts.push(h + " hour");
+  if (m) parts.push(m + " minute");
+  if (s) parts.push(s + " second");
+  return parts.join(" ") || "0 second";
+}
+// PARSER-END
+// ---------------------------------------------------------------------------
+
+const MAX_MS = 24 * 3600000;
+const HELP_TEXT =
+  "You can say: Set a timer for 5 minutes. " +
+  "Set a pasta timer for 10 minutes. " +
+  "Timer 1 hour 15 minutes. " +
+  "How much time is left. " +
+  "Cancel the timer. Cancel the pasta timer. Cancel all timers. " +
+  "When an alarm rings, say stop, or tap the screen. " +
+  "Tap the screen at any time to hear your timers.";
+
+const els = {
+  main: document.getElementById("main"),
+  headline: document.getElementById("headline"),
+  timers: document.getElementById("timers"),
+  last: document.getElementById("last"),
+  status: document.getElementById("status"),
+};
+
+const state = {
+  started: false,
+  timers: [],          // { id, name, total, deadline }
+  nextId: 1,
+  ringing: [],         // timers that have finished and are still alarming
+  pendingSet: null,    // { name, until } after "set a timer" with no length
+  wakeLock: null,
+  wakeLockWarned: false,
+};
+
+// ---------------- Status (VoiceOver live region + large visual text) -------
+// The live region gets short status only. Full sentences (with durations) are
+// spoken by speechSynthesis, so VoiceOver doesn't read numbers back into the mic.
+function setStatus(short) {
+  els.status.textContent = "";
+  setTimeout(() => { els.status.textContent = short; }, 50);
+}
+function setButtonLabel() {
+  let label;
+  if (!state.started) label = "Tap anywhere to start listening";
+  else if (state.ringing.length) label = "Alarm ringing. Tap anywhere to stop the alarm.";
+  else label = "Talking timer is listening. Tap anywhere to hear your timers.";
+  els.main.setAttribute("aria-label", label);
+}
+
+// ---------------- Speech output -------------------------------------------
+const speech = { queue: [], speaking: false, endedAt: 0, current: null, failsafe: 0 };
+
+function pickVoice() {
+  const voices = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+  const lang = (navigator.language || "en-US").toLowerCase();
+  return voices.find(v => v.lang && v.lang.toLowerCase() === lang && v.localService) ||
+         voices.find(v => v.lang && v.lang.toLowerCase().startsWith("en") && v.localService) ||
+         null;
+}
+
+// speak(text, {interrupt, onDone})
+function speak(text, opts = {}) {
+  els.last.textContent = text;
+  if (!window.speechSynthesis) { if (opts.onDone) setTimeout(opts.onDone, 0); return; }
+  if (opts.interrupt) {
+    speech.queue.length = 0;
+    if (speech.speaking) { speech.current = null; speechSynthesis.cancel(); speech.speaking = false; }
+  }
+  speech.queue.push({ text, onDone: opts.onDone });
+  if (!speech.speaking) speakNext();
+}
+
+function speakNext() {
+  const item = speech.queue.shift();
+  if (!item) {
+    speech.speaking = false;
+    speech.endedAt = Date.now();
+    resumeListening();
+    return;
+  }
+  speech.speaking = true;
+  pauseListening();
+  const u = new SpeechSynthesisUtterance(item.text);
+  const v = pickVoice();
+  if (v) u.voice = v;
+  u.lang = (v && v.lang) || navigator.language || "en-US";
+  u.rate = 1;
+  u.volume = 1;
+  speech.current = u;
+  let finished = false;
+  const done = () => {
+    if (finished || speech.current !== u) return;
+    finished = true;
+    clearTimeout(speech.failsafe);
+    speech.current = null;
+    if (item.onDone) { try { item.onDone(); } catch (e) {} }
+    speakNext();
+  };
+  u.onend = done;
+  u.onerror = done;
+  // iOS sometimes never fires onend; don't get stuck.
+  clearTimeout(speech.failsafe);
+  speech.failsafe = setTimeout(done, 2500 + item.text.length * 90);
+  speechSynthesis.speak(u);
+}
+
+// ---------------- Speech input --------------------------------------------
+const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const listen = { want: false, active: false, rec: null, restartTimer: 0, lastText: "", lastAt: 0, fatal: false };
+
+function startRecognition() {
+  clearTimeout(listen.restartTimer);
+  if (!Recognition || !listen.want || listen.fatal || listen.active || speech.speaking) return;
+  const rec = new Recognition();
+  rec.lang = navigator.language || "en-US";
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.maxAlternatives = 1;
+  rec.onresult = onResult;
+  rec.onerror = (e) => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+      listen.fatal = true;
+      setStatus("Microphone blocked");
+      speak("I can't use the microphone. In Settings, allow Safari to use the microphone and speech recognition, " +
+            "and make sure Dictation is turned on. Then reload this page.", { interrupt: true });
+    }
+  };
+  rec.onend = () => {
+    if (listen.rec === rec) { listen.active = false; listen.rec = null; }
+    scheduleRestart(300);
+  };
+  listen.rec = rec;
+  listen.active = true;
+  try { rec.start(); } catch (e) { listen.active = false; listen.rec = null; scheduleRestart(1000); }
+}
+
+function scheduleRestart(delay) {
+  clearTimeout(listen.restartTimer);
+  if (listen.want && !listen.fatal && !speech.speaking) listen.restartTimer = setTimeout(startRecognition, delay);
+}
+
+function pauseListening() {
+  clearTimeout(listen.restartTimer);
+  if (listen.rec) {
+    const r = listen.rec;
+    listen.rec = null;
+    listen.active = false;
+    try { r.abort(); } catch (e) {}
+  }
+}
+
+function resumeListening() { scheduleRestart(350); }
+
+// Our own speech echoing back through the mic must not become a command.
+function looksLikeEcho(t) {
+  return /\b(timer set for|is done|are done|left on|you can say|say help|i didnt|for how long|timers running|no timers)\b/.test(t);
+}
+
+function onResult(e) {
+  if (speech.speaking || Date.now() - speech.endedAt < 600) return;
+  for (let i = e.resultIndex; i < e.results.length; i++) {
+    const r = e.results[i];
+    const text = r[0].transcript || "";
+    if (!r.isFinal) {
+      // Silence an alarm as soon as "stop" is heard, without waiting for the final result.
+      if (state.ringing.length && /\b(stop|cancel|okay|ok|enough|quiet|dismiss|off|done)\b/i.test(text)) {
+        stopAlarm(true);
+      }
+      continue;
+    }
+    const norm = normalize(text);
+    if (!norm) continue;
+    if (norm === listen.lastText && Date.now() - listen.lastAt < 2500) continue;
+    listen.lastText = norm;
+    listen.lastAt = Date.now();
+    handleText(text);
+  }
+}
+
+// ---------------- Timers --------------------------------------------------
+function timerLabel(t) { return t.name ? t.name + " timer" : adjDuration(t.total) + " timer"; }
+
+function findTimers(cmd) {
+  const text = cmd.text || "";
+  let hits = state.timers.filter(t => t.name && (t.name === cmd.name || (" " + text + " ").includes(" " + t.name + " ")));
+  if (!hits.length && cmd.ms) hits = state.timers.filter(t => t.total === cmd.ms);
+  return hits;
+}
+
+function setTimer(ms, name) {
+  if (ms <= 0) { speak("Please say how long, for example, 5 minutes.", { interrupt: true }); return; }
+  if (ms > MAX_MS) { speak("Timers can be up to 24 hours. Please say a shorter time.", { interrupt: true }); return; }
+  const existing = name ? state.timers.find(t => t.name === name) : null;
+  const now = Date.now();
+  if (existing) {
+    existing.total = ms;
+    existing.deadline = now + ms;
+    speak(cap(name) + " timer reset to " + speakDuration(ms) + ".", { interrupt: true });
+  } else {
+    state.timers.push({ id: state.nextId++, name: name || "", total: ms, deadline: now + ms });
+    speak((name ? cap(name) + " timer" : "Timer") + " set for " + speakDuration(ms) + ".", { interrupt: true });
+  }
+  setStatus("Timer set");
+  ensureWakeLock();
+  render();
+}
+
+function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
+
+function cancelTimers(list) {
+  const ids = new Set(list.map(t => t.id));
+  state.timers = state.timers.filter(t => !ids.has(t.id));
+  render();
+}
+
+function reportTimeLeft(cmd) {
+  if (!state.timers.length) {
+    speak("You have no timers running.", { interrupt: true });
+    return;
+  }
+  const now = Date.now();
+  let list = cmd ? findTimers(cmd) : [];
+  if (!list.length) list = state.timers.slice();
+  list.sort((a, b) => a.deadline - b.deadline);
+  const parts = list.map(t => speakDuration(t.deadline - now) + " left on your " + timerLabel(t) + ".");
+  const intro = list.length > 1 ? "You have " + list.length + " timers. " : "";
+  speak(intro + parts.join(" "), { interrupt: true });
+  setStatus("Time left");
+}
+
+// ---------------- Alarm ---------------------------------------------------
+const audio = { ctx: null, beepInterval: 0, cycleTimer: 0 };
+
+function unlockAudio() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  if (!audio.ctx) audio.ctx = new AC();
+  if (audio.ctx.state === "suspended") audio.ctx.resume();
+  // Play one silent sample inside the tap so iOS allows sound later.
+  const buf = audio.ctx.createBuffer(1, 1, 22050);
+  const src = audio.ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(audio.ctx.destination);
+  src.start(0);
+}
+
+function beepBurst() {
+  const ctx = audio.ctx;
+  if (!ctx) return;
+  if (ctx.state === "suspended") ctx.resume();
+  const t0 = ctx.currentTime + 0.02;
+  for (let k = 0; k < 3; k++) {
+    const start = t0 + k * 0.22;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "square";
+    osc.frequency.value = 1000;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.9, start + 0.01);
+    gain.gain.setValueAtTime(0.9, start + 0.14);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + 0.18);
+  }
+}
+
+function alarmMessage() {
+  if (state.ringing.length === 1) {
+    const t = state.ringing[0];
+    return "Your " + timerLabel(t) + " is done.";
+  }
+  return "Your " + state.ringing.map(timerLabel).slice(0, -1).join(", ") + " and " +
+         timerLabel(state.ringing[state.ringing.length - 1]) + " are done.";
+}
+
+function alarmCycle() {
+  clearTimeout(audio.cycleTimer);
+  clearInterval(audio.beepInterval);
+  if (!state.ringing.length) return;
+  speak(alarmMessage() + " Say stop, or tap the screen.", {
+    interrupt: true,
+    onDone: () => {
+      if (!state.ringing.length) return;
+      // Beep while listening for "stop", then repeat the announcement.
+      beepBurst();
+      audio.beepInterval = setInterval(beepBurst, 1000);
+      audio.cycleTimer = setTimeout(alarmCycle, 7000);
+    }
+  });
+}
+
+function startAlarm(finished) {
+  const already = state.ringing.length > 0;
+  state.ringing.push(...finished);
+  els.main.classList.add("ringing");
+  setButtonLabel();
+  setStatus("Alarm ringing. Say stop or tap the screen.");
+  if (!already) alarmCycle();
+}
+
+function stopAlarm(fromVoice) {
+  if (!state.ringing.length) return false;
+  const n = state.ringing.length;
+  state.ringing = [];
+  clearTimeout(audio.cycleTimer);
+  clearInterval(audio.beepInterval);
+  els.main.classList.remove("ringing");
+  setButtonLabel();
+  setStatus("Alarm stopped");
+  let msg = n > 1 ? "Alarms stopped." : "Alarm stopped.";
+  if (state.timers.length) msg += " " + plural(state.timers.length, "timer") + " still running.";
+  speak(msg, { interrupt: true });
+  render();
+  return true;
+}
+
+function tick() {
+  const now = Date.now();
+  const finished = state.timers.filter(t => t.deadline <= now);
+  if (finished.length) {
+    cancelTimers(finished);
+    startAlarm(finished);
+  }
+  render();
+}
+
+// ---------------- Wake lock -----------------------------------------------
+// Held for the whole session: if the screen sleeps, iOS stops both the
+// microphone and the timers, so a sleeping phone would miss the alarm.
+async function ensureWakeLock() {
+  if (state.wakeLock || document.visibilityState !== "visible") return;
+  try {
+    if (!("wakeLock" in navigator)) throw new Error("unsupported");
+    state.wakeLock = await navigator.wakeLock.request("screen");
+    state.wakeLock.addEventListener("release", () => { state.wakeLock = null; });
+  } catch (e) {
+    state.wakeLock = null;
+    if (!state.wakeLockWarned) {
+      state.wakeLockWarned = true;
+      speak("Warning: I couldn't keep the screen awake. Please set Auto-Lock to Never, " +
+            "or the timer may not be heard when the phone sleeps.");
+    }
+  }
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && state.started) {
+    tick();
+    ensureWakeLock();
+    if (audio.ctx && audio.ctx.state === "suspended") audio.ctx.resume();
+    scheduleRestart(300);
+  }
+});
+
+// ---------------- Commands ------------------------------------------------
+function handleText(raw) {
+  const cmd = parseCommand(raw);
+  if (cmd.type === "none" || looksLikeEcho(cmd.text)) return;
+
+  // While ringing, anything that sounds like stop/cancel silences the alarm.
+  if (state.ringing.length && (cmd.type === "cancel" || cmd.type === "cancelAll")) {
+    stopAlarm(true);
+    return;
+  }
+
+  // Follow-up to "set a timer" without a length.
+  if (state.pendingSet && Date.now() < state.pendingSet.until) {
+    const ms = cmd.type === "set" || cmd.type === "bareNumber" ? cmd.ms : 0;
+    if (ms) {
+      const name = cmd.name || state.pendingSet.name;
+      state.pendingSet = null;
+      setTimer(ms, name);
+      return;
+    }
+  }
+  state.pendingSet = null;
+
+  switch (cmd.type) {
+    case "help":
+      speak(HELP_TEXT, { interrupt: true });
+      setStatus("Help");
+      break;
+    case "set":
+      setTimer(cmd.ms, cmd.name);
+      break;
+    case "setNoTime":
+      state.pendingSet = { name: cmd.name, until: Date.now() + 20000 };
+      speak("For how long?", { interrupt: true });
+      break;
+    case "bareNumber":
+      speak("Did you want a timer? Say, set a timer for " + speakDuration(cmd.ms) + ".", { interrupt: true });
+      break;
+    case "left":
+      reportTimeLeft(cmd);
+      break;
+    case "cancelAll": {
+      const n = state.timers.length;
+      cancelTimers(state.timers);
+      speak(n ? (n === 1 ? "Timer cancelled." : "All " + n + " timers cancelled.") : "You have no timers running.", { interrupt: true });
+      setStatus("Cancelled");
+      break;
+    }
+    case "cancel": {
+      if (!state.timers.length) { speak("You have no timers running.", { interrupt: true }); break; }
+      let hits = findTimers(cmd);
+      if (!hits.length && state.timers.length === 1) hits = state.timers.slice();
+      if (!hits.length) {
+        const names = state.timers.map(timerLabel);
+        speak("You have " + state.timers.length + " timers: " + names.join(", ") +
+              ". Say which one to cancel, or say cancel all timers.", { interrupt: true });
+        break;
+      }
+      cancelTimers(hits);
+      speak(hits.length === 1 ? cap(timerLabel(hits[0])) + " cancelled." : plural(hits.length, "timer") + " cancelled.", { interrupt: true });
+      setStatus("Cancelled");
+      break;
+    }
+    default: {
+      // Ignore background chatter; only answer short phrases or ones that mention timers.
+      const words = cmd.text.split(" ").length;
+      if (words <= 4 || /\b(timer|timers|minute|minutes|second|seconds|hour|hours)\b/.test(cmd.text)) {
+        speak("Sorry, I didn't catch that. Say help to hear the commands.", { interrupt: true });
+      }
+    }
+  }
+}
+
+// ---------------- Display -------------------------------------------------
+function clock(ms) {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), s = total % 60;
+  const pad = n => String(n).padStart(2, "0");
+  return h ? h + ":" + pad(m) + ":" + pad(s) : m + ":" + pad(s);
+}
+
+function render() {
+  if (!state.started) return;
+  els.headline.textContent = state.ringing.length ? "TIME'S UP — say stop or tap" : "Listening…";
+  const now = Date.now();
+  const items = state.timers.slice().sort((a, b) => a.deadline - b.deadline)
+    .map(t => (t.name ? cap(t.name) + ": " : "") + clock(t.deadline - now));
+  if (els.timers.childElementCount !== items.length) {
+    els.timers.innerHTML = "";
+    items.forEach(() => els.timers.appendChild(document.createElement("li")));
+  }
+  items.forEach((txt, i) => { els.timers.children[i].textContent = txt; });
+}
+
+// ---------------- Tap handling --------------------------------------------
+function onTap() {
+  if (!state.started) {
+    state.started = true;
+    unlockAudio();
+    listen.want = true;
+    setButtonLabel();
+    render();
+    if (!Recognition) {
+      speak("Sorry, this browser can't listen for speech. On iPhone, use Safari and turn on Dictation in Settings, General, Keyboard.");
+      setStatus("Speech recognition not available");
+      return;
+    }
+    // Speaking inside the tap also unlocks speech synthesis on iOS.
+    speak("Talking timer ready. Say, set a timer for 5 minutes, or say help.", { interrupt: true });
+    setStatus("Listening");
+    setInterval(tick, 250);
+    ensureWakeLock();
+    return;
+  }
+  unlockAudio();
+  if (stopAlarm(false)) return;
+  listen.fatal = false;
+  if (state.timers.length) reportTimeLeft(null);
+  else speak("Listening. You have no timers. Say help to hear the commands.", { interrupt: true });
+}
+
+els.main.addEventListener("click", onTap);
+if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => {};
+</script>
+</body>
+</html>
