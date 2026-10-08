@@ -15,6 +15,18 @@ Open **http://localhost:5173**. The API server runs on port 3001, and Vite proxi
 
 **Demo mode** works with no keys. It uses clearly labeled, fictional sample data.
 
+## Featured people
+
+The home page lists recent short clips of **Billy Corgan, Jordan Peterson and Matt Walsh**. Click any clip to load it with that person's word cloud. You can also type another name under "Find clips of someone else".
+
+Clips are found live through YouTube search, not hardcoded, so they stay current. A clip is shown only if it:
+- was published in the last 6 months
+- is under 20 minutes long
+- names the person in its title or description
+- has at least 20 comments
+
+Each search uses about 200 of YouTube's free 10,000 daily quota units and is cached for 24 hours. To change the list, set `FEATURED_PEOPLE` in `.env`.
+
 ## Use it on your iPhone
 
 **Option A: from your Mac on the same Wi-Fi (free, simplest).**

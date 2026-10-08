@@ -37,12 +37,13 @@ export default function App() {
   const [filter, setFilter] = useState('person');
   const [minCount, setMinCount] = useState(1);
   const evidenceRef = useRef(null);
+  const stageRef = useRef(null);
 
   useEffect(() => {
     fetch('/api/config').then((r) => r.json()).then(setConfig).catch(() => setConfig({ keys: {}, offline: true }));
   }, []);
 
-  async function load({ demo = false, refresh = false } = {}) {
+  async function load({ demo = false, refresh = false, url: urlArg = url, person: personArg = person } = {}) {
     setLoading(true);
     setError('');
     setSelected(null);
@@ -50,12 +51,13 @@ export default function App() {
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, person, demo, refresh }),
+        body: JSON.stringify({ url: urlArg, person: personArg, demo, refresh }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || `Server error ${res.status}`);
       setData(body);
       setMinCount(1);
+      requestAnimationFrame(() => stageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -105,6 +107,17 @@ export default function App() {
         </div>
       </form>
 
+      <FeaturedClips
+        config={config}
+        disabled={loading}
+        currentId={data?.video?.id}
+        onPick={(clip, name) => {
+          setUrl(clip.url);
+          setPerson(name);
+          load({ url: clip.url, person: name });
+        }}
+      />
+
       <div role="status" aria-live="polite" className="status">
         {loading && 'Fetching comments and analyzing them. The first load of a video can take a minute; repeat loads come from the cache.'}
         {error && <p className="error">{error}</p>}
@@ -119,7 +132,7 @@ export default function App() {
             </p>
           )}
 
-          <section className="stage" aria-label="Video and word cloud">
+          <section className="stage" aria-label="Video and word cloud" ref={stageRef}>
             <div className="video">
               {data.video.id ? (
                 <iframe
@@ -179,6 +192,100 @@ export default function App() {
           <WordSearch key={data.video.id || "demo"} comments={data.comments} />
           <Sources data={data} onRefresh={() => load({ refresh: true })} />
         </>
+      )}
+    </div>
+  );
+}
+
+const fmtDuration = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+const fmtAge = (iso) => {
+  const days = Math.round((Date.now() - new Date(iso)) / 86400000);
+  return days < 1 ? 'today' : days < 31 ? plural(days, 'day') + ' ago' : plural(Math.round(days / 30), 'month') + ' ago';
+};
+
+function FeaturedClips({ config, onPick, disabled, currentId }) {
+  const [extra, setExtra] = useState([]);
+  const [newName, setNewName] = useState('');
+  if (!config || config.offline) return null;
+  const people = [...(config.featured || []), ...extra];
+  return (
+    <section className="featured" aria-labelledby="featured-title">
+      <h2 id="featured-title">Featured people: recent short clips</h2>
+      <p className="muted small">
+        Found live with YouTube search: published in the last 6 months, under 20 minutes, with at least 20 comments. Select a clip to
+        load its word cloud.
+      </p>
+      {!config.keys.youtube ? (
+        <p className="cloud-empty small">Finding clips needs a YouTube API key on the server (see README). Demo mode still works.</p>
+      ) : (
+        people.map((name) => <ClipRow key={name} name={name} onPick={onPick} disabled={disabled} currentId={currentId} />)
+      )}
+      {config.keys.youtube && (
+        <form
+          className="search-row"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const n = newName.trim();
+            if (n && !people.some((p) => p.toLowerCase() === n.toLowerCase())) setExtra([...extra, n]);
+            setNewName('');
+          }}
+        >
+          <label className="field grow">
+            <span>Find clips of someone else</span>
+            <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Full name" />
+          </label>
+          <button type="submit" className="secondary">Find clips</button>
+        </form>
+      )}
+    </section>
+  );
+}
+
+function ClipRow({ name, onPick, disabled, currentId }) {
+  const [state, setState] = useState({ loading: true });
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/clips?person=${encodeURIComponent(name)}`)
+      .then(async (r) => {
+        const body = await r.json();
+        if (!r.ok) throw new Error(body.error || `Server error ${r.status}`);
+        return body;
+      })
+      .then((body) => live && setState({ clips: body.clips }))
+      .catch((err) => live && setState({ error: err.message }));
+    return () => {
+      live = false;
+    };
+  }, [name]);
+  return (
+    <div className="clip-row">
+      <h3>{name}</h3>
+      {state.loading && <p className="muted small">Searching YouTube…</p>}
+      {state.error && <p className="error small">{state.error}</p>}
+      {state.clips?.length === 0 && <p className="muted small">No recent short clips with enough comments were found.</p>}
+      {state.clips?.length > 0 && (
+        <ul className="clips">
+          {state.clips.map((c) => (
+            <li key={c.id}>
+              <button
+                type="button"
+                className="clip"
+                disabled={disabled}
+                aria-current={currentId === c.id ? 'true' : undefined}
+                onClick={() => onPick(c, name)}
+              >
+                <span className="thumb">
+                  {c.thumbnail && <img src={c.thumbnail} alt="" loading="lazy" />}
+                  <span className="duration">{fmtDuration(c.seconds)}</span>
+                </span>
+                <span className="clip-title">{c.title}</span>
+                <span className="clip-meta">
+                  {c.channel} · {fmtAge(c.publishedAt)} · {c.commentCount.toLocaleString()} comments
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

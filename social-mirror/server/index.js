@@ -6,7 +6,7 @@ import { networkInterfaces } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cached } from './cache.js';
-import { fetchVideo, fetchComments, parseVideoId } from './youtube.js';
+import { fetchVideo, fetchComments, parseVideoId, searchClips } from './youtube.js';
 import { fetchRedditComments } from './reddit.js';
 import {
   MODEL, PROMPT_VERSION, MAX_COMMENT_CHARS, aggregate, extractDescriptors, identifySubject, quoteIsGenuine,
@@ -41,7 +41,25 @@ const keys = () => ({
   reddit: !!(env('REDDIT_CLIENT_ID') && env('REDDIT_CLIENT_SECRET')),
 });
 
-app.get('/api/config', (_req, res) => res.json({ keys: keys(), model: MODEL }));
+app.get('/api/config', (_req, res) => res.json({ keys: keys(), model: MODEL, featured: featuredPeople() }));
+
+const featuredPeople = () =>
+  (env('FEATURED_PEOPLE') || 'Billy Corgan, Jordan Peterson, Matt Walsh').split(',').map((s) => s.trim()).filter(Boolean);
+
+// Recent short clips of a person, found live through YouTube search (cached, since each search costs 100 quota units).
+app.get('/api/clips', async (req, res) => {
+  const person = String(req.query.person || '').trim().slice(0, 80);
+  if (!person) return res.status(400).json({ error: 'Missing person.' });
+  if (!keys().youtube) {
+    return res.status(400).json({ error: 'Finding clips needs YOUTUBE_API_KEY on the server.' });
+  }
+  try {
+    const r = await cached(`clips:v1:${person.toLowerCase()}`, () => searchClips(person, env('YOUTUBE_API_KEY')));
+    res.json({ person, clips: r.value, cachedAt: r.cachedAt });
+  } catch (err) {
+    res.status(502).json({ error: `YouTube search is unavailable: ${why(err)}` });
+  }
+});
 
 app.post('/api/analyze', async (req, res) => {
   const { url, person: personInput = '', demo = false, refresh = false } = req.body || {};

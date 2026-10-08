@@ -45,3 +45,11 @@ test('parseVideoId', () => {
   assert.equal(parseVideoId('youtube.com/shorts/dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
   assert.equal(parseVideoId('https://example.com/watch?v=dQw4w9WgXcQ'), null);
 });
+
+test('parseDuration', async () => {
+  const { parseDuration } = await import('./youtube.js');
+  assert.equal(parseDuration('PT4M13S'), 253);
+  assert.equal(parseDuration('PT1H'), 3600);
+  assert.equal(parseDuration('P0D'), 0);
+  assert.equal(parseDuration('garbage'), null);
+});

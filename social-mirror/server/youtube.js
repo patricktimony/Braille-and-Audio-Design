@@ -95,3 +95,45 @@ export async function fetchComments(videoId, key, maxPages = 5) {
   }
   return comments;
 }
+
+// "PT1H2M3S" -> seconds
+export function parseDuration(iso) {
+  const m = /^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(iso || '');
+  if (!m) return null;
+  const [, d = 0, h = 0, min = 0, s = 0] = m.map((x) => Number(x || 0));
+  return d * 86400 + h * 3600 + min * 60 + s;
+}
+
+// Recent, short-ish public clips that name the person and have enough comments to analyze.
+export async function searchClips(person, key, { days = 180, maxSeconds = 20 * 60, minComments = 20, limit = 6 } = {}) {
+  const publishedAfter = new Date(Date.now() - days * 86400_000).toISOString();
+  const ids = new Set();
+  // YouTube's duration filter: "short" is under 4 minutes, "medium" is 4–20 minutes.
+  for (const videoDuration of ['short', 'medium']) {
+    const body = await ytGet(
+      'search',
+      { part: 'snippet', type: 'video', q: person, maxResults: '15', order: 'relevance', videoDuration, publishedAfter, relevanceLanguage: 'en' },
+      key,
+    );
+    for (const item of body.items || []) ids.add(item.id.videoId);
+  }
+  if (!ids.size) return [];
+  const body = await ytGet('videos', { part: 'snippet,contentDetails,statistics', id: [...ids].join(',') }, key);
+  const surname = person.trim().split(/\s+/).pop().toLowerCase();
+  return (body.items || [])
+    .map((v) => ({
+      id: v.id,
+      url: `https://www.youtube.com/watch?v=${v.id}`,
+      title: v.snippet.title,
+      channel: v.snippet.channelTitle,
+      publishedAt: v.snippet.publishedAt,
+      thumbnail: v.snippet.thumbnails?.medium?.url || v.snippet.thumbnails?.default?.url,
+      seconds: parseDuration(v.contentDetails?.duration),
+      // commentCount is absent when comments are turned off.
+      commentCount: v.statistics?.commentCount == null ? null : Number(v.statistics.commentCount),
+      mentionsPerson: `${v.snippet.title} ${v.snippet.description}`.toLowerCase().includes(surname),
+    }))
+    .filter((c) => c.mentionsPerson && c.commentCount >= minComments && c.seconds != null && c.seconds <= maxSeconds)
+    .sort((a, b) => b.commentCount - a.commentCount)
+    .slice(0, limit);
+}
