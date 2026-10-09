@@ -57,6 +57,9 @@ const ball = { x: 0, y: 0, vx: 0, vy: 0, r: 31, hue: 180 }; // 62 CSS px ≈ 1 c
 const PX_PER_G = 260;      // pixels/s^2 per m/s^2 — snappy
 const BOUNCE = 0.82;
 
+// Bell fixed in the middle of the screen: the ball bounces off it and rings it
+const bell = { r: 30, swing: 0, swingV: 0, lastRing: 0 };
+
 function step(dt) {
   // Color from left/right tilt (smoothed)
   const targetHue = ((gamma + 90) / 180) * 360;
@@ -73,6 +76,42 @@ function step(dt) {
   if (ball.x > W - r) { ball.x = W - r; ball.vx = -Math.abs(ball.vx) * BOUNCE; }
   if (ball.y < r)     { ball.y = r;     ball.vy = Math.abs(ball.vy) * BOUNCE; }
   if (ball.y > H - r) { ball.y = H - r; ball.vy = -Math.abs(ball.vy) * BOUNCE; }
+
+  // Ball vs bell (treated as a circle at screen center)
+  const dx = ball.x - W / 2, dy = ball.y - H / 2, d = Math.hypot(dx, dy) || 1, minD = r + bell.r;
+  if (d < minD) {
+    const nx = dx / d, ny = dy / d, vn = ball.vx * nx + ball.vy * ny;
+    ball.x = W / 2 + nx * minD; ball.y = H / 2 + ny * minD;
+    if (vn < 0) {
+      ball.vx -= (1 + BOUNCE) * vn * nx; ball.vy -= (1 + BOUNCE) * vn * ny;
+      bell.swingV += -vn * nx * 0.004;
+      ringBell(Math.min(1, -vn / 900));
+    }
+  }
+  // Damped swing of the bell
+  bell.swingV += -bell.swing * 120 * dt; bell.swingV *= Math.pow(0.15, dt);
+  bell.swing += bell.swingV * dt * 60;
+}
+
+function drawBell() {
+  const cx = W / 2, cy = H / 2, s = bell.r;
+  ctx.save();
+  ctx.translate(cx, cy - s * 0.9); ctx.rotate(Math.max(-0.6, Math.min(0.6, bell.swing))); ctx.translate(0, s * 0.9);
+  ctx.shadowColor = 'rgba(255,200,80,0.9)'; ctx.shadowBlur = 18;
+  const g = ctx.createLinearGradient(-s, 0, s, 0);
+  g.addColorStop(0, '#a8741a'); g.addColorStop(0.4, '#ffe08a'); g.addColorStop(1, '#b98320');
+  ctx.fillStyle = g;
+  ctx.beginPath();                                   // bell body
+  ctx.moveTo(-s * 0.95, s * 0.6);
+  ctx.quadraticCurveTo(-s * 0.7, s * 0.4, -s * 0.6, -s * 0.2);
+  ctx.quadraticCurveTo(-s * 0.55, -s * 0.85, 0, -s * 0.85);
+  ctx.quadraticCurveTo(s * 0.55, -s * 0.85, s * 0.6, -s * 0.2);
+  ctx.quadraticCurveTo(s * 0.7, s * 0.4, s * 0.95, s * 0.6);
+  ctx.closePath(); ctx.fill();
+  ctx.fillRect(-s, s * 0.55, s * 2, s * 0.14);       // rim
+  ctx.beginPath(); ctx.arc(0, -s * 0.95, s * 0.14, 0, Math.PI * 2); ctx.fill(); // top loop
+  ctx.beginPath(); ctx.arc(0, s * 0.8, s * 0.16, 0, Math.PI * 2); ctx.fill();   // clapper
+  ctx.restore();
 }
 
 function draw() {
@@ -80,6 +119,7 @@ function draw() {
   ctx.globalCompositeOperation = 'source-over';
   ctx.fillStyle = 'rgba(0,0,0,0.28)';
   ctx.fillRect(0, 0, W, H);
+  drawBell();
 
   const { x, y, r, hue } = ball, h = hue.toFixed(0);
   ctx.globalCompositeOperation = 'lighter';
@@ -114,6 +154,22 @@ function startAudio() {
   ac.resume();
   audio = { ac, osc, filter };
 }
+function ringBell(strength) {
+  if (!audio || strength < 0.03) return;
+  const { ac } = audio, now = ac.currentTime;
+  if (now - bell.lastRing < 0.08) return;
+  bell.lastRing = now;
+  // Inharmonic partials with long decays = bell
+  [[1, 1, 3], [2.0, 0.6, 2], [2.76, 0.45, 1.4], [5.4, 0.25, 0.8], [8.9, 0.12, 0.5]].forEach(([ratio, amp, decay]) => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.frequency.value = 660 * ratio;
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.35 * amp * (0.3 + 0.7 * strength), now + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+    o.connect(g).connect(ac.destination);
+    o.start(now); o.stop(now + decay + 0.05);
+  });
+}
 function updateAudio() {
   if (!audio) return;
   const { ac, osc, filter } = audio, now = ac.currentTime;
@@ -147,7 +203,7 @@ btn.addEventListener('click', () => {
     addEventListener('devicemotion', onMotion);
     addEventListener('deviceorientation', onOrient);
     btn.remove();
-    ball.x = W / 2; ball.y = H / 2;
+    ball.x = W / 2; ball.y = H * 0.2;
     requestAnimationFrame(loop);
   }).catch(err => {
     msg.textContent = 'Could not get motion access: ' + err.message + (location.protocol !== 'https:' ? ' (page must be HTTPS)' : '');
