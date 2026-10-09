@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000">
+<title>Glow Ball</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; touch-action: none;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; }
+  #start { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 72vw; max-width: 340px; padding: 34px 0; border: 0; border-radius: 999px;
+    font: 700 34px -apple-system, system-ui, sans-serif; color: #000; background: #fff;
+    box-shadow: 0 0 40px #0ff, 0 0 90px #f0f; cursor: pointer; }
+  #msg { position: fixed; left: 16px; right: 16px; bottom: 40px; text-align: center;
+    font: 16px -apple-system, system-ui, sans-serif; color: #888; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<button id="start">Start</button>
+<div id="msg"></div>
+<script>
+const c = document.getElementById('c'), ctx = c.getContext('2d');
+const btn = document.getElementById('start'), msg = document.getElementById('msg');
+let W, H, dpr;
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 3);
+  W = window.innerWidth; H = window.innerHeight;
+  c.width = W * dpr; c.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+addEventListener('resize', resize); resize();
+
+// Sensor state: gravity in m/s^2 (screen x right, y down), tilt in degrees
+let gx = 0, gy = 9.8, beta = 45, gamma = 0;
+
+function onMotion(e) {
+  const a = e.accelerationIncludingGravity;
+  if (!a || a.x == null) return;
+  // Rotate device axes into current screen axes
+  const ang = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+  if (ang === 90)                      { gx = -a.y; gy = -a.x; }
+  else if (ang === -90 || ang === 270) { gx = a.y;  gy = a.x; }
+  else if (ang === 180)                { gx = -a.x; gy = a.y; }
+  else                                 { gx = a.x;  gy = -a.y; }
+}
+function onOrient(e) {
+  if (e.beta != null) beta = e.beta;
+  if (e.gamma != null) gamma = e.gamma;
+}
+
+// Ball
+const ball = { x: 0, y: 0, vx: 0, vy: 0, r: 40, hue: 180 };
+const PX_PER_G = 260;      // pixels/s^2 per m/s^2 — snappy
+const BOUNCE = 0.82;
+
+function step(dt) {
+  // Color from left/right tilt, size from forward/back tilt (smoothed)
+  const targetHue = ((gamma + 90) / 180) * 360;
+  ball.hue += (targetHue - ball.hue) * Math.min(1, dt * 10);
+  const t = Math.max(0, Math.min(1, (beta + 10) / 100));
+  const targetR = 14 + t * Math.min(W, H) * 0.2;
+  ball.r += (targetR - ball.r) * Math.min(1, dt * 8);
+
+  ball.vx += gx * PX_PER_G * dt;
+  ball.vy += gy * PX_PER_G * dt;
+  const drag = Math.pow(0.6, dt); // gentle air drag, keeps inertia
+  ball.vx *= drag; ball.vy *= drag;
+  ball.x += ball.vx * dt; ball.y += ball.vy * dt;
+
+  const r = ball.r;
+  if (ball.x < r)     { ball.x = r;     ball.vx = Math.abs(ball.vx) * BOUNCE; }
+  if (ball.x > W - r) { ball.x = W - r; ball.vx = -Math.abs(ball.vx) * BOUNCE; }
+  if (ball.y < r)     { ball.y = r;     ball.vy = Math.abs(ball.vy) * BOUNCE; }
+  if (ball.y > H - r) { ball.y = H - r; ball.vy = -Math.abs(ball.vy) * BOUNCE; }
+}
+
+function draw() {
+  // Fade previous frame for a light glowing trail
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  ctx.fillRect(0, 0, W, H);
+
+  const { x, y, r, hue } = ball, h = hue.toFixed(0);
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
+  g.addColorStop(0, `hsla(${h},100%,65%,0.9)`);
+  g.addColorStop(0.33, `hsla(${h},100%,55%,0.35)`);
+  g.addColorStop(1, `hsla(${h},100%,50%,0)`);
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(x, y, r * 3, 0, Math.PI * 2); ctx.fill();
+
+  ctx.globalCompositeOperation = 'source-over';
+  const core = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, 0, x, y, r);
+  core.addColorStop(0, `hsl(${h},100%,92%)`);
+  core.addColorStop(0.45, `hsl(${h},100%,68%)`);
+  core.addColorStop(1, `hsl(${h},100%,55%)`);
+  ctx.fillStyle = core;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+}
+
+let last = 0;
+function loop(now) {
+  const dt = Math.min(0.033, (now - last) / 1000 || 0);
+  last = now;
+  step(dt); draw();
+  requestAnimationFrame(loop);
+}
+
+btn.addEventListener('click', () => {
+  const DM = window.DeviceMotionEvent, DO = window.DeviceOrientationEvent;
+  // iOS needs both permission requests started directly inside the tap
+  const reqs = [];
+  if (DM && typeof DM.requestPermission === 'function') reqs.push(DM.requestPermission());
+  if (DO && typeof DO.requestPermission === 'function') reqs.push(DO.requestPermission());
+  Promise.all(reqs).then(results => {
+    if (results.some(r => r !== 'granted')) {
+      msg.textContent = 'Motion access was denied. Close Safari tab and reopen the link to try again.';
+      return;
+    }
+    addEventListener('devicemotion', onMotion);
+    addEventListener('deviceorientation', onOrient);
+    btn.remove();
+    ball.x = W / 2; ball.y = H / 2;
+    requestAnimationFrame(loop);
+  }).catch(err => {
+    msg.textContent = 'Could not get motion access: ' + err.message + (location.protocol !== 'https:' ? ' (page must be HTTPS)' : '');
+  });
+});
+</script>
+</body>
+</html>
