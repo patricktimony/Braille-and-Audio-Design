@@ -4,18 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#101418">
+<meta name="theme-color" content="#0b0e13">
 <title>MotionSound</title>
 <style>
   :root {
-    --bg: #101418;
-    --panel: #1b222a;
+    --bg: #0b0e13;
+    --panel: #171d26cc;
     --fg: #f4f6f8;
     --muted: #b8c2cc;
     --accent: #ffd23f;
     --go: #2ecc71;
     --stop: #ff5a5a;
     --focus: #6fc3ff;
+    --hue: 45;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -27,7 +28,16 @@
     line-height: 1.4;
     -webkit-text-size-adjust: 100%;
   }
+  #viz {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    z-index: 0; pointer-events: none;
+  }
+  #flash {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background: hsl(var(--hue) 100% 60%); opacity: 0;
+  }
   main {
+    position: relative; z-index: 2;
     max-width: 560px;
     margin: 0 auto;
     padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
@@ -38,6 +48,8 @@
   .intro { color: var(--muted); }
   section {
     background: var(--panel);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
     border-radius: 14px;
     padding: 14px;
     margin: 14px 0;
@@ -67,16 +79,28 @@
     color: var(--accent);
     font-weight: 600;
   }
-  fieldset { border: 0; margin: 0; padding: 0; }
+  #bigNote {
+    text-align: center;
+    font-size: 4.5rem;
+    font-weight: 800;
+    line-height: 1;
+    margin: 6px 0 2px;
+    color: hsl(var(--hue) 100% 65%);
+    text-shadow: 0 0 24px hsl(var(--hue) 100% 50% / .6);
+    font-variant-numeric: tabular-nums;
+  }
+  #bigNote small { font-size: 1.6rem; opacity: .8; }
+  fieldset { border: 0; margin: 0 0 14px; padding: 0; }
+  fieldset:last-child { margin-bottom: 0; }
   legend { font-weight: 700; font-size: 1.15rem; margin-bottom: 10px; padding: 0; }
-  .waves { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .waves label {
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .choices label {
     display: flex; align-items: center; gap: 10px;
     background: #26303a; border-radius: 10px;
     padding: 12px; min-height: 52px; cursor: pointer;
   }
-  .waves input { width: 22px; height: 22px; accent-color: var(--accent); margin: 0; }
-  .waves label:has(input:checked) { background: #4a3f10; box-shadow: inset 0 0 0 2px var(--accent); }
+  .choices input { width: 22px; height: 22px; accent-color: var(--accent); margin: 0; flex: none; }
+  .choices label:has(input:checked) { background: #4a3f10; box-shadow: inset 0 0 0 2px var(--accent); }
   dl.readout {
     display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0;
     font-variant-numeric: tabular-nums;
@@ -86,7 +110,7 @@
   .bars { display: grid; gap: 8px; margin-top: 12px; }
   .bar { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 8px; color: var(--muted); font-size: .9rem; }
   .bar .track { height: 12px; background: #0c1014; border-radius: 6px; overflow: hidden; }
-  .bar .fill { height: 100%; width: 0%; background: var(--accent); transition: width .08s linear; }
+  .bar .fill { height: 100%; width: 0%; background: hsl(var(--hue) 100% 60%); }
   ul.howto { margin: 0; padding-left: 20px; }
   ul.howto li { margin-bottom: 6px; }
   .toggle { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
@@ -111,7 +135,7 @@
   #dot {
     position: absolute; width: 28px; height: 28px; margin: -14px 0 0 -14px;
     left: 50%; top: 50%; border-radius: 50%;
-    background: var(--accent); box-shadow: 0 0 12px var(--accent);
+    background: hsl(var(--hue) 100% 60%); box-shadow: 0 0 14px hsl(var(--hue) 100% 60%);
     pointer-events: none;
   }
   .padlabel { position: absolute; font-size: .75rem; color: var(--muted); pointer-events: none; }
@@ -121,16 +145,18 @@
     position: absolute !important; width: 1px; height: 1px; overflow: hidden;
     clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
   }
-  @media (prefers-reduced-motion: reduce) { .bar .fill { transition: none; } }
 </style>
 </head>
 <body>
+<canvas id="viz" aria-hidden="true"></canvas>
+<div id="flash" aria-hidden="true"></div>
 <main>
   <h1>MotionSound</h1>
-  <p class="intro">Your iPhone is the instrument. Tap Start, allow motion access, then tilt, turn and shake.</p>
+  <p class="intro">Your iPhone is the instrument. Tap Start, allow motion access, then tilt, twist and shake.</p>
 
   <section aria-labelledby="playHeading">
     <h2 id="playHeading" class="visually-hidden">Play</h2>
+    <div id="bigNote" aria-hidden="true">–</div>
     <div class="controls">
       <button id="startBtn" type="button" aria-pressed="false">Start</button>
       <button id="calBtn" type="button" aria-describedby="calHelp">Reset / Calibrate</button>
@@ -143,13 +169,23 @@
   <section>
     <fieldset>
       <legend>Wave shape</legend>
-      <div class="waves">
-        <label><input type="radio" name="wave" value="sine" checked> Sine (smooth)</label>
+      <div class="choices">
+        <label><input type="radio" name="wave" value="sine"> Sine (smooth)</label>
         <label><input type="radio" name="wave" value="triangle"> Triangle (soft)</label>
         <label><input type="radio" name="wave" value="square"> Square (hollow)</label>
-        <label><input type="radio" name="wave" value="sawtooth"> Sawtooth (buzzy)</label>
+        <label><input type="radio" name="wave" value="sawtooth" checked> Sawtooth (buzzy)</label>
       </div>
     </fieldset>
+    <fieldset>
+      <legend>Notes</legend>
+      <div class="choices">
+        <label><input type="radio" name="scale" value="pentatonic" checked> Pentatonic (easy)</label>
+        <label><input type="radio" name="scale" value="major"> Major scale</label>
+        <label><input type="radio" name="scale" value="blues"> Blues</label>
+        <label><input type="radio" name="scale" value="free"> Free slide (siren)</label>
+      </div>
+    </fieldset>
+    <label class="toggle"><input type="checkbox" id="echoToggle" checked> Echo effect</label>
   </section>
 
   <section aria-labelledby="liveHeading">
@@ -158,8 +194,8 @@
       <dt>X (tilt left/right)</dt><dd id="valX">0°</dd>
       <dt>Y (tilt forward/back)</dt><dd id="valY">0°</dd>
       <dt>Z (rotation)</dt><dd id="valZ">0°</dd>
-      <dt>Shake force</dt><dd id="valShake">0.0</dd>
-      <dt>Pitch</dt><dd id="valPitch">–</dd>
+      <dt>Movement</dt><dd id="valMove">0%</dd>
+      <dt>Note</dt><dd id="valPitch">–</dd>
       <dt>Volume</dt><dd id="valVol">–</dd>
       <dt>Tone</dt><dd id="valTone">–</dd>
     </dl>
@@ -174,10 +210,10 @@
   <section aria-labelledby="howHeading">
     <h2 id="howHeading">How to play</h2>
     <ul class="howto">
-      <li>Tilt left for lower notes, right for higher notes.</li>
+      <li>Tilt left for lower notes, right for higher notes. Small tilts are enough.</li>
       <li>Tilt the top of the phone away from you to get louder, toward you to get quieter.</li>
-      <li>Turn the phone flat, like a steering wheel on a table, to make the tone brighter or darker.</li>
-      <li>Shake the phone to play a chime.</li>
+      <li>Turn around (or spin the phone flat on a table) to make the tone brighter or darker.</li>
+      <li>Move quickly to add wobble and sparkle. Shake for a burst of notes. Shake harder for a bigger burst.</li>
       <li>Reset / Calibrate makes your current position the middle.</li>
     </ul>
   </section>
@@ -186,7 +222,7 @@
     <h2 id="simHeading">Simulation mode</h2>
     <label class="toggle"><input type="checkbox" id="simToggle"> Use mouse, touch or keyboard instead of motion sensors</label>
     <div id="simArea" hidden>
-      <p class="intro" style="font-size:.9rem">Drag in the square: left/right is X tilt, up/down is Y tilt. Or use the sliders.</p>
+      <p class="intro" style="font-size:.9rem">Drag in the square: left/right is pitch, up/down is volume. Or use the sliders.</p>
       <div id="pad" aria-hidden="true">
         <span class="padlabel" style="top:6px;left:50%;transform:translateX(-50%)">louder</span>
         <span class="padlabel" style="bottom:6px;left:50%;transform:translateX(-50%)">quieter</span>
@@ -196,15 +232,15 @@
       </div>
       <div class="sim-slider">
         <label for="simX">X tilt (pitch, higher is higher)</label>
-        <input type="range" id="simX" min="-45" max="45" step="1" value="0">
+        <input type="range" id="simX" min="-25" max="25" step="1" value="0">
       </div>
       <div class="sim-slider">
         <label for="simY">Y tilt (volume, higher is louder)</label>
-        <input type="range" id="simY" min="-45" max="45" step="1" value="0">
+        <input type="range" id="simY" min="-25" max="25" step="1" value="0">
       </div>
       <div class="sim-slider">
         <label for="simZ">Z rotation (tone, higher is brighter)</label>
-        <input type="range" id="simZ" min="-90" max="90" step="1" value="0">
+        <input type="range" id="simZ" min="-60" max="60" step="1" value="0">
       </div>
       <button id="simShake" type="button" class="secondary">Simulate shake</button>
     </div>
@@ -216,159 +252,272 @@
   'use strict';
 
   // ---- Tuning ----
-  var MASTER_MAX = 0.28;      // hard ceiling on overall loudness
-  var PITCH_MIN = 196;        // G3
-  var PITCH_MAX = 1046.5;     // C6
-  var TILT_RANGE = 45;        // degrees of tilt for full range
-  var ROT_RANGE = 90;         // degrees of rotation for full tone range
-  var TONE_MIN = 350;         // filter cutoff Hz
-  var TONE_MAX = 6000;
-  var SMOOTH = 0.15;          // sensor smoothing (0..1, lower = smoother)
-  var GLIDE = 0.06;           // audio parameter time constant (s)
-  var SHAKE_THRESHOLD = 14;   // m/s^2 of user acceleration
-  var SHAKE_COOLDOWN = 350;   // ms
+  var MASTER_MAX = 0.5;       // overall level, followed by a hard limiter
+  var BASE_MIDI = 50;         // D3: lowest note
+  var SPAN = 26;              // semitones across the full tilt range
+  var TILT_RANGE = 25;        // degrees of tilt for full pitch/volume range
+  var ROT_RANGE = 60;         // degrees of rotation for full tone range
+  var TONE_MIN = 300;         // filter cutoff Hz
+  var TONE_MAX = 7000;
+  var SMOOTH = 0.4;           // sensor smoothing per frame (higher = snappier)
+  var SHAKE_THRESHOLD = 12;   // m/s^2 of user acceleration
+  var SHAKE_COOLDOWN = 220;   // ms
+  var WAVE_LEVEL = { sine: 1, triangle: 0.9, square: 0.42, sawtooth: 0.5 };
+  var SCALES = {
+    pentatonic: [0, 2, 4, 7, 9],
+    major: [0, 2, 4, 5, 7, 9, 11],
+    blues: [0, 3, 5, 6, 7, 10],
+    free: null
+  };
+  var NOTES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+  var NOTES_SPOKEN = ['C', 'C sharp', 'D', 'D sharp', 'E', 'F', 'F sharp', 'G', 'G sharp', 'A', 'A sharp', 'B'];
 
   // ---- Elements ----
   var $ = function (id) { return document.getElementById(id); };
   var startBtn = $('startBtn'), calBtn = $('calBtn'), statusEl = $('status');
   var simToggle = $('simToggle'), simArea = $('simArea'), pad = $('pad'), dot = $('dot');
   var simX = $('simX'), simY = $('simY'), simZ = $('simZ');
+  var flashEl = $('flash'), bigNote = $('bigNote'), canvas = $('viz');
+  var reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ---- State ----
-  var ctx = null, osc = null, filter = null, voiceGain = null, master = null;
+  var ctx = null, nodes = null;
   var running = false;
-  var wave = 'sine';
-  var raw = { x: 0, y: 0, z: 0 };          // latest raw angles (degrees)
+  var wave = 'sawtooth', scaleName = 'pentatonic', echoOn = true;
+  var raw = { x: 0, y: 0, z: 0 };          // latest angles (degrees)
   var zero = { x: 0, y: 0, z: 0 };         // calibration offsets
   var smooth = { x: 0, y: 0, z: 0 };       // smoothed, calibrated values
   var needsCalibration = true;
   var haveSensorData = false;
-  var shakeForce = 0, lastShake = 0;
+  var energy = 0, lastShake = 0;
   var sensorsOn = false;
   var useSim = false;
-  var rafId = 0;
   var wakeLock = null;
-  var current = { freq: PITCH_MIN, vol: 0, tone: TONE_MIN };
+  var current = { midi: BASE_MIDI + SPAN / 2, freq: 220, vol: 0, tone: TONE_MIN, note: -1 };
 
   function say(msg) {
-    // Clear then set so VoiceOver re-announces repeated messages.
     statusEl.textContent = '';
     setTimeout(function () { statusEl.textContent = msg; }, 50);
   }
-
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
-  // Shortest signed difference between two angles, in -180..180.
   function angleDiff(a, b) { var d = (a - b) % 360; if (d > 180) d -= 360; if (d < -180) d += 360; return d; }
+  function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+  var DEG = Math.PI / 180;
 
   var motionSupported = typeof window.DeviceOrientationEvent !== 'undefined' || typeof window.DeviceMotionEvent !== 'undefined';
   var isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 
-  // ---- Audio ----
+  // ---- Audio graph ----
+  // 2 detuned oscillators + sub -> resonant filter -> voice gain -> (dry + echo) -> master -> limiter
   function buildAudio() {
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) throw new Error('Web Audio is not supported in this browser.');
     ctx = new AC();
-
-    // Let audio play even with the iPhone ringer switch on silent (Safari 16.4+).
     try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
 
-    var comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -18;
-    comp.knee.value = 12;
-    comp.ratio.value = 8;
-    comp.attack.value = 0.005;
-    comp.release.value = 0.2;
+    var n = {};
+    n.limiter = ctx.createDynamicsCompressor();
+    n.limiter.threshold.value = -12;
+    n.limiter.knee.value = 0;
+    n.limiter.ratio.value = 20;
+    n.limiter.attack.value = 0.002;
+    n.limiter.release.value = 0.15;
+    n.limiter.connect(ctx.destination);
 
-    master = ctx.createGain();
-    master.gain.value = 0;
-    master.connect(comp);
-    comp.connect(ctx.destination);
+    n.master = ctx.createGain();
+    n.master.gain.value = 0;
+    n.master.connect(n.limiter);
 
-    filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 1500;
-    filter.Q.value = 2;
+    n.analyser = ctx.createAnalyser();
+    n.analyser.fftSize = 1024;
+    n.master.connect(n.analyser);
 
-    voiceGain = ctx.createGain();
-    voiceGain.gain.value = 0;
+    // Echo: feedback delay with a darkening filter in the loop.
+    n.delay = ctx.createDelay(1);
+    n.delay.delayTime.value = 0.27;
+    n.feedback = ctx.createGain();
+    n.feedback.gain.value = 0.38;
+    n.delayTone = ctx.createBiquadFilter();
+    n.delayTone.type = 'lowpass';
+    n.delayTone.frequency.value = 2500;
+    n.wet = ctx.createGain();
+    n.wet.gain.value = echoOn ? 0.35 : 0;
+    n.delay.connect(n.delayTone);
+    n.delayTone.connect(n.feedback);
+    n.feedback.connect(n.delay);
+    n.delayTone.connect(n.wet);
+    n.wet.connect(n.master);
 
-    filter.connect(voiceGain);
-    voiceGain.connect(master);
+    n.bus = ctx.createGain();          // everything that should be echoed
+    n.bus.connect(n.master);
+    n.bus.connect(n.delay);
+
+    n.filter = ctx.createBiquadFilter();
+    n.filter.type = 'lowpass';
+    n.filter.frequency.value = 1500;
+    n.filter.Q.value = 7;
+
+    n.voice = ctx.createGain();
+    n.voice.gain.value = 0;
+    n.filter.connect(n.voice);
+    n.voice.connect(n.bus);
+
+    n.waveTrim = ctx.createGain();
+    n.waveTrim.gain.value = WAVE_LEVEL[wave];
+    n.waveTrim.connect(n.filter);
+
+    // Vibrato LFO (depth follows how fast you move).
+    n.lfo = ctx.createOscillator();
+    n.lfo.frequency.value = 5.5;
+    n.lfoDepth = ctx.createGain();
+    n.lfoDepth.gain.value = 0;
+    n.lfo.connect(n.lfoDepth);
+    n.lfo.start();
+
+    nodes = n;
   }
 
   function startVoice() {
-    osc = ctx.createOscillator();
-    osc.type = wave;
-    osc.frequency.value = current.freq;
-    osc.connect(filter);
-    osc.start();
-    var t = ctx.currentTime;
-    master.gain.cancelScheduledValues(t);
-    master.gain.setValueAtTime(master.gain.value, t);
-    master.gain.linearRampToValueAtTime(MASTER_MAX, t + 0.4); // gentle fade in
+    var n = nodes, t = ctx.currentTime;
+    n.oscA = ctx.createOscillator();
+    n.oscB = ctx.createOscillator();
+    n.sub = ctx.createOscillator();
+    n.subGain = ctx.createGain();
+    n.oscA.type = wave; n.oscB.type = wave; n.sub.type = 'sine';
+    n.oscB.detune.value = 9;
+    n.subGain.gain.value = 0.35;
+    [n.oscA, n.oscB, n.sub].forEach(function (o) {
+      o.frequency.value = current.freq;
+      n.lfoDepth.connect(o.detune);
+    });
+    n.sub.frequency.value = current.freq / 2;
+    n.oscA.connect(n.waveTrim);
+    n.oscB.connect(n.waveTrim);
+    n.sub.connect(n.subGain);
+    n.subGain.connect(n.filter);
+    n.oscA.start(); n.oscB.start(); n.sub.start();
+    n.master.gain.cancelScheduledValues(t);
+    n.master.gain.setValueAtTime(n.master.gain.value, t);
+    n.master.gain.linearRampToValueAtTime(MASTER_MAX, t + 0.25);
   }
 
   function stopVoice() {
-    if (!ctx || !osc) return;
-    var t = ctx.currentTime;
-    master.gain.cancelScheduledValues(t);
-    master.gain.setValueAtTime(master.gain.value, t);
-    master.gain.linearRampToValueAtTime(0, t + 0.25); // gentle fade out
-    var o = osc;
-    osc = null;
-    try { o.stop(t + 0.3); } catch (e) {}
-    setTimeout(function () { try { o.disconnect(); } catch (e) {} }, 400);
+    if (!ctx || !nodes || !nodes.oscA) return;
+    var n = nodes, t = ctx.currentTime;
+    n.master.gain.cancelScheduledValues(t);
+    n.master.gain.setValueAtTime(n.master.gain.value, t);
+    n.master.gain.linearRampToValueAtTime(0, t + 0.2);
+    var oscs = [n.oscA, n.oscB, n.sub, n.subGain];
+    n.oscA = n.oscB = n.sub = n.subGain = null;
+    oscs.forEach(function (o) { try { if (o.stop) o.stop(t + 0.25); } catch (e) {} });
+    setTimeout(function () { oscs.forEach(function (o) { try { o.disconnect(); } catch (e) {} }); }, 400);
   }
 
-  function chime() {
-    if (!ctx || !running) return;
-    var t = ctx.currentTime;
-    var o = ctx.createOscillator();
-    var g = ctx.createGain();
-    o.type = 'triangle';
-    // An octave above the current pitch, kept in a pleasant range.
-    o.frequency.value = clamp(current.freq * 2, 300, 1800);
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.5, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+  function pluck(freq, when, level, type) {
+    var o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || 'triangle';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0, when);
+    g.gain.linearRampToValueAtTime(level, when + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.001, when + 0.5);
     o.connect(g);
-    g.connect(master); // goes through the master limiter
-    o.start(t);
-    o.stop(t + 0.85);
+    g.connect(nodes.bus);
+    o.start(when);
+    o.stop(when + 0.55);
     o.onended = function () { o.disconnect(); g.disconnect(); };
   }
 
+  // Shake: a quick rising arpeggio from the scale, size depends on shake strength.
+  function shakeBurst(strength) {
+    if (!ctx || !running) return;
+    var s = clamp(strength, 0, 1);
+    var count = 3 + Math.round(s * 3);
+    var steps = scaleNotesAbove(Math.round(current.midi), count);
+    var t = ctx.currentTime;
+    for (var i = 0; i < steps.length; i++) {
+      pluck(mtof(steps[i] + 12), t + i * 0.055, 0.18 + 0.22 * s, i % 2 ? 'square' : 'triangle');
+    }
+    flash(0.35 + 0.4 * s);
+  }
+
+  function scaleNotesAbove(midi, count) {
+    var sc = SCALES[scaleName] || SCALES.pentatonic;
+    var out = [], m = midi;
+    while (out.length < count && m < midi + 36) {
+      var pc = ((m - BASE_MIDI) % 12 + 12) % 12;
+      if (sc.indexOf(pc) !== -1) out.push(m);
+      m++;
+    }
+    return out;
+  }
+
+  // Note articulation: a small volume accent each time a new note is reached.
+  function accent() {
+    if (!nodes || !nodes.oscA) return;
+    var t = ctx.currentTime, g = nodes.filter.frequency;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(Math.min(current.tone * 2.2, 12000), t);
+    g.setTargetAtTime(current.tone, t + 0.01, 0.08);
+  }
+
+  function flash(amount) {
+    if (reduceMotion) return;
+    flashEl.style.transition = 'none';
+    flashEl.style.opacity = String(Math.min(0.5, amount));
+    requestAnimationFrame(function () {
+      flashEl.style.transition = 'opacity .45s ease-out';
+      flashEl.style.opacity = '0';
+    });
+  }
+
   // ---- Sensors ----
+  // Convert orientation to a gravity ("up") vector in phone coordinates. This stays stable
+  // in any grip, including upright, where raw beta/gamma angles jump around.
   function onOrientation(e) {
     if (useSim || e.gamma == null || e.beta == null) return;
-    raw.x = e.gamma;          // left/right tilt, -90..90
-    raw.y = e.beta;           // front/back tilt, -180..180
-    raw.z = e.alpha || 0;     // rotation around the screen, 0..360
+    var b = e.beta * DEG, g = e.gamma * DEG;
+    var ux = -Math.sin(g) * Math.cos(b);
+    var uy = Math.sin(b);
+    var uz = Math.cos(g) * Math.cos(b);
+    raw.x = Math.asin(clamp(-ux, -1, 1)) / DEG;   // roll: right edge down = positive
+    raw.y = Math.atan2(uy, uz) / DEG;             // pitch: top up = positive
+    // Heading of a horizontal direction fixed to the phone (top when flat, back when upright),
+    // computed from the full rotation so it doesn't jump when the phone passes vertical.
+    var a = (e.alpha || 0) * DEG;
+    var wn = Math.sqrt(uy * uy + uz * uz) || 1, wy = uz / wn, wz = -uy / wn;
+    var v0 = Math.sin(g) * wz, v1 = wy, v2 = Math.cos(g) * wz;
+    var p0 = v0, p1 = Math.cos(b) * v1 - Math.sin(b) * v2;
+    var hx = Math.cos(a) * p0 - Math.sin(a) * p1, hy = Math.sin(a) * p0 + Math.cos(a) * p1;
+    raw.z = -Math.atan2(hy, hx) / DEG;            // turn right = positive
     haveSensorData = true;
     if (needsCalibration) calibrate(true);
   }
 
   function onMotion(e) {
     if (useSim) return;
-    var a = e.acceleration;
-    var mag;
+    var r = e.rotationRate;
+    if (r && r.alpha != null) {
+      var spin = Math.sqrt(r.alpha * r.alpha + r.beta * r.beta + r.gamma * r.gamma);
+      energy = Math.max(energy, clamp(spin / 350, 0, 1));
+    }
+    var a = e.acceleration, mag;
     if (a && a.x != null) {
       mag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
     } else if (e.accelerationIncludingGravity && e.accelerationIncludingGravity.x != null) {
-      var g = e.accelerationIncludingGravity;
-      mag = Math.abs(Math.sqrt(g.x * g.x + g.y * g.y + g.z * g.z) - 9.81);
+      var gr = e.accelerationIncludingGravity;
+      mag = Math.abs(Math.sqrt(gr.x * gr.x + gr.y * gr.y + gr.z * gr.z) - 9.81);
     } else {
       return;
     }
-    shakeForce = shakeForce * 0.8 + mag * 0.2;
-    if (mag > SHAKE_THRESHOLD) triggerShake();
+    if (mag > SHAKE_THRESHOLD) triggerShake((mag - SHAKE_THRESHOLD) / 20);
   }
 
-  function triggerShake() {
+  function triggerShake(strength) {
     var now = Date.now();
     if (now - lastShake < SHAKE_COOLDOWN) return;
     lastShake = now;
-    chime();
+    energy = 1;
+    shakeBurst(strength);
   }
 
   function requestSensorPermission() {
@@ -408,22 +557,26 @@
   }
 
   // ---- Simulation ----
+  var lastSim = null;
   function readSim() {
-    raw.x = +simX.value;
-    raw.y = -simY.value;  // slider up = forward tilt = louder
-    raw.z = +simZ.value;
+    var nx = +simX.value, ny = +simY.value, nz = +simZ.value;
+    if (lastSim) {
+      var d = Math.abs(nx - lastSim.x) + Math.abs(ny - lastSim.y) + Math.abs(nz - lastSim.z);
+      energy = Math.max(energy, clamp(d / 12, 0, 1));
+    }
+    lastSim = { x: nx, y: ny, z: nz };
+    raw.x = nx; raw.y = -ny; raw.z = nz;  // slider up = top away = louder
   }
   function moveDot() {
-    dot.style.left = (50 + (+simX.value / 45) * 50) + '%';
-    // Up on the pad = forward tilt = louder
-    dot.style.top = (50 - (+simY.value / 45) * 50) + '%';
+    dot.style.left = (50 + (+simX.value / 25) * 50) + '%';
+    dot.style.top = (50 - (+simY.value / 25) * 50) + '%';
   }
   function padFromPointer(e) {
     var r = pad.getBoundingClientRect();
     var fx = clamp((e.clientX - r.left) / r.width, 0, 1);
     var fy = clamp((e.clientY - r.top) / r.height, 0, 1);
-    simX.value = Math.round((fx * 2 - 1) * 45);
-    simY.value = Math.round((1 - fy * 2) * 45);
+    simX.value = Math.round((fx * 2 - 1) * 25);
+    simY.value = Math.round((1 - fy * 2) * 25);
     readSim();
     moveDot();
   }
@@ -441,8 +594,7 @@
     s.addEventListener('input', function () { readSim(); moveDot(); });
   });
   $('simShake').addEventListener('click', function () {
-    shakeForce = 20;
-    if (running) { triggerShake(); say('Shake!'); }
+    if (running) { lastShake = 0; triggerShake(0.8); say('Shake!'); }
     else say('Tap Start first, then shake.');
   });
 
@@ -464,71 +616,147 @@
     say(simToggle.checked ? 'Simulation mode on.' : 'Simulation mode off. Using motion sensors.');
   });
 
-  // ---- Main loop: smooth values and drive the sound ----
+  // ---- Pitch mapping with optional scale snapping ----
+  function pickNote(continuous) {
+    var sc = SCALES[scaleName];
+    if (!sc) return continuous;
+    // Nearest scale note, with a little stickiness so notes don't flicker.
+    var best = null, bestD = 1e9;
+    for (var m = Math.floor(continuous) - 3; m <= Math.ceil(continuous) + 3; m++) {
+      var pc = ((m - BASE_MIDI) % 12 + 12) % 12;
+      if (sc.indexOf(pc) === -1) continue;
+      var d = Math.abs(m - continuous);
+      if (d < bestD) { bestD = d; best = m; }
+    }
+    if (current.note >= 0 && best !== current.note && Math.abs(current.note - continuous) < bestD + 0.35) {
+      return current.note;
+    }
+    return best;
+  }
+
+  // ---- Main loop ----
   function fmt(v) { return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(0) + '°'; }
+  var frame = 0;
 
   function tick() {
-    rafId = requestAnimationFrame(tick);
+    requestAnimationFrame(tick);
+    frame++;
 
     var tx = angleDiff(raw.x, zero.x);
     var ty = angleDiff(raw.y, zero.y);
     var tz = angleDiff(raw.z, zero.z);
     smooth.x += (tx - smooth.x) * SMOOTH;
     smooth.y += (ty - smooth.y) * SMOOTH;
-    // Rotation wraps around, so smooth the shortest-path difference.
-    smooth.z += angleDiff(tz, smooth.z) * SMOOTH;
-    smooth.z = angleDiff(smooth.z, 0);
-    if (!useSim) shakeForce *= 0.97; else shakeForce *= 0.9;
+    smooth.z = angleDiff(smooth.z + angleDiff(tz, smooth.z) * SMOOTH, 0);
+    energy *= 0.94;
 
-    // Pitch: left = low, right = high (exponential so it sounds even).
     var px = (clamp(smooth.x, -TILT_RANGE, TILT_RANGE) + TILT_RANGE) / (2 * TILT_RANGE);
-    current.freq = PITCH_MIN * Math.pow(PITCH_MAX / PITCH_MIN, px);
-    // Volume: top tilted away (beta decreases) = louder.
+    var continuous = BASE_MIDI + px * SPAN;
+    var midi = pickNote(continuous);
+    var noteChanged = SCALES[scaleName] && midi !== current.note;
+    current.note = SCALES[scaleName] ? midi : -1;
+    current.midi = midi;
+    current.freq = mtof(midi);
+
+    // Top tilted away (pitch angle goes down) = louder.
     var vy = (TILT_RANGE - clamp(smooth.y, -TILT_RANGE, TILT_RANGE)) / (2 * TILT_RANGE);
     current.vol = vy;
-    // Tone: rotation sets the filter brightness.
     var tz01 = (clamp(smooth.z, -ROT_RANGE, ROT_RANGE) + ROT_RANGE) / (2 * ROT_RANGE);
-    current.tone = TONE_MIN * Math.pow(TONE_MAX / TONE_MIN, tz01);
+    current.tone = TONE_MIN * Math.pow(TONE_MAX / TONE_MIN, clamp(tz01 + energy * 0.25, 0, 1));
 
-    if (running && ctx && osc) {
-      var t = ctx.currentTime;
-      osc.frequency.setTargetAtTime(current.freq, t, GLIDE);
-      // Squared curve feels more natural; voice gain never exceeds 1 (master caps it).
-      voiceGain.gain.setTargetAtTime(current.vol * current.vol, t, GLIDE * 1.5);
-      filter.frequency.setTargetAtTime(current.tone, t, GLIDE * 2);
+    if (running && nodes && nodes.oscA) {
+      var n = nodes, t = ctx.currentTime;
+      var glide = SCALES[scaleName] ? 0.012 : 0.03;
+      n.oscA.frequency.setTargetAtTime(current.freq, t, glide);
+      n.oscB.frequency.setTargetAtTime(current.freq, t, glide);
+      n.sub.frequency.setTargetAtTime(current.freq / 2, t, glide);
+      n.voice.gain.setTargetAtTime(0.08 + 0.92 * Math.pow(vy, 1.4), t, 0.03);
+      n.lfoDepth.gain.setTargetAtTime(6 + energy * 45, t, 0.05);
+      if (noteChanged) accent();
+      else n.filter.frequency.setTargetAtTime(current.tone, t, 0.04);
     }
 
-    $('valX').textContent = fmt(smooth.x);
-    $('valY').textContent = fmt(smooth.y);
-    $('valZ').textContent = fmt(smooth.z);
-    $('valShake').textContent = shakeForce.toFixed(1);
-    $('valPitch').textContent = Math.round(current.freq) + ' Hz';
-    $('valVol').textContent = Math.round(current.vol * 100) + '%';
-    $('valTone').textContent = Math.round(tz01 * 100) + '% bright';
-    $('barPitch').style.width = (px * 100) + '%';
-    $('barVol').style.width = (vy * 100) + '%';
-    $('barTone').style.width = (tz01 * 100) + '%';
+    var hue = Math.round(260 - px * 220);
+    document.documentElement.style.setProperty('--hue', hue);
+
+    if (frame % 3 === 0) {
+      $('valX').textContent = fmt(smooth.x);
+      $('valY').textContent = fmt(smooth.y);
+      $('valZ').textContent = fmt(smooth.z);
+      $('valMove').textContent = Math.round(energy * 100) + '%';
+      var nm = Math.round(midi);
+      var label = NOTES[((nm % 12) + 12) % 12];
+      var oct = Math.floor(nm / 12) - 1;
+      $('valPitch').textContent = label + oct + ' (' + Math.round(current.freq) + ' Hz)';
+      bigNote.innerHTML = running ? label + '<small>' + oct + '</small>' : '–';
+      $('valVol').textContent = Math.round(current.vol * 100) + '%';
+      $('valTone').textContent = Math.round(tz01 * 100) + '% bright';
+      $('barPitch').style.width = (px * 100) + '%';
+      $('barVol').style.width = (vy * 100) + '%';
+      $('barTone').style.width = (tz01 * 100) + '%';
+    }
+    drawViz(hue, vy);
   }
 
-  var NOTES = ['C', 'C sharp', 'D', 'D sharp', 'E', 'F', 'F sharp', 'G', 'G sharp', 'A', 'A sharp', 'B'];
-  function noteName(f) {
-    var n = Math.round(12 * Math.log2(f / 440)) + 69;
-    return NOTES[((n % 12) + 12) % 12] + ' ' + (Math.floor(n / 12) - 1);
+  // ---- Background visualizer ----
+  var c2d = canvas.getContext('2d'), buf = null;
+  function drawViz(hue, vy) {
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+      canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+    }
+    c2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c2d.fillStyle = reduceMotion ? '#0b0e13' : 'rgba(11,14,19,0.25)';
+    c2d.fillRect(0, 0, w, h);
+    if (!running || !nodes) return;
+    if (!buf) buf = new Float32Array(nodes.analyser.fftSize);
+    nodes.analyser.getFloatTimeDomainData(buf);
+    c2d.lineWidth = 3 + energy * 6;
+    c2d.strokeStyle = 'hsla(' + hue + ',100%,60%,' + (0.35 + vy * 0.5) + ')';
+    c2d.shadowColor = 'hsl(' + hue + ',100%,55%)';
+    c2d.shadowBlur = reduceMotion ? 0 : 12 + energy * 20;
+    c2d.beginPath();
+    var mid = h * 0.5, amp = h * 0.35;
+    for (var i = 0; i < buf.length; i++) {
+      var x = (i / (buf.length - 1)) * w;
+      var y = mid + buf[i] * amp * 2.2;
+      if (i === 0) c2d.moveTo(x, y); else c2d.lineTo(x, y);
+    }
+    c2d.stroke();
+    c2d.shadowBlur = 0;
   }
+
   $('describeBtn').addEventListener('click', function () {
-    var tone = (current.tone - TONE_MIN) / (TONE_MAX - TONE_MIN);
-    say((running ? 'Playing ' : 'Stopped. Ready to play ') + noteName(current.freq) +
+    var nm = Math.round(current.midi);
+    var tone = Math.log(current.tone / TONE_MIN) / Math.log(TONE_MAX / TONE_MIN);
+    say((running ? 'Playing ' : 'Stopped. Ready to play ') + NOTES_SPOKEN[((nm % 12) + 12) % 12] + ' ' + (Math.floor(nm / 12) - 1) +
         ', volume ' + Math.round(current.vol * 100) + ' percent, ' +
-        (tone < 0.15 ? 'dark' : tone < 0.5 ? 'warm' : 'bright') + ' tone, ' + wave + ' wave.');
+        (tone < 0.25 ? 'dark' : tone < 0.6 ? 'warm' : 'bright') + ' tone, ' + wave + ' wave, ' +
+        (scaleName === 'free' ? 'free slide' : scaleName + ' notes') + '.');
   });
 
-  // ---- Wave shape ----
+  // ---- Options ----
   document.querySelectorAll('input[name="wave"]').forEach(function (r) {
     r.addEventListener('change', function () {
       if (!r.checked) return;
       wave = r.value;
-      if (osc) osc.type = wave;
+      if (nodes) {
+        if (nodes.oscA) { nodes.oscA.type = wave; nodes.oscB.type = wave; }
+        nodes.waveTrim.gain.setTargetAtTime(WAVE_LEVEL[wave], ctx.currentTime, 0.02);
+      }
     });
+  });
+  document.querySelectorAll('input[name="scale"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      if (!r.checked) return;
+      scaleName = r.value;
+      current.note = -1;
+    });
+  });
+  $('echoToggle').addEventListener('change', function (e) {
+    echoOn = e.target.checked;
+    if (nodes) nodes.wet.gain.setTargetAtTime(echoOn ? 0.35 : 0, ctx.currentTime, 0.05);
   });
 
   // ---- Start / Stop ----
@@ -536,7 +764,6 @@
     startBtn.textContent = on ? 'Stop' : 'Start';
     startBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
   }
-
   function requestWakeLock() {
     try {
       if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (l) { wakeLock = l; }).catch(function () {});
@@ -570,6 +797,7 @@
     var permission = useSim ? Promise.resolve('sim') : requestSensorPermission();
 
     running = true;
+    current.note = -1;
     setRunningUI(true);
     startVoice();
     requestWakeLock();
@@ -587,8 +815,7 @@
       }
       attachSensors();
       needsCalibration = true;
-      say('Playing. Tilt, turn and shake your phone.');
-      // If no sensor data arrives (e.g. on a computer), fall back to simulation.
+      say('Playing. Tilt, twist and shake your phone.');
       setTimeout(function () {
         if (running && !useSim && !haveSensorData) {
           setSim(true);
@@ -611,13 +838,11 @@
     calibrate(false);
   });
 
-  // Silence when the page goes to the background or the screen locks.
   document.addEventListener('visibilitychange', function () {
     if (document.hidden && running) stop('Stopped because the page was hidden.');
   });
   window.addEventListener('pagehide', function () { if (running) stop(); });
 
-  // Desktop with no touch: start in simulation mode so testing is easy.
   if (!motionSupported || !isTouchDevice) setSim(true);
   if (!window.isSecureContext) {
     statusEl.textContent = 'Note: motion sensors need an https address. Simulation mode works anywhere.';
@@ -625,7 +850,7 @@
 
   // Test hook (harmless in normal use).
   window.MotionSound = {
-    state: function () { return { running: running, useSim: useSim, wave: wave, freq: current.freq, vol: current.vol, tone: current.tone, smooth: smooth, ctx: ctx && ctx.state, lastShake: lastShake }; }
+    state: function () { return { running: running, useSim: useSim, wave: wave, scale: scaleName, midi: current.midi, freq: current.freq, vol: current.vol, tone: current.tone, energy: energy, smooth: smooth, ctx: ctx && ctx.state, lastShake: lastShake }; }
   };
 
   tick();
