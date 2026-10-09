@@ -1,0 +1,21 @@
+{
+  "name": "library-access-network",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prototype accessible social and training network for public libraries: JAWS lessons, Morphic information, and peer-to-peer knowledge sharing.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test",
+    "test:a11y": "node tests/a11y/run-axe.js",
+    "reset": "node -e \"require('./src/db').reset(); console.log('Demonstration data restored.')\""
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "axe-core": "^4.14.0",
+    "playwright-core": "1.56"
+  }
+}
