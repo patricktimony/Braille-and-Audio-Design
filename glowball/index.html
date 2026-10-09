@@ -57,8 +57,21 @@ const ball = { x: 0, y: 0, vx: 0, vy: 0, r: 31, hue: 180 }; // 62 CSS px ≈ 1 c
 const PX_PER_G = 260;      // pixels/s^2 per m/s^2 — snappy
 const BOUNCE = 0.82;
 
-// Bell fixed in the middle of the screen: the ball bounces off it and rings it
-const bell = { r: 30, swing: 0, swingV: 0, lastRing: 0 };
+// Five bells at random spots: the ball bounces off them and rings them.
+// Positions are fractions of the screen so they stay put if it resizes.
+const BELL_R = 30;
+const BELL_PITCHES = [523, 587, 659, 784, 880]; // each bell a different pentatonic note
+let bells = [];
+function placeBells() {
+  bells = [];
+  const margin = BELL_R + 20, gap = 2 * BELL_R + 2 * ball.r + 10; // room for the ball between bells
+  for (let tries = 0; bells.length < 5 && tries < 5000; tries++) {
+    const x = margin + Math.random() * (W - 2 * margin), y = margin + Math.random() * (H - 2 * margin);
+    if (Math.hypot(x - ball.x, y - ball.y) < gap) continue;
+    if (bells.some(b => Math.hypot(x - b.fx * W, y - b.fy * H) < gap)) continue;
+    bells.push({ fx: x / W, fy: y / H, swing: 0, swingV: 0, lastRing: 0, freq: BELL_PITCHES[bells.length] });
+  }
+}
 
 function step(dt) {
   // Color from left/right tilt (smoothed)
@@ -77,24 +90,27 @@ function step(dt) {
   if (ball.y < r)     { ball.y = r;     ball.vy = Math.abs(ball.vy) * BOUNCE; }
   if (ball.y > H - r) { ball.y = H - r; ball.vy = -Math.abs(ball.vy) * BOUNCE; }
 
-  // Ball vs bell (treated as a circle at screen center)
-  const dx = ball.x - W / 2, dy = ball.y - H / 2, d = Math.hypot(dx, dy) || 1, minD = r + bell.r;
-  if (d < minD) {
-    const nx = dx / d, ny = dy / d, vn = ball.vx * nx + ball.vy * ny;
-    ball.x = W / 2 + nx * minD; ball.y = H / 2 + ny * minD;
-    if (vn < 0) {
-      ball.vx -= (1 + BOUNCE) * vn * nx; ball.vy -= (1 + BOUNCE) * vn * ny;
-      bell.swingV += -vn * nx * 0.004;
-      ringBell(Math.min(1, -vn / 900));
+  for (const bell of bells) {
+    // Ball vs bell (treated as a circle)
+    const bx = bell.fx * W, by = bell.fy * H;
+    const dx = ball.x - bx, dy = ball.y - by, d = Math.hypot(dx, dy) || 1, minD = r + BELL_R;
+    if (d < minD) {
+      const nx = dx / d, ny = dy / d, vn = ball.vx * nx + ball.vy * ny;
+      ball.x = bx + nx * minD; ball.y = by + ny * minD;
+      if (vn < 0) {
+        ball.vx -= (1 + BOUNCE) * vn * nx; ball.vy -= (1 + BOUNCE) * vn * ny;
+        bell.swingV += -vn * nx * 0.004;
+        ringBell(bell, Math.min(1, -vn / 900));
+      }
     }
+    // Damped swing of the bell
+    bell.swingV += -bell.swing * 120 * dt; bell.swingV *= Math.pow(0.15, dt);
+    bell.swing += bell.swingV * dt * 60;
   }
-  // Damped swing of the bell
-  bell.swingV += -bell.swing * 120 * dt; bell.swingV *= Math.pow(0.15, dt);
-  bell.swing += bell.swingV * dt * 60;
 }
 
-function drawBell() {
-  const cx = W / 2, cy = H / 2, s = bell.r;
+function drawBell(bell) {
+  const cx = bell.fx * W, cy = bell.fy * H, s = BELL_R;
   ctx.save();
   ctx.translate(cx, cy - s * 0.9); ctx.rotate(Math.max(-0.6, Math.min(0.6, bell.swing))); ctx.translate(0, s * 0.9);
   ctx.shadowColor = 'rgba(255,200,80,0.9)'; ctx.shadowBlur = 18;
@@ -119,7 +135,7 @@ function draw() {
   ctx.globalCompositeOperation = 'source-over';
   ctx.fillStyle = 'rgba(0,0,0,0.28)';
   ctx.fillRect(0, 0, W, H);
-  drawBell();
+  bells.forEach(drawBell);
 
   const { x, y, r, hue } = ball, h = hue.toFixed(0);
   ctx.globalCompositeOperation = 'lighter';
@@ -154,7 +170,7 @@ function startAudio() {
   ac.resume();
   audio = { ac, osc, filter };
 }
-function ringBell(strength) {
+function ringBell(bell, strength) {
   if (!audio || strength < 0.03) return;
   const { ac } = audio, now = ac.currentTime;
   if (now - bell.lastRing < 0.08) return;
@@ -162,7 +178,7 @@ function ringBell(strength) {
   // Inharmonic partials with long decays = bell
   [[1, 1, 3], [2.0, 0.6, 2], [2.76, 0.45, 1.4], [5.4, 0.25, 0.8], [8.9, 0.12, 0.5]].forEach(([ratio, amp, decay]) => {
     const o = ac.createOscillator(), g = ac.createGain();
-    o.frequency.value = 660 * ratio;
+    o.frequency.value = bell.freq * ratio;
     g.gain.setValueAtTime(0.0001, now);
     g.gain.exponentialRampToValueAtTime(0.35 * amp * (0.3 + 0.7 * strength), now + 0.005);
     g.gain.exponentialRampToValueAtTime(0.0001, now + decay);
@@ -204,6 +220,7 @@ btn.addEventListener('click', () => {
     addEventListener('deviceorientation', onOrient);
     btn.remove();
     ball.x = W / 2; ball.y = H * 0.2;
+    placeBells();
     requestAnimationFrame(loop);
   }).catch(err => {
     msg.textContent = 'Could not get motion access: ' + err.message + (location.protocol !== 'https:' ? ' (page must be HTTPS)' : '');
