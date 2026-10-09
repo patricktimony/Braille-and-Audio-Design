@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<title>Sculpt Synth</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: #000; color: #f2f2f2;
+    font-family: -apple-system, system-ui, "Helvetica Neue", Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+  }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+  .ui {
+    position: fixed; inset: 0; pointer-events: none;
+    display: flex; flex-direction: column; justify-content: space-between;
+    padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+             max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+  .ui > * { pointer-events: auto; }
+  header { text-align: center; }
+  h1 { font-size: 1.1rem; font-weight: 600; margin: 0; letter-spacing: .08em; color: #bbb; }
+  #status { margin: 6px 0 0; font-size: 1rem; color: #ddd; min-height: 1.4em; }
+  #readout { margin: 2px 0 0; font-size: .85rem; color: #888; font-variant-numeric: tabular-nums; }
+  details { margin: 8px auto 0; max-width: 420px; background: rgba(30,30,30,.85); border-radius: 12px; padding: 6px 12px; text-align: left; }
+  summary { padding: 8px 0; font-size: .95rem; color: #ccc; cursor: pointer; }
+  label { display: block; margin: 8px 0; font-size: .95rem; }
+  input[type=range] { width: 100%; height: 36px; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .row input { width: 24px; height: 24px; }
+  .hint { font-size: .85rem; color: #999; margin: 6px 0; }
+  footer { display: flex; gap: 12px; }
+  button {
+    font: inherit; font-weight: 700; border: 0; border-radius: 18px;
+    min-height: 72px; touch-action: manipulation; cursor: pointer;
+  }
+  #start { flex: 3; font-size: 1.6rem; background: #fff; color: #000; }
+  #stop  { flex: 1; font-size: 1.2rem; background: #333; color: #fff; }
+  button:disabled { opacity: .35; }
+  button:focus-visible, summary:focus-visible, input:focus-visible { outline: 3px solid #6fc3ff; outline-offset: 3px; }
+</style>
+</head>
+<body>
+<canvas id="cv" aria-hidden="true"></canvas>
+
+<div class="ui">
+  <header>
+    <h1>SCULPT SYNTH</h1>
+    <p id="status" role="status" aria-live="polite">Tap Start, then move your iPhone.</p>
+    <p id="readout"></p>
+    <details id="manual">
+      <summary>Touch &amp; manual controls</summary>
+      <label class="row"><input type="checkbox" id="useMotion" checked> Use motion sensors</label>
+      <p class="hint">Drag anywhere on the black screen: left–right is pitch, up–down is tone. The sliders work with VoiceOver.</p>
+      <label>Pitch <input type="range" id="sPitch" min="0" max="100" value="50"></label>
+      <label>Tone <input type="range" id="sTone" min="0" max="100" value="50"></label>
+      <label>Volume <input type="range" id="sVol" min="0" max="100" value="55"></label>
+    </details>
+  </header>
+  <footer>
+    <button id="start" type="button">Start</button>
+    <button id="stop" type="button" disabled>Stop</button>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------- Pure mappings (also used by the automated tests) ----------
+  var LOW_HZ = 130.81;        // C3
+  var OCTAVES = 2;            // C3 .. C5
+  var PITCH_RANGE_DEG = 35;   // roll of ±35° spans the full two octaves
+  var TONE_RANGE_DEG = 35;    // tilt of ±35° from where you started spans soft..bright
+  var NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+
+  // Current screen rotation in degrees: 0, 90 (top to the left), 180, 270 (top to the right).
+  function screenAngle() {
+    var a = typeof window.orientation === 'number' ? window.orientation
+          : (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : 0;
+    return ((a % 360) + 360) % 360;
+  }
+
+  // World "up" seen in screen coordinates, from DeviceOrientation beta/gamma.
+  // Using the vector (not raw Euler angles) avoids gimbal jumps in landscape.
+  function upInScreen(beta, gamma, angle) {
+    var b = beta * Math.PI / 180, g = gamma * Math.PI / 180;
+    var ux = -Math.cos(b) * Math.sin(g), uy = Math.sin(b), uz = Math.cos(b) * Math.cos(g);
+    var t = angle * Math.PI / 180, c = Math.cos(t), s = Math.sin(t);
+    return { x: ux * c - uy * s, y: ux * s + uy * c, z: uz };
+  }
+
+  // Left/right roll (right edge down = positive) and forward/back tilt (0 = flat, 90 = upright).
+  function tiltAngles(beta, gamma, angle) {
+    var u = upInScreen(beta, gamma, angle);
+    return {
+      lr: Math.asin(clamp(-u.x, -1, 1)) * 180 / Math.PI,
+      fb: Math.atan2(u.y, u.z) * 180 / Math.PI
+    };
+  }
+
+  function pitchFromRoll(lr) { return clamp(0.5 + lr / (2 * PITCH_RANGE_DEG), 0, 1); }
+  // Tilting the top away from you (flatter) = brighter.
+  function toneFromTilt(fb, fb0) {
+    var d = fb0 - fb;
+    if (d > 180) d -= 360; if (d < -180) d += 360;
+    return clamp(0.5 + d / (2 * TONE_RANGE_DEG), 0, 1);
+  }
+  function freqFromPitch(p) { return LOW_HZ * Math.pow(2, OCTAVES * p); }
+  function gainFromVolume(v) { return v <= 0 ? 0.004 : 0.5 * Math.pow(10, (-40 + 40 * v) / 20); }
+  function noteName(f) {
+    var n = Math.round(12 * Math.log2(f / 440) + 69);
+    return NOTE_NAMES[((n % 12) + 12) % 12] + (Math.floor(n / 12) - 1);
+  }
+
+  // Vertical motion -> volume. Upward acceleration builds upward velocity, which raises
+  // volume; downward acceleration lowers it. Velocity snaps to zero whenever the phone
+  // is still (dead zone held ~0.12 s), so a finished lift keeps its new volume and
+  // sensor noise can't make it drift. No pretend absolute height tracking.
+  function makeVolumeIntegrator(opts) {
+    opts = opts || {};
+    var DEAD = opts.dead || 0.25;     // m/s² treated as noise
+    var STILL = opts.still || 0.12;   // s of quiet before velocity resets
+    var LEAK = opts.leak || 3;        // s, slow safety decay during long motions
+    var GAIN = opts.gain || 1.2;      // volume units per metre of travel
+    var vel = 0, quiet = 0;
+    return {
+      step: function (vertAcc, dt, vol) {
+        var a = 0;
+        if (Math.abs(vertAcc) < DEAD) quiet += dt;
+        else { quiet = 0; a = vertAcc - Math.sign(vertAcc) * DEAD * 0.5; }
+        vel = quiet > STILL ? 0 : vel * Math.exp(-dt / LEAK) + a * dt;
+        return clamp(vol + GAIN * vel * dt, 0, 1);
+      },
+      reset: function () { vel = 0; quiet = 0; },
+      get vel() { return vel; }
+    };
+  }
+
+  // ---------- State ----------
+  var S = {
+    running: false,
+    pitch: 0.5, tone: 0.5, volume: 0.55,      // targets 0..1
+    dPitch: 0.5, dTone: 0.5, dVolume: 0,      // smoothed values for drawing
+    fb0: null, lastOrient: 0, lastMotion: 0, gotOrient: false, gotMotion: false,
+    gLP: null, upDev: null, touchActive: false, motionOn: true
+  };
+  var volInt = makeVolumeIntegrator();
+
+  // ---------- Audio ----------
+  var ctx = null, nodes = null;
+
+  function buildAudio() {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    ctx = new AC();
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {} // play even with the silent switch on
+    var t = ctx.currentTime;
+    var f = freqFromPitch(S.pitch);
+
+    var sine = ctx.createOscillator(); sine.type = 'sine';
+    var saw1 = ctx.createOscillator(); saw1.type = 'sawtooth';
+    var saw2 = ctx.createOscillator(); saw2.type = 'sawtooth'; saw2.detune.value = 9;
+    var sq   = ctx.createOscillator(); sq.type = 'square';
+    [sine, saw1, saw2, sq].forEach(function (o) { o.frequency.value = f; });
+    sq.frequency.value = f / 2; // sub-octave adds weight when bright
+
+    var gSine = ctx.createGain(), gSaw = ctx.createGain(), gSq = ctx.createGain();
+    var filter = ctx.createBiquadFilter(); filter.type = 'lowpass';
+    var amp = ctx.createGain(); amp.gain.value = 0;
+    var comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -14; comp.knee.value = 10; comp.ratio.value = 6;
+    comp.attack.value = 0.005; comp.release.value = 0.2;
+
+    // gentle vibrato for warmth
+    var lfo = ctx.createOscillator(); lfo.frequency.value = 5.2;
+    var lfoAmt = ctx.createGain(); lfoAmt.gain.value = 4; // cents
+    lfo.connect(lfoAmt);
+    [sine, saw1, saw2, sq].forEach(function (o) { lfoAmt.connect(o.detune); });
+
+    sine.connect(gSine); saw1.connect(gSaw); saw2.connect(gSaw); sq.connect(gSq);
+    gSine.connect(filter); gSaw.connect(filter); gSq.connect(filter);
+    filter.connect(amp); amp.connect(comp); comp.connect(ctx.destination);
+
+    nodes = { sine: sine, saw1: saw1, saw2: saw2, sq: sq, lfo: lfo,
+              gSine: gSine, gSaw: gSaw, gSq: gSq, filter: filter, amp: amp };
+    applyTone(S.tone, 0);
+    [sine, saw1, saw2, sq, lfo].forEach(function (o) { o.start(t); });
+    amp.gain.setTargetAtTime(gainFromVolume(S.volume), t, 0.08); // fade in, no click
+  }
+
+  // Tone 0 = pure sine through a low filter. Tone 1 = detuned saws + sub, open resonant filter.
+  function toneParams(tone, freq) {
+    return {
+      sine: 0.55 * Math.cos(tone * Math.PI / 2),
+      saw: 0.22 * Math.sin(tone * Math.PI / 2),
+      sq: 0.10 * tone * tone,
+      cutoff: Math.min(14000, freq * (1.5 + 22 * tone * tone)),
+      q: 0.7 + 5 * tone
+    };
+  }
+  function applyTone(tone, tc) {
+    var p = toneParams(tone, freqFromPitch(S.pitch)), t = ctx.currentTime;
+    set(nodes.gSine.gain, p.sine, t, tc); set(nodes.gSaw.gain, p.saw, t, tc);
+    set(nodes.gSq.gain, p.sq, t, tc);
+    set(nodes.filter.frequency, p.cutoff, t, tc); set(nodes.filter.Q, p.q, t, tc);
+  }
+  function set(param, v, t, tc) { if (tc) param.setTargetAtTime(v, t, tc); else param.setValueAtTime(v, t); }
+
+  function updateAudio() {
+    if (!ctx || !nodes || !S.running) return;
+    var t = ctx.currentTime, f = freqFromPitch(S.pitch);
+    ['sine', 'saw1', 'saw2'].forEach(function (k) { nodes[k].frequency.setTargetAtTime(f, t, 0.025); });
+    nodes.sq.frequency.setTargetAtTime(f / 2, t, 0.025);
+    applyTone(S.tone, 0.04);
+    nodes.amp.gain.setTargetAtTime(gainFromVolume(S.volume), t, 0.06);
+  }
+
+  function teardownAudio() {
+    if (!ctx) return;
+    var c = ctx, n = nodes, t = c.currentTime;
+    n.amp.gain.cancelScheduledValues(t);
+    n.amp.gain.setValueAtTime(n.amp.gain.value, t);
+    n.amp.gain.linearRampToValueAtTime(0, t + 0.15);
+    setTimeout(function () {
+      try { ['sine', 'saw1', 'saw2', 'sq', 'lfo'].forEach(function (k) { n[k].stop(); }); } catch (e) {}
+      try { c.close(); } catch (e) {}
+    }, 250);
+    ctx = null; nodes = null;
+  }
+
+  // ---------- Sensors ----------
+  function onOrientation(e) {
+    if (e.beta == null || e.gamma == null) return;
+    S.gotOrient = true; S.lastOrient = performance.now();
+    var ang = screenAngle();
+    var b = e.beta * Math.PI / 180, g = e.gamma * Math.PI / 180;
+    S.upDev = { x: -Math.cos(b) * Math.sin(g), y: Math.sin(b), z: Math.cos(b) * Math.cos(g) };
+    if (!S.motionOn || S.touchActive) return;
+    var a = tiltAngles(e.beta, e.gamma, ang);
+    if (S.fb0 === null) S.fb0 = a.fb;
+    S.pitch = pitchFromRoll(a.lr);
+    S.tone = toneFromTilt(a.fb, S.fb0);
+  }
+
+  var lastMotionT = 0;
+  function onMotion(e) {
+    var now = performance.now();
+    var dt = lastMotionT ? clamp((now - lastMotionT) / 1000, 0.001, 0.1) : 0.016;
+    lastMotionT = now;
+    var aig = e.accelerationIncludingGravity, lin = e.acceleration;
+    var hasAig = aig && aig.x != null, hasLin = lin && lin.x != null;
+    if (!hasAig && !hasLin) return;
+    S.gotMotion = true; S.lastMotion = now;
+    if (hasAig) {
+      var k = 1 - Math.exp(-dt / 0.4);
+      if (!S.gLP) S.gLP = { x: aig.x, y: aig.y, z: aig.z };
+      else { S.gLP.x += (aig.x - S.gLP.x) * k; S.gLP.y += (aig.y - S.gLP.y) * k; S.gLP.z += (aig.z - S.gLP.z) * k; }
+    }
+    var a = hasLin ? lin : { x: aig.x - S.gLP.x, y: aig.y - S.gLP.y, z: aig.z - S.gLP.z };
+    // "Up" direction in device coordinates. Projecting onto the gravity reading works
+    // whichever sign convention the browser uses, because both readings share it.
+    var d = hasAig ? S.gLP : S.upDev;
+    if (!d) return;
+    var m = Math.hypot(d.x, d.y, d.z); if (m < 1e-6) return;
+    var vert = (a.x * d.x + a.y * d.y + a.z * d.z) / m;
+    if (!S.motionOn) return;
+    S.volume = volInt.step(vert, dt, S.volume);
+  }
+
+  function requestSensorPermission() {
+    // Must be called synchronously inside the tap handler on iOS.
+    var reqs = [];
+    if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function')
+      reqs.push(DeviceMotionEvent.requestPermission());
+    if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function')
+      reqs.push(DeviceOrientationEvent.requestPermission());
+    return Promise.all(reqs).then(function (r) { return r.every(function (x) { return x === 'granted'; }); },
+                                  function () { return false; });
+  }
+
+  // ---------- Touch fallback ----------
+  var cv = document.getElementById('cv');
+  function touchAt(e) {
+    var r = cv.getBoundingClientRect();
+    S.pitch = clamp((e.clientX - r.left) / r.width, 0, 1);
+    S.tone = clamp(1 - (e.clientY - r.top) / r.height, 0, 1);
+  }
+  cv.addEventListener('pointerdown', function (e) {
+    S.touchActive = true; touchAt(e);
+    try { cv.setPointerCapture(e.pointerId); } catch (x) {}
+    e.preventDefault();
+  });
+  cv.addEventListener('pointermove', function (e) { if (S.touchActive) { touchAt(e); e.preventDefault(); } });
+  function touchEnd() {
+    if (!S.touchActive) return;
+    S.touchActive = false;
+    S.fb0 = null; // re-centre tone on the current tilt so it doesn't jump
+  }
+  cv.addEventListener('pointerup', touchEnd);
+  cv.addEventListener('pointercancel', touchEnd);
+
+  var sP = document.getElementById('sPitch'), sT = document.getElementById('sTone'), sV = document.getElementById('sVol');
+  var useMotion = document.getElementById('useMotion');
+  sP.addEventListener('input', function () { S.pitch = sP.value / 100; if (S.motionOn) setMotion(false); });
+  sT.addEventListener('input', function () { S.tone = sT.value / 100; if (S.motionOn) setMotion(false); });
+  sV.addEventListener('input', function () { S.volume = sV.value / 100; volInt.reset(); });
+  useMotion.addEventListener('change', function () { setMotion(useMotion.checked); });
+  function setMotion(on) {
+    S.motionOn = on; useMotion.checked = on;
+    if (on) { S.fb0 = null; volInt.reset(); }
+    say(on ? 'Motion control on.' : 'Motion control off. Using touch and sliders.');
+  }
+
+  // ---------- UI ----------
+  var startBtn = document.getElementById('start'), stopBtn = document.getElementById('stop');
+  var statusEl = document.getElementById('status'), readout = document.getElementById('readout');
+  function say(t) { statusEl.textContent = t; }
+
+  var wakeLock = null, sensorCheck = null;
+
+  startBtn.addEventListener('click', function () {
+    if (S.running) return;
+    // 1) audio and 2) permission must both start inside this tap.
+    try { buildAudio(); } catch (e) { say('Sorry, this browser cannot make sound.'); return; }
+    if (ctx.resume) ctx.resume();
+    var perm = requestSensorPermission();
+    S.running = true; S.fb0 = null; S.gLP = null; volInt.reset(); lastMotionT = 0;
+    S.gotOrient = S.gotMotion = false;
+    startBtn.disabled = true; stopBtn.disabled = false;
+    stopBtn.focus();
+    say('Playing. Tilt left and right for pitch, forward and back for tone, lift up or push down for volume.');
+    window.addEventListener('deviceorientation', onOrientation);
+    window.addEventListener('devicemotion', onMotion);
+    try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (w) { wakeLock = w; }, function () {}); } catch (e) {}
+    perm.then(function (ok) {
+      if (!ok && S.running) {
+        setMotion(false);
+        say('Motion permission was not given. Drag on the screen, or use the sliders. To allow motion, close this tab, reopen the link and tap Allow.');
+      }
+    });
+    clearTimeout(sensorCheck);
+    sensorCheck = setTimeout(function () {
+      if (!S.running || !S.motionOn) return;
+      if (!S.gotOrient && !S.gotMotion) {
+        setMotion(false);
+        say('No motion sensors found. Drag on the screen, or use the sliders.');
+        document.getElementById('manual').open = true;
+      } else if (!S.gotOrient) say('Tilt sensor missing: pitch and tone use touch. Volume follows motion.');
+      else if (!S.gotMotion) say('Accelerometer missing: use the volume slider. Tilt still works.');
+    }, 1500);
+  });
+
+  stopBtn.addEventListener('click', function () {
+    if (!S.running) return;
+    S.running = false;
+    window.removeEventListener('deviceorientation', onOrientation);
+    window.removeEventListener('devicemotion', onMotion);
+    teardownAudio();
+    try { if (wakeLock) wakeLock.release(); } catch (e) {} wakeLock = null;
+    startBtn.disabled = false; stopBtn.disabled = true;
+    startBtn.focus();
+    say('Stopped. Tap Start to play again.');
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && ctx && ctx.state !== 'running' && ctx.resume) ctx.resume();
+  });
+  window.addEventListener('orientationchange', function () { S.fb0 = null; });
+  if (screen.orientation && screen.orientation.addEventListener)
+    screen.orientation.addEventListener('change', function () { S.fb0 = null; });
+
+  // ---------- Drawing + control loop ----------
+  var g2 = cv.getContext('2d'), W = 0, H = 0, DPR = 1;
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+    g2.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resize); resize();
+
+  var lastFrame = performance.now(), lastSlider = 0;
+  function frame(now) {
+    var dt = Math.min(0.05, (now - lastFrame) / 1000); lastFrame = now;
+    updateAudio();
+
+    var k = 1 - Math.exp(-dt / 0.06);
+    S.dPitch += (S.pitch - S.dPitch) * k;
+    S.dTone += (S.tone - S.dTone) * k;
+    S.dVolume += ((S.running ? S.volume : 0) - S.dVolume) * k;
+
+    g2.fillStyle = '#000'; g2.fillRect(0, 0, W, H);
+    var hue = 280 - 280 * S.dPitch;              // low = violet, high = red/orange
+    var tone = S.dTone, m = Math.min(W, H);
+    var R = m * (0.07 + 0.25 * S.dVolume) * (S.running ? 1 : 0.6);
+    var cx = W / 2 + (S.dPitch - 0.5) * m * 0.12, cy = H / 2 - (S.dTone - 0.5) * m * 0.12;
+    var light = S.running ? 55 : 25;
+
+    // Soft halo: wide and blurry when soft, tighter when bright.
+    var haloR = R * (2.6 - 1.0 * tone);
+    var halo = g2.createRadialGradient(cx, cy, R * 0.2, cx, cy, haloR);
+    halo.addColorStop(0, 'hsla(' + hue + ',100%,' + light + '%,' + (0.55 - 0.2 * tone) + ')');
+    halo.addColorStop(1, 'hsla(' + hue + ',100%,' + light + '%,0)');
+    g2.fillStyle = halo; g2.beginPath(); g2.arc(cx, cy, haloR, 0, 6.2832); g2.fill();
+
+    // Body: perfectly round when soft, rippled "harmonic" edge when bright.
+    var tt = now / 1000, N = 120;
+    g2.beginPath();
+    for (var i = 0; i <= N; i++) {
+      var th = i / N * 6.2832;
+      var r = R * (1 + tone * tone * (0.10 * Math.sin(7 * th + tt * 4) + 0.05 * Math.sin(13 * th - tt * 7)));
+      var x = cx + r * Math.cos(th), y = cy + r * Math.sin(th);
+      if (i) g2.lineTo(x, y); else g2.moveTo(x, y);
+    }
+    var body = g2.createRadialGradient(cx - R * 0.25, cy - R * 0.25, R * 0.05, cx, cy, R * 1.1);
+    body.addColorStop(0, 'hsla(' + hue + ',100%,' + (S.running ? 92 : 50) + '%,1)');
+    body.addColorStop(0.35 + 0.3 * tone, 'hsla(' + hue + ',100%,' + light + '%,' + (0.95 - 0.4 * (1 - tone)) + ')');
+    body.addColorStop(1, 'hsla(' + hue + ',100%,' + (light - 15) + '%,' + (0.15 + 0.6 * tone) + ')');
+    g2.fillStyle = body; g2.fill();
+    if (tone > 0.4) {
+      g2.lineWidth = 1 + 2 * tone;
+      g2.strokeStyle = 'hsla(' + hue + ',100%,85%,' + (tone - 0.4) + ')';
+      g2.stroke();
+    }
+
+    if (now - lastSlider > 150) {
+      lastSlider = now;
+      var f = freqFromPitch(S.pitch);
+      readout.textContent = S.running
+        ? noteName(f) + ' · ' + Math.round(f) + ' Hz · tone ' + Math.round(S.tone * 100) + '% · volume ' + Math.round(S.volume * 100) + '%'
+        : '';
+      if (document.activeElement !== sP) sP.value = Math.round(S.pitch * 100);
+      if (document.activeElement !== sT) sT.value = Math.round(S.tone * 100);
+      if (document.activeElement !== sV) sV.value = Math.round(S.volume * 100);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // Exposed for automated testing only.
+  window.Synth3D = {
+    S: S, tiltAngles: tiltAngles, pitchFromRoll: pitchFromRoll, toneFromTilt: toneFromTilt,
+    freqFromPitch: freqFromPitch, gainFromVolume: gainFromVolume, toneParams: toneParams,
+    makeVolumeIntegrator: makeVolumeIntegrator, noteName: noteName,
+    audio: function () { return { ctx: ctx, nodes: nodes }; }
+  };
+})();
+</script>
+</body>
+</html>
