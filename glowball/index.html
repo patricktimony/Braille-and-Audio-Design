@@ -36,7 +36,7 @@ function resize() {
 addEventListener('resize', resize); resize();
 
 // Sensor state: gravity in m/s^2 (screen x right, y down), tilt in degrees
-let gx = 0, gy = 9.8, beta = 45, gamma = 0;
+let gx = 0, gy = 9.8, gamma = 0;
 
 function onMotion(e) {
   const a = e.accelerationIncludingGravity;
@@ -49,22 +49,18 @@ function onMotion(e) {
   else                                 { gx = a.x;  gy = -a.y; }
 }
 function onOrient(e) {
-  if (e.beta != null) beta = e.beta;
   if (e.gamma != null) gamma = e.gamma;
 }
 
 // Ball
-const ball = { x: 0, y: 0, vx: 0, vy: 0, r: 40, hue: 180 };
+const ball = { x: 0, y: 0, vx: 0, vy: 0, r: 31, hue: 180 }; // 62 CSS px ≈ 1 cm on iPhone screens
 const PX_PER_G = 260;      // pixels/s^2 per m/s^2 — snappy
 const BOUNCE = 0.82;
 
 function step(dt) {
-  // Color from left/right tilt, size from forward/back tilt (smoothed)
+  // Color from left/right tilt (smoothed)
   const targetHue = ((gamma + 90) / 180) * 360;
   ball.hue += (targetHue - ball.hue) * Math.min(1, dt * 10);
-  const t = Math.max(0, Math.min(1, (beta + 10) / 100));
-  const targetR = 14 + t * Math.min(W, H) * 0.2;
-  ball.r += (targetR - ball.r) * Math.min(1, dt * 8);
 
   ball.vx += gx * PX_PER_G * dt;
   ball.vy += gy * PX_PER_G * dt;
