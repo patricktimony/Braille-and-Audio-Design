@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#101418">
+<title>MotionSound</title>
+<style>
+  :root {
+    --bg: #101418;
+    --panel: #1b222a;
+    --fg: #f4f6f8;
+    --muted: #b8c2cc;
+    --accent: #ffd23f;
+    --go: #2ecc71;
+    --stop: #ff5a5a;
+    --focus: #6fc3ff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, system-ui, "Helvetica Neue", Arial, sans-serif;
+    font-size: 18px;
+    line-height: 1.4;
+    -webkit-text-size-adjust: 100%;
+  }
+  main {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+  }
+  h1 { font-size: 2rem; margin: 8px 0 4px; color: var(--accent); }
+  h2 { font-size: 1.15rem; margin: 0 0 10px; }
+  p { margin: 0 0 10px; }
+  .intro { color: var(--muted); }
+  section {
+    background: var(--panel);
+    border-radius: 14px;
+    padding: 14px;
+    margin: 14px 0;
+  }
+  button {
+    font: inherit;
+    font-weight: 700;
+    border: 0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    min-height: 52px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  button:focus-visible, input:focus-visible, #pad:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 3px;
+  }
+  .controls { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+  #startBtn { background: var(--go); color: #06210f; font-size: 1.3rem; }
+  #startBtn[aria-pressed="true"] { background: var(--stop); color: #2a0606; }
+  #calBtn { background: #3a4654; color: var(--fg); }
+  .secondary { background: #3a4654; color: var(--fg); width: 100%; margin-top: 10px; }
+  #status {
+    margin-top: 10px;
+    min-height: 1.4em;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  fieldset { border: 0; margin: 0; padding: 0; }
+  legend { font-weight: 700; font-size: 1.15rem; margin-bottom: 10px; padding: 0; }
+  .waves { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .waves label {
+    display: flex; align-items: center; gap: 10px;
+    background: #26303a; border-radius: 10px;
+    padding: 12px; min-height: 52px; cursor: pointer;
+  }
+  .waves input { width: 22px; height: 22px; accent-color: var(--accent); margin: 0; }
+  .waves label:has(input:checked) { background: #4a3f10; box-shadow: inset 0 0 0 2px var(--accent); }
+  dl.readout {
+    display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  dl.readout dt { color: var(--muted); }
+  dl.readout dd { margin: 0; font-weight: 700; }
+  .bars { display: grid; gap: 8px; margin-top: 12px; }
+  .bar { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 8px; color: var(--muted); font-size: .9rem; }
+  .bar .track { height: 12px; background: #0c1014; border-radius: 6px; overflow: hidden; }
+  .bar .fill { height: 100%; width: 0%; background: var(--accent); transition: width .08s linear; }
+  ul.howto { margin: 0; padding-left: 20px; }
+  ul.howto li { margin-bottom: 6px; }
+  .toggle { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+  .toggle input { width: 24px; height: 24px; accent-color: var(--accent); margin: 0; }
+  #simArea[hidden] { display: none; }
+  #pad {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    max-height: 320px;
+    margin: 10px auto;
+    background:
+      linear-gradient(#0000 49.5%, #ffffff22 49.5% 50.5%, #0000 50.5%),
+      linear-gradient(90deg, #0000 49.5%, #ffffff22 49.5% 50.5%, #0000 50.5%),
+      #0c1014;
+    border-radius: 14px;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: crosshair;
+  }
+  #dot {
+    position: absolute; width: 28px; height: 28px; margin: -14px 0 0 -14px;
+    left: 50%; top: 50%; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 12px var(--accent);
+    pointer-events: none;
+  }
+  .padlabel { position: absolute; font-size: .75rem; color: var(--muted); pointer-events: none; }
+  .sim-slider { display: grid; gap: 4px; margin: 10px 0; }
+  .sim-slider input { width: 100%; height: 36px; accent-color: var(--accent); }
+  .visually-hidden {
+    position: absolute !important; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+  }
+  @media (prefers-reduced-motion: reduce) { .bar .fill { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>MotionSound</h1>
+  <p class="intro">Your iPhone is the instrument. Tap Start, allow motion access, then tilt, turn and shake.</p>
+
+  <section aria-labelledby="playHeading">
+    <h2 id="playHeading" class="visually-hidden">Play</h2>
+    <div class="controls">
+      <button id="startBtn" type="button" aria-pressed="false">Start</button>
+      <button id="calBtn" type="button" aria-describedby="calHelp">Reset / Calibrate</button>
+    </div>
+    <p id="calHelp" class="visually-hidden">Makes the way you are holding the phone right now the middle position.</p>
+    <p id="status" role="status" aria-live="polite"></p>
+    <p class="intro" style="font-size:.9rem;margin:6px 0 0">No sound? Turn off the silent switch and turn up the volume.</p>
+  </section>
+
+  <section>
+    <fieldset>
+      <legend>Wave shape</legend>
+      <div class="waves">
+        <label><input type="radio" name="wave" value="sine" checked> Sine (smooth)</label>
+        <label><input type="radio" name="wave" value="triangle"> Triangle (soft)</label>
+        <label><input type="radio" name="wave" value="square"> Square (hollow)</label>
+        <label><input type="radio" name="wave" value="sawtooth"> Sawtooth (buzzy)</label>
+      </div>
+    </fieldset>
+  </section>
+
+  <section aria-labelledby="liveHeading">
+    <h2 id="liveHeading">Live motion</h2>
+    <dl class="readout">
+      <dt>X (tilt left/right)</dt><dd id="valX">0°</dd>
+      <dt>Y (tilt forward/back)</dt><dd id="valY">0°</dd>
+      <dt>Z (rotation)</dt><dd id="valZ">0°</dd>
+      <dt>Shake force</dt><dd id="valShake">0.0</dd>
+      <dt>Pitch</dt><dd id="valPitch">–</dd>
+      <dt>Volume</dt><dd id="valVol">–</dd>
+      <dt>Tone</dt><dd id="valTone">–</dd>
+    </dl>
+    <div class="bars" aria-hidden="true">
+      <div class="bar">Pitch<div class="track"><div class="fill" id="barPitch"></div></div></div>
+      <div class="bar">Volume<div class="track"><div class="fill" id="barVol"></div></div></div>
+      <div class="bar">Tone<div class="track"><div class="fill" id="barTone"></div></div></div>
+    </div>
+    <button id="describeBtn" type="button" class="secondary">Describe current sound</button>
+  </section>
+
+  <section aria-labelledby="howHeading">
+    <h2 id="howHeading">How to play</h2>
+    <ul class="howto">
+      <li>Tilt left for lower notes, right for higher notes.</li>
+      <li>Tilt the top of the phone away from you to get louder, toward you to get quieter.</li>
+      <li>Turn the phone flat, like a steering wheel on a table, to make the tone brighter or darker.</li>
+      <li>Shake the phone to play a chime.</li>
+      <li>Reset / Calibrate makes your current position the middle.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="simHeading">
+    <h2 id="simHeading">Simulation mode</h2>
+    <label class="toggle"><input type="checkbox" id="simToggle"> Use mouse, touch or keyboard instead of motion sensors</label>
+    <div id="simArea" hidden>
+      <p class="intro" style="font-size:.9rem">Drag in the square: left/right is X tilt, up/down is Y tilt. Or use the sliders.</p>
+      <div id="pad" aria-hidden="true">
+        <span class="padlabel" style="top:6px;left:50%;transform:translateX(-50%)">louder</span>
+        <span class="padlabel" style="bottom:6px;left:50%;transform:translateX(-50%)">quieter</span>
+        <span class="padlabel" style="left:6px;top:50%;transform:translateY(-50%)">low</span>
+        <span class="padlabel" style="right:6px;top:50%;transform:translateY(-50%)">high</span>
+        <div id="dot"></div>
+      </div>
+      <div class="sim-slider">
+        <label for="simX">X tilt (pitch, higher is higher)</label>
+        <input type="range" id="simX" min="-45" max="45" step="1" value="0">
+      </div>
+      <div class="sim-slider">
+        <label for="simY">Y tilt (volume, higher is louder)</label>
+        <input type="range" id="simY" min="-45" max="45" step="1" value="0">
+      </div>
+      <div class="sim-slider">
+        <label for="simZ">Z rotation (tone, higher is brighter)</label>
+        <input type="range" id="simZ" min="-90" max="90" step="1" value="0">
+      </div>
+      <button id="simShake" type="button" class="secondary">Simulate shake</button>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---- Tuning ----
+  var MASTER_MAX = 0.28;      // hard ceiling on overall loudness
+  var PITCH_MIN = 196;        // G3
+  var PITCH_MAX = 1046.5;     // C6
+  var TILT_RANGE = 45;        // degrees of tilt for full range
+  var ROT_RANGE = 90;         // degrees of rotation for full tone range
+  var TONE_MIN = 350;         // filter cutoff Hz
+  var TONE_MAX = 6000;
+  var SMOOTH = 0.15;          // sensor smoothing (0..1, lower = smoother)
+  var GLIDE = 0.06;           // audio parameter time constant (s)
+  var SHAKE_THRESHOLD = 14;   // m/s^2 of user acceleration
+  var SHAKE_COOLDOWN = 350;   // ms
+
+  // ---- Elements ----
+  var $ = function (id) { return document.getElementById(id); };
+  var startBtn = $('startBtn'), calBtn = $('calBtn'), statusEl = $('status');
+  var simToggle = $('simToggle'), simArea = $('simArea'), pad = $('pad'), dot = $('dot');
+  var simX = $('simX'), simY = $('simY'), simZ = $('simZ');
+
+  // ---- State ----
+  var ctx = null, osc = null, filter = null, voiceGain = null, master = null;
+  var running = false;
+  var wave = 'sine';
+  var raw = { x: 0, y: 0, z: 0 };          // latest raw angles (degrees)
+  var zero = { x: 0, y: 0, z: 0 };         // calibration offsets
+  var smooth = { x: 0, y: 0, z: 0 };       // smoothed, calibrated values
+  var needsCalibration = true;
+  var haveSensorData = false;
+  var shakeForce = 0, lastShake = 0;
+  var sensorsOn = false;
+  var useSim = false;
+  var rafId = 0;
+  var wakeLock = null;
+  var current = { freq: PITCH_MIN, vol: 0, tone: TONE_MIN };
+
+  function say(msg) {
+    // Clear then set so VoiceOver re-announces repeated messages.
+    statusEl.textContent = '';
+    setTimeout(function () { statusEl.textContent = msg; }, 50);
+  }
+
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  // Shortest signed difference between two angles, in -180..180.
+  function angleDiff(a, b) { var d = (a - b) % 360; if (d > 180) d -= 360; if (d < -180) d += 360; return d; }
+
+  var motionSupported = typeof window.DeviceOrientationEvent !== 'undefined' || typeof window.DeviceMotionEvent !== 'undefined';
+  var isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+
+  // ---- Audio ----
+  function buildAudio() {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) throw new Error('Web Audio is not supported in this browser.');
+    ctx = new AC();
+
+    // Let audio play even with the iPhone ringer switch on silent (Safari 16.4+).
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+
+    var comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -18;
+    comp.knee.value = 12;
+    comp.ratio.value = 8;
+    comp.attack.value = 0.005;
+    comp.release.value = 0.2;
+
+    master = ctx.createGain();
+    master.gain.value = 0;
+    master.connect(comp);
+    comp.connect(ctx.destination);
+
+    filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 1500;
+    filter.Q.value = 2;
+
+    voiceGain = ctx.createGain();
+    voiceGain.gain.value = 0;
+
+    filter.connect(voiceGain);
+    voiceGain.connect(master);
+  }
+
+  function startVoice() {
+    osc = ctx.createOscillator();
+    osc.type = wave;
+    osc.frequency.value = current.freq;
+    osc.connect(filter);
+    osc.start();
+    var t = ctx.currentTime;
+    master.gain.cancelScheduledValues(t);
+    master.gain.setValueAtTime(master.gain.value, t);
+    master.gain.linearRampToValueAtTime(MASTER_MAX, t + 0.4); // gentle fade in
+  }
+
+  function stopVoice() {
+    if (!ctx || !osc) return;
+    var t = ctx.currentTime;
+    master.gain.cancelScheduledValues(t);
+    master.gain.setValueAtTime(master.gain.value, t);
+    master.gain.linearRampToValueAtTime(0, t + 0.25); // gentle fade out
+    var o = osc;
+    osc = null;
+    try { o.stop(t + 0.3); } catch (e) {}
+    setTimeout(function () { try { o.disconnect(); } catch (e) {} }, 400);
+  }
+
+  function chime() {
+    if (!ctx || !running) return;
+    var t = ctx.currentTime;
+    var o = ctx.createOscillator();
+    var g = ctx.createGain();
+    o.type = 'triangle';
+    // An octave above the current pitch, kept in a pleasant range.
+    o.frequency.value = clamp(current.freq * 2, 300, 1800);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.5, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+    o.connect(g);
+    g.connect(master); // goes through the master limiter
+    o.start(t);
+    o.stop(t + 0.85);
+    o.onended = function () { o.disconnect(); g.disconnect(); };
+  }
+
+  // ---- Sensors ----
+  function onOrientation(e) {
+    if (useSim || e.gamma == null || e.beta == null) return;
+    raw.x = e.gamma;          // left/right tilt, -90..90
+    raw.y = e.beta;           // front/back tilt, -180..180
+    raw.z = e.alpha || 0;     // rotation around the screen, 0..360
+    haveSensorData = true;
+    if (needsCalibration) calibrate(true);
+  }
+
+  function onMotion(e) {
+    if (useSim) return;
+    var a = e.acceleration;
+    var mag;
+    if (a && a.x != null) {
+      mag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+    } else if (e.accelerationIncludingGravity && e.accelerationIncludingGravity.x != null) {
+      var g = e.accelerationIncludingGravity;
+      mag = Math.abs(Math.sqrt(g.x * g.x + g.y * g.y + g.z * g.z) - 9.81);
+    } else {
+      return;
+    }
+    shakeForce = shakeForce * 0.8 + mag * 0.2;
+    if (mag > SHAKE_THRESHOLD) triggerShake();
+  }
+
+  function triggerShake() {
+    var now = Date.now();
+    if (now - lastShake < SHAKE_COOLDOWN) return;
+    lastShake = now;
+    chime();
+  }
+
+  function requestSensorPermission() {
+    // Must be called directly from the tap handler on iPhone.
+    var reqs = [];
+    if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function') {
+      reqs.push(DeviceMotionEvent.requestPermission());
+    }
+    if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      reqs.push(DeviceOrientationEvent.requestPermission());
+    }
+    if (!reqs.length) return Promise.resolve('granted');
+    return Promise.all(reqs).then(function (results) {
+      return results.every(function (r) { return r === 'granted'; }) ? 'granted' : 'denied';
+    });
+  }
+
+  function attachSensors() {
+    if (sensorsOn) return;
+    window.addEventListener('deviceorientation', onOrientation);
+    window.addEventListener('devicemotion', onMotion);
+    sensorsOn = true;
+  }
+
+  function calibrate(silent) {
+    if (useSim) {
+      simX.value = 0; simY.value = 0; simZ.value = 0;
+      readSim();
+      moveDot();
+      zero = { x: 0, y: 0, z: 0 };
+    } else {
+      zero = { x: raw.x, y: raw.y, z: raw.z };
+    }
+    smooth = { x: 0, y: 0, z: 0 };
+    needsCalibration = false;
+    if (!silent) say('Calibrated. This position is now the middle.');
+  }
+
+  // ---- Simulation ----
+  function readSim() {
+    raw.x = +simX.value;
+    raw.y = -simY.value;  // slider up = forward tilt = louder
+    raw.z = +simZ.value;
+  }
+  function moveDot() {
+    dot.style.left = (50 + (+simX.value / 45) * 50) + '%';
+    // Up on the pad = forward tilt = louder
+    dot.style.top = (50 - (+simY.value / 45) * 50) + '%';
+  }
+  function padFromPointer(e) {
+    var r = pad.getBoundingClientRect();
+    var fx = clamp((e.clientX - r.left) / r.width, 0, 1);
+    var fy = clamp((e.clientY - r.top) / r.height, 0, 1);
+    simX.value = Math.round((fx * 2 - 1) * 45);
+    simY.value = Math.round((1 - fy * 2) * 45);
+    readSim();
+    moveDot();
+  }
+  var dragging = false;
+  pad.addEventListener('pointerdown', function (e) {
+    dragging = true;
+    try { pad.setPointerCapture(e.pointerId); } catch (err) {}
+    padFromPointer(e);
+    e.preventDefault();
+  });
+  pad.addEventListener('pointermove', function (e) { if (dragging) padFromPointer(e); });
+  pad.addEventListener('pointerup', function () { dragging = false; });
+  pad.addEventListener('pointercancel', function () { dragging = false; });
+  [simX, simY, simZ].forEach(function (s) {
+    s.addEventListener('input', function () { readSim(); moveDot(); });
+  });
+  $('simShake').addEventListener('click', function () {
+    shakeForce = 20;
+    if (running) { triggerShake(); say('Shake!'); }
+    else say('Tap Start first, then shake.');
+  });
+
+  function setSim(on) {
+    useSim = on;
+    simToggle.checked = on;
+    simArea.hidden = !on;
+    needsCalibration = !on;
+    if (on) {
+      zero = { x: 0, y: 0, z: 0 };
+      readSim();
+      moveDot();
+    } else {
+      haveSensorData = false;
+    }
+  }
+  simToggle.addEventListener('change', function () {
+    setSim(simToggle.checked);
+    say(simToggle.checked ? 'Simulation mode on.' : 'Simulation mode off. Using motion sensors.');
+  });
+
+  // ---- Main loop: smooth values and drive the sound ----
+  function fmt(v) { return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(0) + '°'; }
+
+  function tick() {
+    rafId = requestAnimationFrame(tick);
+
+    var tx = angleDiff(raw.x, zero.x);
+    var ty = angleDiff(raw.y, zero.y);
+    var tz = angleDiff(raw.z, zero.z);
+    smooth.x += (tx - smooth.x) * SMOOTH;
+    smooth.y += (ty - smooth.y) * SMOOTH;
+    // Rotation wraps around, so smooth the shortest-path difference.
+    smooth.z += angleDiff(tz, smooth.z) * SMOOTH;
+    smooth.z = angleDiff(smooth.z, 0);
+    if (!useSim) shakeForce *= 0.97; else shakeForce *= 0.9;
+
+    // Pitch: left = low, right = high (exponential so it sounds even).
+    var px = (clamp(smooth.x, -TILT_RANGE, TILT_RANGE) + TILT_RANGE) / (2 * TILT_RANGE);
+    current.freq = PITCH_MIN * Math.pow(PITCH_MAX / PITCH_MIN, px);
+    // Volume: top tilted away (beta decreases) = louder.
+    var vy = (TILT_RANGE - clamp(smooth.y, -TILT_RANGE, TILT_RANGE)) / (2 * TILT_RANGE);
+    current.vol = vy;
+    // Tone: rotation sets the filter brightness.
+    var tz01 = (clamp(smooth.z, -ROT_RANGE, ROT_RANGE) + ROT_RANGE) / (2 * ROT_RANGE);
+    current.tone = TONE_MIN * Math.pow(TONE_MAX / TONE_MIN, tz01);
+
+    if (running && ctx && osc) {
+      var t = ctx.currentTime;
+      osc.frequency.setTargetAtTime(current.freq, t, GLIDE);
+      // Squared curve feels more natural; voice gain never exceeds 1 (master caps it).
+      voiceGain.gain.setTargetAtTime(current.vol * current.vol, t, GLIDE * 1.5);
+      filter.frequency.setTargetAtTime(current.tone, t, GLIDE * 2);
+    }
+
+    $('valX').textContent = fmt(smooth.x);
+    $('valY').textContent = fmt(smooth.y);
+    $('valZ').textContent = fmt(smooth.z);
+    $('valShake').textContent = shakeForce.toFixed(1);
+    $('valPitch').textContent = Math.round(current.freq) + ' Hz';
+    $('valVol').textContent = Math.round(current.vol * 100) + '%';
+    $('valTone').textContent = Math.round(tz01 * 100) + '% bright';
+    $('barPitch').style.width = (px * 100) + '%';
+    $('barVol').style.width = (vy * 100) + '%';
+    $('barTone').style.width = (tz01 * 100) + '%';
+  }
+
+  var NOTES = ['C', 'C sharp', 'D', 'D sharp', 'E', 'F', 'F sharp', 'G', 'G sharp', 'A', 'A sharp', 'B'];
+  function noteName(f) {
+    var n = Math.round(12 * Math.log2(f / 440)) + 69;
+    return NOTES[((n % 12) + 12) % 12] + ' ' + (Math.floor(n / 12) - 1);
+  }
+  $('describeBtn').addEventListener('click', function () {
+    var tone = (current.tone - TONE_MIN) / (TONE_MAX - TONE_MIN);
+    say((running ? 'Playing ' : 'Stopped. Ready to play ') + noteName(current.freq) +
+        ', volume ' + Math.round(current.vol * 100) + ' percent, ' +
+        (tone < 0.15 ? 'dark' : tone < 0.5 ? 'warm' : 'bright') + ' tone, ' + wave + ' wave.');
+  });
+
+  // ---- Wave shape ----
+  document.querySelectorAll('input[name="wave"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      if (!r.checked) return;
+      wave = r.value;
+      if (osc) osc.type = wave;
+    });
+  });
+
+  // ---- Start / Stop ----
+  function setRunningUI(on) {
+    startBtn.textContent = on ? 'Stop' : 'Start';
+    startBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+
+  function requestWakeLock() {
+    try {
+      if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (l) { wakeLock = l; }).catch(function () {});
+    } catch (e) {}
+  }
+  function releaseWakeLock() {
+    try { if (wakeLock) wakeLock.release(); } catch (e) {}
+    wakeLock = null;
+  }
+
+  function stop(msg) {
+    running = false;
+    stopVoice();
+    releaseWakeLock();
+    setRunningUI(false);
+    say(msg || 'Stopped.');
+  }
+
+  startBtn.addEventListener('click', function () {
+    if (running) { stop(); return; }
+
+    // Everything below starts synchronously inside the tap so iPhone allows it.
+    try {
+      if (!ctx) buildAudio();
+      if (ctx.state !== 'running') ctx.resume();
+    } catch (err) {
+      say('Sorry, this browser cannot make sound. ' + err.message);
+      return;
+    }
+
+    var permission = useSim ? Promise.resolve('sim') : requestSensorPermission();
+
+    running = true;
+    setRunningUI(true);
+    startVoice();
+    requestWakeLock();
+
+    permission.then(function (result) {
+      if (!running) return;
+      if (result === 'sim') {
+        say('Playing in simulation mode. Drag in the square or use the sliders.');
+        return;
+      }
+      if (result !== 'granted') {
+        setSim(true);
+        say('Motion access was not allowed, so simulation mode is on. To use motion, close and reopen this page, then tap Allow.');
+        return;
+      }
+      attachSensors();
+      needsCalibration = true;
+      say('Playing. Tilt, turn and shake your phone.');
+      // If no sensor data arrives (e.g. on a computer), fall back to simulation.
+      setTimeout(function () {
+        if (running && !useSim && !haveSensorData) {
+          setSim(true);
+          say('No motion sensors found, so simulation mode is on.');
+        }
+      }, 1500);
+    }).catch(function () {
+      if (!running) return;
+      setSim(true);
+      say('Motion sensors need a secure https page. Simulation mode is on.');
+    });
+  });
+
+  calBtn.addEventListener('click', function () {
+    if (!useSim && !haveSensorData) {
+      needsCalibration = true;
+      say(running ? 'Waiting for motion data, will calibrate automatically.' : 'Will calibrate when you tap Start.');
+      return;
+    }
+    calibrate(false);
+  });
+
+  // Silence when the page goes to the background or the screen locks.
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden && running) stop('Stopped because the page was hidden.');
+  });
+  window.addEventListener('pagehide', function () { if (running) stop(); });
+
+  // Desktop with no touch: start in simulation mode so testing is easy.
+  if (!motionSupported || !isTouchDevice) setSim(true);
+  if (!window.isSecureContext) {
+    statusEl.textContent = 'Note: motion sensors need an https address. Simulation mode works anywhere.';
+  }
+
+  // Test hook (harmless in normal use).
+  window.MotionSound = {
+    state: function () { return { running: running, useSim: useSim, wave: wave, freq: current.freq, vol: current.vol, tone: current.tone, smooth: smooth, ctx: ctx && ctx.state, lastShake: lastShake }; }
+  };
+
+  tick();
+})();
+</script>
+</body>
+</html>
