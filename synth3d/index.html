@@ -149,7 +149,7 @@
   var S = {
     running: false,
     pitch: 0.5, tone: 0.5, volume: 0.55,      // targets 0..1
-    dPitch: 0.5, dTone: 0.5, dVolume: 0,      // smoothed values for drawing
+    dPitch: 0.5, dTone: 0.5, dVolume: 0, dVel: 0,      // smoothed values for drawing
     fb0: null, lastOrient: 0, lastMotion: 0, gotOrient: false, gotMotion: false,
     gLP: null, upDev: null, touchActive: false, motionOn: true
   };
@@ -392,32 +392,41 @@
     var dt = Math.min(0.05, (now - lastFrame) / 1000); lastFrame = now;
     updateAudio();
 
-    var k = 1 - Math.exp(-dt / 0.06);
+    // Very light smoothing (~20 ms) so the ball tracks your hand almost instantly.
+    var k = 1 - Math.exp(-dt / 0.02);
     S.dPitch += (S.pitch - S.dPitch) * k;
     S.dTone += (S.tone - S.dTone) * k;
-    S.dVolume += ((S.running ? S.volume : 0) - S.dVolume) * k;
+    S.dVolume += ((S.running ? S.volume : 0) - S.dVolume) * (1 - Math.exp(-dt / 0.035));
+    // Live vertical velocity makes the ball jump and stretch the moment you move.
+    var vel = S.running && S.motionOn ? clamp(volInt.vel, -1.5, 1.5) : 0;
+    S.dVel += (vel - S.dVel) * (1 - Math.exp(-dt / 0.03));
 
     g2.fillStyle = '#000'; g2.fillRect(0, 0, W, H);
     var hue = 280 - 280 * S.dPitch;              // low = violet, high = red/orange
     var tone = S.dTone, m = Math.min(W, H);
     var R = m * (0.07 + 0.25 * S.dVolume) * (S.running ? 1 : 0.6);
-    var cx = W / 2 + (S.dPitch - 0.5) * m * 0.12, cy = H / 2 - (S.dTone - 0.5) * m * 0.12;
+    // The ball travels across the screen: left/right with pitch, up/down with tone,
+    // plus an instant kick in the direction you move the phone vertically.
+    var cx = clamp(W / 2 + (S.dPitch - 0.5) * W * 0.7, R * 0.6, W - R * 0.6);
+    var cy = clamp(H / 2 - (S.dTone - 0.5) * H * 0.4 - S.dVel * m * 0.18, R * 0.6, H - R * 0.6);
+    var stretch = clamp(Math.abs(S.dVel) * 0.35, 0, 0.35);
+    var sx = 1 - stretch * 0.5, sy = 1 + stretch;
     var light = S.running ? 55 : 25;
 
     // Soft halo: wide and blurry when soft, tighter when bright.
     var haloR = R * (2.6 - 1.0 * tone);
     var halo = g2.createRadialGradient(cx, cy, R * 0.2, cx, cy, haloR);
-    halo.addColorStop(0, 'hsla(' + hue + ',100%,' + light + '%,' + (0.55 - 0.2 * tone) + ')');
+    halo.addColorStop(0, 'hsla(' + hue + ',100%,' + light + '%,' + Math.min(0.9, 0.55 - 0.2 * tone + stretch) + ')');
     halo.addColorStop(1, 'hsla(' + hue + ',100%,' + light + '%,0)');
     g2.fillStyle = halo; g2.beginPath(); g2.arc(cx, cy, haloR, 0, 6.2832); g2.fill();
 
     // Body: perfectly round when soft, rippled "harmonic" edge when bright.
-    var tt = now / 1000, N = 120;
+    var tt = now / 1000, N = 90, spin = 4 + 10 * tone;
     g2.beginPath();
     for (var i = 0; i <= N; i++) {
       var th = i / N * 6.2832;
-      var r = R * (1 + tone * tone * (0.10 * Math.sin(7 * th + tt * 4) + 0.05 * Math.sin(13 * th - tt * 7)));
-      var x = cx + r * Math.cos(th), y = cy + r * Math.sin(th);
+      var r = R * (1 + tone * tone * (0.10 * Math.sin(7 * th + tt * spin) + 0.05 * Math.sin(13 * th - tt * spin * 1.7)));
+      var x = cx + r * sx * Math.cos(th), y = cy + r * sy * Math.sin(th);
       if (i) g2.lineTo(x, y); else g2.moveTo(x, y);
     }
     var body = g2.createRadialGradient(cx - R * 0.25, cy - R * 0.25, R * 0.05, cx, cy, R * 1.1);
