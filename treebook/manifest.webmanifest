@@ -1,0 +1,15 @@
+{
+  "name": "Treebook",
+  "short_name": "Treebook",
+  "description": "A social network for individual trees.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f0f2ee",
+  "theme_color": "#1f6b3a",
+  "icons": [
+    { "src": "icons/icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
