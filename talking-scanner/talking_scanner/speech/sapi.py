@@ -6,9 +6,18 @@ controller polls position() a few times a second, which is how the reading
 position is remembered when the patron pauses.
 
 Events arrive as Windows messages, so waiting messages are pumped before the
-position is read (the window's message loop also pumps them).  Testing on
-Windows showed SpVoice.Status staying at zero, so Status is only a fallback.
+position is read (the window's message loop also pumps them).
+
+Tested on Windows Server 2025 with NO sound card (GitHub Actions), speaking
+into a WAV file: neither word events nor SpVoice.Status reported any
+progress.  Whether they do on a PC with speakers must be checked with
+`run.bat --speech-test`.  So the position comes from, in order:
+  1. SAPI word events, 2. SpVoice.Status, 3. an estimate from elapsed time
+and speaking rate, so a pause always resumes near the right word.
+position_source records which one was last used.
 """
+
+import time
 
 import win32com.client
 
@@ -60,6 +69,11 @@ class SapiSpeaker(Speaker):
             self._file.Open(output_file, SSFM_CREATE_FOR_WRITE)
             self.voice.AudioOutputStream = self._file
         self._stream = None
+        self._started = 0.0
+        self._text_len = 0
+        # about 15 characters a second at rate 0; SAPI rate +10 is 3x, -10 is 1/3
+        self._chars_per_second = 15.0 * 3 ** (self.voice.Rate / 10)
+        self.position_source = None
 
     def voices(self):
         tokens = self.voice.GetVoices()
@@ -67,6 +81,8 @@ class SapiSpeaker(Speaker):
 
     def say(self, text):
         self._stream = self.voice.Speak(text, SVSF_ASYNC | SVSF_PURGE_BEFORE_SPEAK | SVSF_IS_NOT_XML)
+        self._started = time.monotonic()
+        self._text_len = len(text)
 
     def stop(self):
         self.voice.Speak("", SVSF_ASYNC | SVSF_PURGE_BEFORE_SPEAK)
@@ -82,11 +98,15 @@ class SapiSpeaker(Speaker):
         _pump()
         word = self.voice.last_word
         if word is not None and word[0] == self._stream:
+            self.position_source = "word events"
             return word[1]
         status = self.voice.Status
         if status.CurrentStreamNumber == self._stream and status.InputWordPosition:
+            self.position_source = "status"
             return int(status.InputWordPosition)
-        return None
+        self.position_source = "estimate"
+        elapsed = time.monotonic() - self._started
+        return min(int(elapsed * self._chars_per_second), self._text_len)
 
     def close(self):
         self.stop()

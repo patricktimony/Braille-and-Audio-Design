@@ -102,6 +102,7 @@ The program **does not start with Windows**, and the installer adds nothing to s
 | `run.bat --key-test` | Speaks the name and action of every key you press. Use it to check a keyboard. Press Escape twice to finish. |
 | `run.bat --simulate samples` | Practise with sample page images instead of a scanner. |
 | `run.bat --reset` | Choose the keys and the scanner again. |
+| `run.bat --speech-test` | Speaks a sentence, pauses halfway, carries on, and reports whether the exact word position was available. |
 
 ### Windows executable
 
@@ -129,7 +130,10 @@ automatic speech and navigation. It cannot:
 
 So Talking Scanner reads with **Windows' built-in offline voices through SAPI 5**.
 These are the same Microsoft voices (such as David and Zira) that ship with
-Windows. SAPI reports which word it is speaking, so pausing remembers the exact word.
+Windows. SAPI can report which word it is speaking, so pausing remembers the
+exact word. If SAPI does not report it (as on the test server, which had no
+sound card), the position is estimated from time and speech rate.
+`run.bat --speech-test` shows which happens on your PC.
 
 How it works with Narrator:
 
@@ -219,9 +223,12 @@ Fill in the "Physical tests" table as you test real hardware.
 | Save with consent, delete without, refuse OneDrive, crash cleanup, single copy | Linux container | pass |
 | No network access during a full scan and read | Linux container | pass |
 | Interrupting a real speech engine (espeak-ng) | Linux container, **no sound card** | passes, but weak: espeak exits early without audio |
-| SAPI speech, word position, pause and resume inside the program | GitHub Actions `windows-latest` | see the workflow run |
-| Real Windows key events via SendInput with Num Lock on and off, into the real window | GitHub Actions `windows-latest` | see the workflow run |
-| WIA service and automation library present, executable build, bundled Tesseract | GitHub Actions `windows-latest` (no scanner attached) | see the workflow run |
+| Same unit and integration tests, plus Tesseract 5.5.3 OCR on the sample pages | GitHub Actions, Windows Server 2025 (build 26100), Python 3.12, wxPython 4.3.2 | pass |
+| **Real Windows key events** (SendInput scan codes) into the real window, every key in both layouts, **Num Lock on and off** | same Windows machine | **38 of 38 as expected**. Number pad 9 with Num Lock off arrives as number-pad Page Up, separate from the Page Up key. Number pad 5 with Num Lock off arrives as Clear. |
+| SAPI speech: interrupting, and reading on through scanned pages inside the program | same Windows machine (Microsoft David and Zira voices), speaking into a WAV file | pass |
+| SAPI **word position** while speaking | same Windows machine, **no sound card** | **Not reported.** Neither word events nor `SpVoice.Status` gave progress. The program falls back to estimating from time and speech rate. Check on the library PC with `run.bat --speech-test`. |
+| WIA automation library and service present | same Windows machine (no scanner attached: 0 devices) | WIA available, starts on demand |
+| Executable built with PyInstaller; with system Tesseract hidden, it used its **bundled Tesseract** | same Windows machine | pass |
 
 ### Not yet tested: needs the library PC
 
@@ -231,6 +238,8 @@ Fill in the "Physical tests" table as you test real hardware.
 | Any other physical scanner (Epson, Brother, HP, network) | **not tested** |
 | TWAIN fallback | **not tested** |
 | Use with Narrator running (focus, scan mode, overlapping speech) | **not tested** |
+| Exact word tracking through speakers (`run.bat --speech-test`) | **not tested** |
+| Audible speech on any PC with speakers | **not tested** |
 | A physical number pad and a laptop keyboard | **not tested** (run `run.bat --key-test`) |
 
 ### Physical tests (fill in)
@@ -244,6 +253,7 @@ Fill in the "Physical tests" table as you test real hardware.
 1. `run.bat --diagnose`, and keep `%LOCALAPPDATA%\TalkingScanner\diagnostics.txt`.
 2. `run.bat --simulate samples`: check speech, pausing and navigation with no scanner.
 3. `run.bat --key-test`: try every key, with Num Lock on and off.
+   Then run `run.bat --speech-test`, and record whether it reports "word events" or "estimate".
 4. Turn on Narrator (Ctrl + Windows + Enter) and repeat steps 2 and 3.
 5. Plug in the scanner, run `run.bat`, and scan a few real pages.
 

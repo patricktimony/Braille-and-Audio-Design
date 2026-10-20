@@ -5,6 +5,7 @@
     python -m talking_scanner --key-test      hear what each key does (checks Num Lock)
     python -m talking_scanner --simulate DIR  use images in DIR instead of a scanner
     python -m talking_scanner --reset         choose keys and scanner again
+    python -m talking_scanner --speech-test   check speech and word tracking
 """
 
 import argparse
@@ -21,6 +22,7 @@ def parse_args(argv):
     p.add_argument("--key-test", action="store_true", help="speak the name and action of each key")
     p.add_argument("--simulate", metavar="DIR", help="use images in DIR instead of a real scanner")
     p.add_argument("--reset", action="store_true", help="forget the chosen keys and scanner")
+    p.add_argument("--speech-test", action="store_true", help="speak a sentence and report word tracking")
     p.add_argument("--no-speech", action="store_true", help="print speech instead of speaking")
     return p.parse_args(argv)
 
@@ -31,6 +33,9 @@ def main(argv=None):
         from .diagnostics import run
 
         return run()
+
+    if args.speech_test:
+        return speech_test()
 
     from .controller import Controller
     from .ocr import OcrEngine
@@ -89,4 +94,38 @@ def main(argv=None):
     finally:
         session.discard()
         lock.release()
+    return 0
+
+
+def speech_test():
+    """Speak a sentence, pause halfway, resume, and report how positions were found."""
+    import time
+
+    from .speech import default_speaker
+
+    text = ("This is the Talking Scanner speech test. The voice will pause in the middle "
+            "of this sentence, and then carry on from the word where it stopped.")
+    speaker = default_speaker()
+    speaker.say(text)
+    positions, sources = [], set()
+    end = time.monotonic() + 3.0
+    while time.monotonic() < end and speaker.is_busy():
+        pos = speaker.position()
+        if pos is not None and (not positions or pos != positions[-1]):
+            positions.append(pos)
+        sources.add(getattr(speaker, "position_source", None))
+        time.sleep(0.05)
+    paused_at = speaker.position() or 0
+    speaker.stop()
+    word_start = text.rfind(" ", 0, paused_at + 1) + 1
+    print(f"Paused at character {paused_at}: '{text[word_start:word_start + 20]}...'")
+    time.sleep(1.0)
+    speaker.say(text[word_start:])
+    while speaker.is_busy():
+        time.sleep(0.05)
+    print(f"Positions seen: {positions}")
+    print(f"Position source(s): {', '.join(sorted(str(s) for s in sources))}")
+    print("'word events' or 'status' means exact word tracking works on this PC.")
+    print("'estimate' means the pause point is estimated from time; record this in README.md.")
+    speaker.close()
     return 0
