@@ -3,6 +3,11 @@
 Speech is asynchronous.  The controller polls position() a few times a
 second; SAPI reports the character offset of the word it is speaking, which
 is how the reading position is remembered when the patron pauses.
+
+SAPI only updates its Status object while it delivers events, and it
+delivers events through Windows messages.  So word-boundary events are
+switched on, and waiting messages are pumped before Status is read (found
+by testing on Windows: without this, Status stayed at zero).
 """
 
 from . import Speaker
@@ -11,6 +16,16 @@ SVSF_ASYNC = 1
 SVSF_PURGE_BEFORE_SPEAK = 2
 SVSF_IS_NOT_XML = 16
 SSFM_CREATE_FOR_WRITE = 3
+# SpeechVoiceEvents: start and end of stream, word boundary
+SVE_START_INPUT_STREAM = 2
+SVE_END_INPUT_STREAM = 4
+SVE_WORD_BOUNDARY = 32
+
+
+def _pump():
+    import pythoncom
+
+    pythoncom.PumpWaitingMessages()
 
 
 class SapiSpeaker(Speaker):
@@ -19,6 +34,7 @@ class SapiSpeaker(Speaker):
 
         self.voice = win32com.client.Dispatch("SAPI.SpVoice")
         self.voice.Rate = max(-10, min(10, int(rate)))
+        self.voice.EventInterests = SVE_START_INPUT_STREAM | SVE_END_INPUT_STREAM | SVE_WORD_BOUNDARY
         if voice_name:
             for v in self.voices():
                 if voice_name.lower() in v.GetDescription().lower():
@@ -43,11 +59,13 @@ class SapiSpeaker(Speaker):
         self._stream = None
 
     def is_busy(self):
+        _pump()
         return not self.voice.WaitUntilDone(0)
 
     def position(self):
         if self._stream is None:
             return None
+        _pump()
         status = self.voice.Status
         if status.CurrentStreamNumber != self._stream:
             return None
