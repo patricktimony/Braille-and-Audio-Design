@@ -29,16 +29,19 @@ jobs:
       - name: Unit and integration tests (OCR, navigation, SAPI speech)
         run: python -m pytest -v
       - name: Keyboard test with real Windows key events (Num Lock on and off)
+        if: always()
         run: python tools/windows_key_test.py
       - name: Diagnostics (WIA, TWAIN, voices, Narrator)
         if: always()
         run: python -m talking_scanner --diagnose
       - name: Build Windows executable
+        if: always()
         run: |
           python -m PyInstaller --noconfirm --clean --windowed --name TalkingScanner --hidden-import win32timezone launcher.py
           robocopy "C:\Program Files\Tesseract-OCR" dist\TalkingScanner\tesseract /E /NFL /NDL /NJH /NJS; if ($LASTEXITCODE -le 7) { $global:LASTEXITCODE = 0 }
           Copy-Item README.md dist\TalkingScanner\
       - name: Executable smoke test (bundled Tesseract, WIA)
+        if: always()
         run: |
           $env:TESSERACT_CMD = ""
           $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notlike '*Tesseract*' }) -join ';'
