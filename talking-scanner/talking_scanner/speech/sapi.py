@@ -1,14 +1,16 @@
 """Windows built-in offline speech (SAPI 5) through pywin32.
 
-Speech is asynchronous.  The controller polls position() a few times a
-second; SAPI reports the character offset of the word it is speaking, which
-is how the reading position is remembered when the patron pauses.
+Speech is asynchronous.  SAPI raises an OnWord event as it starts each word,
+carrying the word's character offset in the text it was given.  The
+controller polls position() a few times a second, which is how the reading
+position is remembered when the patron pauses.
 
-SAPI only updates its Status object while it delivers events, and it
-delivers events through Windows messages.  So word-boundary events are
-switched on, and waiting messages are pumped before Status is read (found
-by testing on Windows: without this, Status stayed at zero).
+Events arrive as Windows messages, so waiting messages are pumped before the
+position is read (the window's message loop also pumps them).  Testing on
+Windows showed SpVoice.Status staying at zero, so Status is only a fallback.
 """
+
+import win32com.client
 
 from . import Speaker
 
@@ -28,13 +30,25 @@ def _pump():
     pythoncom.PumpWaitingMessages()
 
 
+class _VoiceEvents:
+    """SAPI event sink; DispatchWithEvents mixes this into the voice object."""
+
+    def OnWord(self, StreamNumber, StreamPosition, CharacterPosition, Length):
+        self.last_word = (int(StreamNumber), int(CharacterPosition))
+        self.words_heard += 1
+
+    def OnEndStream(self, StreamNumber, StreamPosition):
+        self.ended_stream = int(StreamNumber)
+
+
 class SapiSpeaker(Speaker):
     def __init__(self, rate=0, voice_name=None, output_file=None):
-        import win32com.client
-
-        self.voice = win32com.client.Dispatch("SAPI.SpVoice")
-        self.voice.Rate = max(-10, min(10, int(rate)))
+        self.voice = win32com.client.DispatchWithEvents("SAPI.SpVoice", _VoiceEvents)
+        self.voice.last_word = None
+        self.voice.words_heard = 0
+        self.voice.ended_stream = None
         self.voice.EventInterests = SVE_START_INPUT_STREAM | SVE_END_INPUT_STREAM | SVE_WORD_BOUNDARY
+        self.voice.Rate = max(-10, min(10, int(rate)))
         if voice_name:
             for v in self.voices():
                 if voice_name.lower() in v.GetDescription().lower():
@@ -66,10 +80,13 @@ class SapiSpeaker(Speaker):
         if self._stream is None:
             return None
         _pump()
+        word = self.voice.last_word
+        if word is not None and word[0] == self._stream:
+            return word[1]
         status = self.voice.Status
-        if status.CurrentStreamNumber != self._stream:
-            return None
-        return int(status.InputWordPosition)
+        if status.CurrentStreamNumber == self._stream and status.InputWordPosition:
+            return int(status.InputWordPosition)
+        return None
 
     def close(self):
         self.stop()

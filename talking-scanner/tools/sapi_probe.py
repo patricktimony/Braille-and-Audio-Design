@@ -8,6 +8,8 @@ import time
 
 import win32com.client
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+
 TEXT = "One two three four five six seven eight nine ten. " * 20
 
 
@@ -36,15 +38,16 @@ def probe(label, voice):
           f"inputword={st.InputWordPosition!r}")
 
 
-for pump in (False, True):
-    for interests in (None, 2 | 4 | 32):
-        PUMP = pump
-        voice = win32com.client.Dispatch("SAPI.SpVoice")
-        if interests is not None:
-            voice.EventInterests = interests
-        f = win32com.client.Dispatch("SAPI.SpFileStream")
-        f.Open(os.path.join(tempfile.gettempdir(), "probe.wav"), 3)
-        voice.AudioOutputStream = f
-        probe(f"file output, pump={pump}, EventInterests={voice.EventInterests}", voice)
-        f.Close()
+from talking_scanner.speech.sapi import SapiSpeaker  # noqa: E402
+
+sp = SapiSpeaker(output_file=os.path.join(tempfile.gettempdir(), "probe2.wav"))
+t0 = time.monotonic()
+sp.say(TEXT)
+while sp.is_busy() and time.monotonic() - t0 < 30:
+    time.sleep(0.01)
+for _ in range(20):
+    sp.is_busy()
+print(f"--- SapiSpeaker word events: heard {sp.voice.words_heard} of {len(TEXT.split())} words in "
+      f"{time.monotonic() - t0:.2f}s; last word={sp.voice.last_word}; position()={sp.position()}")
+sp.close()
 sys.exit(0)
