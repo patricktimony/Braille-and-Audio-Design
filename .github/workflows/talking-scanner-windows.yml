@@ -67,7 +67,9 @@ jobs:
       - name: Build program and installer
         run: ./installer/build_windows.ps1
       - name: Test the installer (keyboard install, UI Automation, self test, uninstall)
-        run: ./installer/test_installer.ps1 dist\TalkingScannerSetup.exe
+        run: |
+          python -m pip install uiautomation
+          python installer/test_installer.py dist\TalkingScannerSetup.exe
       - uses: actions/upload-artifact@v4
         with:
           name: TalkingScannerSetup

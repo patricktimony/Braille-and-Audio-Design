@@ -134,7 +134,7 @@ pages, key test, self test, user guide, uninstall). It adds nothing to startup.
 
 The GitHub Actions workflow `.github/workflows/talking-scanner-windows.yml`
 runs on every change: the tests, then the build, then
-`installer\test_installer.ps1`, which installs by pressing Enter only, reads
+`installer\test_installer.py`, which installs by pressing Enter only, reads
 each installer page and the program window through UI Automation, presses a
 real key in the installed program, runs its `--self-test` with the system
 Tesseract hidden, upgrades, and uninstalls.
