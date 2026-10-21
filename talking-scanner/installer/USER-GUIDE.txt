@@ -1,0 +1,136 @@
+Talking Scanner user guide
+
+Talking Scanner reads printed pages aloud. Put a page face down on a flatbed
+scanner, press one key, and the page is read to you. It works offline and
+uses only the keyboard. You do not need a mouse, an account, or the internet.
+
+
+1. Installing
+
+Download the installer from this address:
+https://github.com/patricktimony/Braille-and-Audio-Design/releases/latest/download/TalkingScannerSetup.exe
+
+Your browser may ask whether to keep the file. In Microsoft Edge, press
+Control plus J to open downloads. If Edge says the file is not commonly
+downloaded, move to the file, open its More actions menu, and choose Keep,
+then Keep anyway.
+
+Open the downloaded file. Windows may show a message called
+"Windows protected your PC". This appears because the installer is new and
+not yet known to Microsoft. Press Tab until you hear "More info", and press
+Enter. Then press Tab until you hear "Run anyway", and press Enter.
+
+The installer has two steps:
+  Step one: press Enter to install.
+  Step two: press Enter to finish. Talking Scanner then starts by itself.
+
+No administrator password is needed. Nothing else needs to be installed.
+
+
+2. Starting Talking Scanner
+
+Press Control plus Alt plus T at any time.
+Or press the Windows key, type Talking Scanner, and press Enter.
+There is also a Talking Scanner shortcut on the desktop.
+
+The first time, Talking Scanner asks you to choose your keys.
+If your keyboard has a number pad, press the Enter key at the bottom right
+of the number pad. Otherwise, press the main Enter key.
+
+
+3. Keys
+
+Every action is one key. Both sets of keys always work.
+
+  Action                    Number pad          Main keyboard
+  Scan and read             Number pad Enter    Enter
+  Play or pause             5                   Space
+  Previous or next word     4 or 6              Left or Right arrow
+  Previous or next line     8 or 2              Up or Down arrow
+  Previous or next page     7 or 9              Page Up or Page Down
+  Help                      F1                  F1
+  Quit                      Escape              Escape
+
+When you quit, Talking Scanner asks whether to keep the pages.
+Press Y to save them in the folder "Talking Scanner Books" in your user
+folder, or N to delete them.
+
+
+4. Using JAWS
+
+JAWS and Talking Scanner both speak. Talking Scanner reads the page with
+its own Windows voice, and JAWS keeps working as usual.
+
+JAWS uses the number pad for its own commands while Num Lock is off.
+If you use the number pad keys, turn Num Lock on. If JAWS is running and
+Num Lock is off, Talking Scanner reminds you of this.
+The main keyboard keys (arrows, Space, Enter) work with JAWS either way.
+
+To hear the last thing Talking Scanner said, press Insert plus T to read the
+window title. The title always holds the last announcement.
+
+
+5. Using Narrator
+
+Narrator and Talking Scanner both speak. To hear the last announcement
+again, press Narrator key plus T.
+
+If the arrow keys or Space seem to do nothing, Narrator's scan mode is
+probably on. Press Caps Lock plus Space to turn it off.
+
+You may like to turn on this Narrator setting: "Lower the volume of other
+apps when Narrator is speaking".
+
+
+6. Practice and checks, without a scanner
+
+In the Start menu, in the folder Talking Scanner Tools:
+
+  Talking Scanner practice with sample pages
+    Practise all the keys with four sample pages. No scanner is needed.
+  Talking Scanner key test
+    Speaks the name and action of every key you press.
+    Press Escape twice to finish.
+  Talking Scanner self test
+    Checks that text recognition and speech work on this computer,
+    then says "Self test passed" or "Self test failed".
+  Uninstall Talking Scanner
+
+
+7. Scanners
+
+Talking Scanner uses the scanner's normal Windows driver. If Windows did
+not install a driver when you plugged the scanner in, install the driver
+from the scanner maker's website. You do not need the maker's scanning app.
+
+If there is a problem, such as the scanner being unplugged, switched off
+or busy, Talking Scanner tells you in plain words.
+
+
+8. What has been tested
+
+Tested automatically on Windows, before every release:
+  installing and uninstalling, using only the keyboard;
+  every key, with Num Lock on and off;
+  text recognition on the sample pages, including an upside-down page;
+  the Windows voices;
+  that the window can be read by screen readers (UI Automation).
+
+Not tested yet:
+  any physical scanner;
+  use with JAWS or Narrator by a person;
+  speech through real speakers.
+Please tell us how it works for you.
+
+
+9. Privacy
+
+Nothing is ever sent to the internet. Scanned pages are deleted when you
+quit, unless you press Y to save them.
+
+
+10. Removing Talking Scanner
+
+Use "Uninstall Talking Scanner" in the Talking Scanner Tools folder of the
+Start menu, or Windows Settings, Apps, Installed apps.
+Your saved books are kept.
