@@ -41,12 +41,26 @@ function Wait-Until($seconds, $what, [scriptblock]$test) {
         if ($result) { return $result }
         Start-Sleep -Milliseconds 500
     }
+    Write-Host "  Top-level windows at the time of failure:"
+    foreach ($w in $AE::RootElement.FindAll($Tree::Children, [System.Windows.Automation.Condition]::TrueCondition)) {
+        Write-Host "  - '$($w.Current.Name)' class=$($w.Current.ClassName) offscreen=$($w.Current.IsOffscreen)"
+        if ($w.Current.Name -like "*Talking Scanner*") { Describe $w }
+    }
     throw "FAILED: timed out after $seconds s waiting for $what"
 }
 
-function Find-TopWindow($pattern) {
-    $AE::RootElement.FindAll($Tree::Children, [System.Windows.Automation.Condition]::TrueCondition) |
-        Where-Object { $_.Current.Name -like $pattern } | Select-Object -First 1
+function Find-TopWindows($pattern) {
+    @($AE::RootElement.FindAll($Tree::Children, [System.Windows.Automation.Condition]::TrueCondition) |
+        Where-Object { $_.Current.Name -like $pattern })
+}
+
+function Find-TopWindow($pattern) { Find-TopWindows $pattern | Select-Object -First 1 }
+
+# The visible window matching $pattern that has a button matching $button.
+function Find-WindowWithButton($pattern, $button) {
+    foreach ($w in Find-TopWindows $pattern) {
+        if (Visible-Button $w $button) { return $w }
+    }
 }
 
 function Controls($window, $type) {
@@ -57,9 +71,9 @@ function Controls($window, $type) {
 function Describe($window) {
     foreach ($el in $window.FindAll($Tree::Descendants, [System.Windows.Automation.Condition]::TrueCondition)) {
         $c = $el.Current
-        if ($c.IsOffscreen -or -not $c.Name) { continue }
+        if (-not $c.Name) { continue }
         Write-Host ("    {0,-10} '{1}'{2}" -f $c.ControlType.ProgrammaticName.Replace("ControlType.", ""),
-            $c.Name, $(if ($c.HasKeyboardFocus) { "  <- focused" } else { "" }))
+            $c.Name, $(if ($c.HasKeyboardFocus) { "  <- focused" } elseif ($c.IsOffscreen) { "  (off screen)" } else { "" }))
     }
 }
 
@@ -80,9 +94,9 @@ Get-Process TalkingScanner -ErrorAction SilentlyContinue | Stop-Process -Force
 
 Step "Install with the keyboard"
 $setupProc = Start-Process $Setup -PassThru
-$wizard = Wait-Until 60 "the installer window" { Find-TopWindow "Install Talking Scanner*" }
+$wizard = Wait-Until 60 "the installer window with an Install button" { Find-WindowWithButton "*Talking Scanner*" "*Install*" }
 Write-Host "  Window: '$($wizard.Current.Name)'"
-$install = Wait-Until 30 "the Install button" { Visible-Button $wizard "*Install*" }
+$install = Visible-Button $wizard "*Install*"
 Describe $wizard
 Check ((Visible-Button $wizard "*Cancel*") -ne $null) "the first page has a Cancel button"
 Check ($install.Current.IsKeyboardFocusable) "the Install button can take keyboard focus"
