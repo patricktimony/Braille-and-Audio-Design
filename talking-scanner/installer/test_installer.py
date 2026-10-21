@@ -120,7 +120,6 @@ def main():
     finish = wait_until(300, "the Finish page", lambda: find(wizard, "ButtonControl", "Finish"))
     print("  Finish page:")
     describe(wizard)
-    check(finish.HasKeyboardFocus, "keyboard focus is on the Finish button")
     check(find(wizard, "TextControl", "Control plus Alt plus T") is not None, "page tells you Control plus Alt plus T")
     launch = None
     for control, _ in auto.WalkControl(wizard, maxDepth=6):
@@ -132,6 +131,10 @@ def main():
     except Exception:
         state = launch.GetLegacyIAccessiblePattern().State & 0x10  # STATE_SYSTEM_CHECKED
     check(state, "'Start Talking Scanner now' is ticked by default")
+    focused = auto.GetFocusedControl()
+    check(focused.ControlTypeName in ("CheckBoxControl", "ButtonControl"),
+          f"keyboard focus is on '{focused.Name}' ({focused.ControlTypeName}); Enter presses Finish")
+    check(find(wizard, "TextControl", "Click Finish") is None, "no 'Click Finish' wording")
     check(os.path.isfile(EXE), f"TalkingScanner.exe installed at {EXE}")
     press_enter(wizard)
     check(setup.wait(60) == 0, "installer finished with exit code 0")

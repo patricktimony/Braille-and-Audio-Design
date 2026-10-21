@@ -45,6 +45,7 @@ ReadyLabel1=Talking Scanner is ready to install.
 ReadyLabel2b=Press Enter to install. Installing takes about one minute.
 FinishedHeadingLabel=Talking Scanner is installed
 FinishedLabelNoIcons=Talking Scanner is installed.
+ClickFinish=
 FinishedLabel=Talking Scanner is installed. To start it at any time, press Control plus Alt plus T. Or press the Windows key, type Talking Scanner, and press Enter. Press Enter now to finish.
 
 [Files]
