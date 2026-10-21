@@ -1,8 +1,21 @@
 # Talking Scanner
 
 A free, offline talking flatbed scanner for blind library patrons on Windows 11.
+
+## Download
+
+**[Download TalkingScannerSetup.exe for Windows 11](https://github.com/patricktimony/Braille-and-Audio-Design/releases/latest/download/TalkingScannerSetup.exe)**
+
+One file, and nothing else to install. Open it, press Enter to install, and
+press Enter to finish. Then start Talking Scanner at any time with
+**Control + Alt + T**. If Windows says "Windows protected your PC", press Tab
+to *More info*, press Enter, then press Tab to *Run anyway* and press Enter.
+The full spoken-friendly guide is [installer/USER-GUIDE.txt](installer/USER-GUIDE.txt);
+it is also installed in the Start menu as *Talking Scanner user guide*.
+
 Put a page face down on the glass, press one key, and the page is read aloud.
-You only need the keyboard. There is no mouse, cloud service, account, API key or JAWS.
+You only need the keyboard. You do not need a mouse, cloud service, account or API key.
+It works with or without a screen reader such as JAWS or Narrator.
 
 * Scanning uses Windows' own scanner drivers (WIA first, with TWAIN as a fallback).
 * Text recognition uses Tesseract OCR, which runs on this computer.
@@ -57,9 +70,9 @@ Each action is **one key**. You never have to hold two keys at once.
 
 ---
 
-## Install (Windows 11)
+## Install from source (developers only)
 
-Everything below is free and open source.
+Most people should use the [installer](#download) instead. Everything below is free and open source.
 
 1. Download this folder (for example, *Code → Download ZIP* on GitHub) and unzip it,
    for example to `C:\TalkingScanner`.
@@ -103,14 +116,35 @@ The program **does not start with Windows**, and the installer adds nothing to s
 | `run.bat --simulate samples` | Practise with sample page images instead of a scanner. |
 | `run.bat --reset` | Choose the keys and the scanner again. |
 | `run.bat --speech-test` | Speaks a sentence, pauses halfway, carries on, and reports whether the exact word position was available. |
+| `run.bat --practice` | Same as `--simulate samples`, using the sample pages shipped with the program. |
+| `run.bat --self-test` | Recognizes the sample pages and checks the Windows voices, then says "Self test passed" or "failed". Saves `self-test.txt`. |
 
-### Windows executable
+### Installer and releases
 
-`build_exe.bat` creates `dist\TalkingScanner\TalkingScanner.exe` with
-PyInstaller. It also copies Tesseract next to the executable, so you can
-copy that folder to another PC that has no Python or Tesseract. The
-GitHub Actions workflow `.github/workflows/talking-scanner-windows.yml` builds
-the same folder on every change. Download it from the workflow run's *Artifacts*.
+`build_exe.bat` (or `installer\build_windows.ps1`) builds
+`dist\TalkingScanner\TalkingScanner.exe` with PyInstaller, bundles Tesseract
+OCR and the sample pages, and packs everything into the single installer
+`dist\TalkingScannerSetup.exe` with [Inno Setup](https://jrsoftware.org/isinfo.php)
+(`installer\TalkingScanner.iss`).
+
+The installer is per-user (no administrator prompt) and has two pages: Install
+and Finish. It adds a Start menu shortcut with the hotkey **Ctrl+Alt+T**, a
+desktop shortcut, and a *Talking Scanner Tools* folder (practice with sample
+pages, key test, self test, user guide, uninstall). It adds nothing to startup.
+
+The GitHub Actions workflow `.github/workflows/talking-scanner-windows.yml`
+runs on every change: the tests, then the build, then
+`installer\test_installer.ps1`, which installs by pressing Enter only, reads
+each installer page and the program window through UI Automation, presses a
+real key in the installed program, runs its `--self-test` with the system
+Tesseract hidden, upgrades, and uninstalls.
+
+**Publishing a new version:** raise `__version__` in
+`talking_scanner/__init__.py`. When that change is merged into `main`, and
+every test passes, the workflow publishes release `talking-scanner-v<version>`
+with `TalkingScannerSetup.exe`. The download link above always points at the
+newest release. Merging the pull request is the approval: nothing is published
+from other branches, or if any test fails.
 
 ---
 
@@ -148,6 +182,21 @@ How it works with Narrator:
 * If arrow keys or Space seem to do nothing while Narrator is on, Narrator's
   **scan mode** is probably on. Press **Caps Lock + Space** to turn it off.
   This has **not been tested yet**. Please record the result below.
+
+## JAWS
+
+Talking Scanner works next to JAWS the same way as next to Narrator: it reads
+pages with its own Windows voice, and JAWS keeps its own keys.
+
+* JAWS uses the **number pad** for its own commands while **Num Lock is off**
+  (for example number pad 5 says the current character), so those keys never
+  reach Talking Scanner. With Num Lock on, all number pad keys work. The main
+  keyboard keys work either way. When JAWS is running with Num Lock off and
+  the number pad layout chosen, Talking Scanner says so at start-up, after
+  choosing keys, and in the F1 help.
+* **Insert + T** (JAWS: say window title) repeats the last announcement.
+* `--diagnose` lists which screen readers (JAWS, Narrator, NVDA) are running.
+* This has **not been tested with JAWS yet**. Please record the result below.
 
 ---
 
@@ -229,6 +278,7 @@ Fill in the "Physical tests" table as you test real hardware.
 | SAPI **word position** while speaking | same Windows machine, **no sound card** | **Not reported.** Neither word events nor `SpVoice.Status` gave progress. The program falls back to estimating from time and speech rate. Check on the library PC with `run.bat --speech-test`. |
 | WIA automation library and service present | same Windows machine (no scanner attached: 0 devices) | WIA available, starts on demand |
 | Executable built with PyInstaller; with system Tesseract hidden, it used its **bundled Tesseract** | same Windows machine | pass |
+| Installer: install by pressing Enter only; every page and the program window read through UI Automation; Enter key answered by the installed program; shortcuts and Ctrl+Alt+T hotkey; installed `--self-test` with bundled Tesseract; upgrade; uninstall | GitHub Actions, Windows Server 2025, on every change and before every release | see the latest workflow run |
 
 ### Not yet tested: needs the library PC
 
@@ -238,6 +288,8 @@ Fill in the "Physical tests" table as you test real hardware.
 | Any other physical scanner (Epson, Brother, HP, network) | **not tested** |
 | TWAIN fallback | **not tested** |
 | Use with Narrator running (focus, scan mode, overlapping speech) | **not tested** |
+| Use with JAWS running (number pad with Num Lock on and off, overlapping speech) | **not tested** |
+| Installing on a real Windows 11 laptop with JAWS or Narrator | **not tested** (installer tested automatically through UI Automation only) |
 | Exact word tracking through speakers (`run.bat --speech-test`) | **not tested** |
 | Audible speech on any PC with speakers | **not tested** |
 | A physical number pad and a laptop keyboard | **not tested** (run `run.bat --key-test`) |
@@ -279,3 +331,6 @@ py tools\make_samples.py           # regenerate the sample page images
 | `talking_scanner/storage.py` | Session, consent-based saving, privacy rules |
 | `talking_scanner/ui_wx.py` | The window: native controls and keyboard input |
 | `talking_scanner/diagnostics.py` | `--diagnose` compatibility report |
+| `talking_scanner/screenreaders.py` | Detects JAWS, Narrator and NVDA; the JAWS number pad tip |
+| `talking_scanner/selftest.py` | `--self-test` and `--practice` sample pages |
+| `installer/` | Inno Setup script, build script, installer test, user guide, release notes |

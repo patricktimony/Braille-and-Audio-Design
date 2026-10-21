@@ -6,6 +6,8 @@
     python -m talking_scanner --simulate DIR  use images in DIR instead of a scanner
     python -m talking_scanner --reset         choose keys and scanner again
     python -m talking_scanner --speech-test   check speech and word tracking
+    python -m talking_scanner --practice      practise with the bundled sample pages
+    python -m talking_scanner --self-test     check OCR and speech work, then exit
 """
 
 import argparse
@@ -23,6 +25,8 @@ def parse_args(argv):
     p.add_argument("--simulate", metavar="DIR", help="use images in DIR instead of a real scanner")
     p.add_argument("--reset", action="store_true", help="forget the chosen keys and scanner")
     p.add_argument("--speech-test", action="store_true", help="speak a sentence and report word tracking")
+    p.add_argument("--practice", action="store_true", help="use the bundled sample pages instead of a scanner")
+    p.add_argument("--self-test", action="store_true", help="check OCR and speech on the sample pages, then exit")
     p.add_argument("--no-speech", action="store_true", help="print speech instead of speaking")
     return p.parse_args(argv)
 
@@ -37,9 +41,20 @@ def main(argv=None):
     if args.speech_test:
         return speech_test()
 
+    if args.self_test:
+        from .selftest import run
+
+        return run(speak=not args.no_speech)
+
+    if args.practice:
+        from .selftest import samples_dir
+
+        args.simulate = samples_dir()
+
     from .controller import Controller
     from .ocr import OcrEngine
     from .scanners import ScannerManager
+    from .screenreaders import jaws_numpad_tip, num_lock_on, running_screen_readers
     from .speech import ConsoleSpeaker, default_speaker
     from .storage import AppLock, Session, Settings, data_dir, delete_stale_sessions
 
@@ -71,6 +86,11 @@ def main(argv=None):
         return 1
     delete_stale_sessions(root)
     session = Session(root)
+    readers = running_screen_readers()
+    logging.info("screen readers running: %s", readers)
+
+    def keyboard_tip(numpad_layout):
+        return jaws_numpad_tip(readers, numpad_layout, num_lock_on())
 
     def build(run_job, on_change, on_exit):
         return Controller(
@@ -82,6 +102,7 @@ def main(argv=None):
             run_job,
             on_change=on_change,
             on_exit=on_exit,
+            keyboard_tip=keyboard_tip,
         )
 
     def finish():

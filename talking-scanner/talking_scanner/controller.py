@@ -40,7 +40,7 @@ class Controller:
     EXIT_TIMEOUT_SECONDS = 8
 
     def __init__(self, speaker, scanners, ocr, session, settings, run_job,
-                 on_change=None, on_exit=None, clock=time.monotonic):
+                 on_change=None, on_exit=None, clock=time.monotonic, keyboard_tip=None):
         self.speaker = speaker
         self.scanners = scanners
         self.ocr = ocr
@@ -50,6 +50,8 @@ class Controller:
         self.on_change = on_change or (lambda: None)
         self.on_exit = on_exit or (lambda: None)
         self.clock = clock
+        # keyboard_tip(numpad_layout) -> extra spoken advice, e.g. when JAWS takes the number pad.
+        self.keyboard_tip = keyboard_tip or (lambda numpad_layout: "")
         self.state = IDLE
         self.status = ""
         self.device = None
@@ -74,6 +76,10 @@ class Controller:
     def _scan_key(self):
         return "number pad Enter" if self.settings["layout"] == LAYOUT_NUMPAD else "Enter"
 
+    def _tip(self):
+        tip = self.keyboard_tip(self.settings["layout"] == LAYOUT_NUMPAD)
+        return f" {tip}" if tip else ""
+
     def _keys(self, numpad, laptop):
         return numpad if self.settings["layout"] == LAYOUT_NUMPAD else laptop
 
@@ -91,7 +97,7 @@ class Controller:
             self.ocr.check()
         except OcrError as exc:
             message = exc.spoken + " " + message
-        self._say(message)
+        self._say(message + self._tip())
 
     # -- keys -------------------------------------------------------------
     def handle_key(self, key_name):
@@ -133,6 +139,7 @@ class Controller:
             self._say(
                 chosen + help_text(layout)
                 + f" Now place a page face down on the scanner glass and press {self._scan_key()}."
+                + self._tip()
             )
         elif action == Action.QUIT:
             self.request_quit()
@@ -252,7 +259,7 @@ class Controller:
         where = ""
         if len(self.book):
             where = f" You have {len(self.book)} pages and are on page {self.book.page + 1}."
-        self._say(help_text(layout) + where)
+        self._say(help_text(layout) + where + self._tip())
 
     # -- scanning ---------------------------------------------------------
     def _busy(self, label):

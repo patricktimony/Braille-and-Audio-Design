@@ -105,6 +105,9 @@ def _narrator_keyboard(out):
     running = "Narrator.exe" in _run(["tasklist", "/FI", "IMAGENAME eq Narrator.exe"])
     out.append(f"  Screen reader flag set: {bool(flag.value)}")
     out.append(f"  Narrator running: {running}")
+    from .screenreaders import running_screen_readers
+
+    out.append(f"  Screen readers running: {', '.join(running_screen_readers()) or 'none'}")
     out.append(f"  Num Lock on: {bool(user32.GetKeyState(0x90) & 1)}")
     out.append(f"  Keyboard type: {user32.GetKeyboardType(0)} subtype {user32.GetKeyboardType(1)} "
                f"function keys {user32.GetKeyboardType(2)}")
@@ -122,7 +125,7 @@ def report():
     _section(out, "Tesseract OCR", _tesseract)
     if sys.platform == "win32":
         _section(out, "Speech voices (SAPI 5)", _voices)
-        _section(out, "Narrator and keyboard", _narrator_keyboard)
+        _section(out, "Screen readers and keyboard", _narrator_keyboard)
     out.append("\n== Network ==\n  Talking Scanner makes no network connections.")
     return "\n".join(out)
 

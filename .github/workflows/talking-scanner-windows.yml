@@ -1,31 +1,58 @@
 name: Talking Scanner (Windows)
 
+# Every change: test, build TalkingScannerSetup.exe, and test the installer.
+# A release is published only after all of that passes, when either
+#   * a change reaches main with a version number that has no release yet
+#     (talking_scanner/__init__.py __version__), or
+#   * a tag talking-scanner-v<version> is pushed, or
+#   * "Run workflow" is pressed on main with "publish" ticked.
+# The installer is always at
+#   https://github.com/patricktimony/Braille-and-Audio-Design/releases/latest/download/TalkingScannerSetup.exe
+
 on:
   push:
+    branches: ["**"]
+    tags: ["talking-scanner-v*"]
     paths: ["talking-scanner/**", ".github/workflows/talking-scanner-windows.yml"]
   pull_request:
     paths: ["talking-scanner/**", ".github/workflows/talking-scanner-windows.yml"]
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish a release if this version has none yet"
+        type: boolean
+        default: false
 
 jobs:
   windows:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     defaults:
       run:
         shell: pwsh
         working-directory: talking-scanner
     env:
       TESSERACT_CMD: C:\Program Files\Tesseract-OCR\tesseract.exe
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install Tesseract OCR
-        run: choco install tesseract -y --no-progress
+      - name: Install Tesseract OCR and Inno Setup
+        run: choco install tesseract innosetup -y --no-progress
       - name: Install Python packages
         run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: Version
+        id: version
+        run: |
+          $v = (python -c "import talking_scanner; print(talking_scanner.__version__)").Trim()
+          "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "Version $v"
+          if ($env:GITHUB_REF -like "refs/tags/talking-scanner-v*" -and $env:GITHUB_REF_NAME -ne "talking-scanner-v$v") {
+            throw "Tag $env:GITHUB_REF_NAME does not match version $v in talking_scanner/__init__.py"
+          }
       - name: Unit and integration tests (OCR, navigation, SAPI speech)
         run: python -m pytest -v
       - name: SAPI status probe
@@ -34,30 +61,56 @@ jobs:
       - name: Keyboard test with real Windows key events (Num Lock on and off)
         if: always()
         run: python tools/windows_key_test.py
-      - name: Diagnostics (WIA, TWAIN, voices, Narrator)
+      - name: Diagnostics (WIA, TWAIN, voices, screen readers)
         if: always()
         run: python -m talking_scanner --diagnose
-      - name: Build Windows executable
-        if: always()
-        run: |
-          python -m PyInstaller --noconfirm --clean --windowed --name TalkingScanner --hidden-import win32timezone launcher.py
-          robocopy "C:\Program Files\Tesseract-OCR" dist\TalkingScanner\tesseract /E /NFL /NDL /NJH /NJS; if ($LASTEXITCODE -le 7) { $global:LASTEXITCODE = 0 }
-          Copy-Item README.md dist\TalkingScanner\
-      - name: Executable smoke test (bundled Tesseract, WIA)
-        if: always()
-        run: |
-          $env:TESSERACT_CMD = ""
-          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notlike '*Tesseract*' }) -join ';'
-          Rename-Item "C:\Program Files\Tesseract-OCR" "Tesseract-OCR-hidden"
-          $p = Start-Process dist\TalkingScanner\TalkingScanner.exe -ArgumentList "--diagnose" -Wait -PassThru
-          Rename-Item "C:\Program Files\Tesseract-OCR-hidden" "Tesseract-OCR"
-          Get-Content "$env:LOCALAPPDATA\TalkingScanner\diagnostics.txt"
-          if ($p.ExitCode -ne 0) { exit 1 }
-          if (-not (Select-String -Path "$env:LOCALAPPDATA\TalkingScanner\diagnostics.txt" -Pattern "TalkingScanner\\tesseract")) { throw "bundled Tesseract not used" }
+      - name: Build program and installer
+        run: ./installer/build_windows.ps1
+      - name: Test the installer (keyboard install, UI Automation, self test, uninstall)
+        run: ./installer/test_installer.ps1 dist\TalkingScannerSetup.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TalkingScannerSetup
+          path: talking-scanner/dist/TalkingScannerSetup.exe
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: TalkingScanner-windows
-          path: |
-            talking-scanner/dist/TalkingScanner
-            talking-scanner/key_test_results.json
+          name: test-results
+          path: talking-scanner/key_test_results.json
+          if-no-files-found: ignore
+
+  release:
+    needs: windows
+    if: >-
+      startsWith(github.ref, 'refs/tags/talking-scanner-v') ||
+      (github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: talking-scanner-v${{ needs.windows.outputs.version }}
+      VERSION: ${{ needs.windows.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip if this version is already released
+        id: check
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/download-artifact@v4
+        if: steps.check.outputs.publish == 'true'
+        with:
+          name: TalkingScannerSetup
+          path: out
+      - name: Publish release
+        if: steps.check.outputs.publish == 'true'
+        run: |
+          sed "s/{VERSION}/$VERSION/g" talking-scanner/installer/release-notes.md > notes.md
+          gh release create "$TAG" out/TalkingScannerSetup.exe \
+            --title "Talking Scanner $VERSION" --notes-file notes.md --target "$GITHUB_SHA" --latest

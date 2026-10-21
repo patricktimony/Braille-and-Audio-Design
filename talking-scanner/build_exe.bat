@@ -1,7 +1,7 @@
 @echo off
-rem Builds dist\TalkingScanner\TalkingScanner.exe with PyInstaller.
-rem If Tesseract is installed, a copy is placed next to the exe so the
-rem folder can be copied to another PC that has no Python or Tesseract.
+rem Builds dist\TalkingScanner\TalkingScanner.exe and the installer
+rem dist\TalkingScannerSetup.exe (Tesseract OCR bundled).
+rem Needs install.bat run first, and Inno Setup 6 (winget install JRSoftware.InnoSetup).
 setlocal
 cd /d "%~dp0"
 if not exist ".venv\Scripts\python.exe" (
@@ -9,10 +9,4 @@ if not exist ".venv\Scripts\python.exe" (
   exit /b 1
 )
 ".venv\Scripts\python.exe" -m pip install -r requirements-dev.txt || exit /b 1
-".venv\Scripts\python.exe" -m PyInstaller --noconfirm --clean --windowed --name TalkingScanner ^
-  --hidden-import win32timezone launcher.py || exit /b 1
-if exist "%ProgramFiles%\Tesseract-OCR\tesseract.exe" (
-  robocopy "%ProgramFiles%\Tesseract-OCR" "dist\TalkingScanner\tesseract" /E /NFL /NDL /NJH /NJS >nul
-)
-copy /y README.md dist\TalkingScanner\ >nul
-echo Built dist\TalkingScanner\TalkingScanner.exe
+powershell -NoProfile -ExecutionPolicy Bypass -File installer\build_windows.ps1 || exit /b 1
