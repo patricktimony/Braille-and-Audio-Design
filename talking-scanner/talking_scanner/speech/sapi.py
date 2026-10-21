@@ -17,8 +17,10 @@ and speaking rate, so a pause always resumes near the right word.
 position_source records which one was last used.
 """
 
+import logging
 import time
 
+import pywintypes
 import win32com.client
 
 from . import Speaker
@@ -31,6 +33,8 @@ SSFM_CREATE_FOR_WRITE = 3
 SVE_START_INPUT_STREAM = 2
 SVE_END_INPUT_STREAM = 4
 SVE_WORD_BOUNDARY = 32
+
+log = logging.getLogger(__name__)
 
 
 def _pump():
@@ -79,18 +83,31 @@ class SapiSpeaker(Speaker):
         tokens = self.voice.GetVoices()
         return [tokens.Item(i) for i in range(tokens.Count)]
 
+    # SAPI raises an error when there is no sound output (no sound card, or
+    # headphones unplugged).  The program then carries on silently: the window
+    # title still shows every announcement, so a screen reader can read it.
     def say(self, text):
-        self._stream = self.voice.Speak(text, SVSF_ASYNC | SVSF_PURGE_BEFORE_SPEAK | SVSF_IS_NOT_XML)
         self._started = time.monotonic()
         self._text_len = len(text)
+        try:
+            self._stream = self.voice.Speak(text, SVSF_ASYNC | SVSF_PURGE_BEFORE_SPEAK | SVSF_IS_NOT_XML)
+        except pywintypes.com_error as exc:
+            log.warning("SAPI could not speak: %s", exc)
+            self._stream = None
 
     def stop(self):
-        self.voice.Speak("", SVSF_ASYNC | SVSF_PURGE_BEFORE_SPEAK)
+        try:
+            self.voice.Speak("", SVSF_ASYNC | SVSF_PURGE_BEFORE_SPEAK)
+        except pywintypes.com_error as exc:
+            log.warning("SAPI could not stop: %s", exc)
         self._stream = None
 
     def is_busy(self):
         _pump()
-        return not self.voice.WaitUntilDone(0)
+        try:
+            return not self.voice.WaitUntilDone(0)
+        except pywintypes.com_error:
+            return False
 
     def position(self):
         if self._stream is None:

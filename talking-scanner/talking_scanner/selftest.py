@@ -42,12 +42,21 @@ def _check_speech(results):
     if sys.platform != "win32":
         results.append((True, "speech: skipped (not Windows)"))
         return
+    import tempfile
+
     from .speech.sapi import SapiSpeaker
 
-    speaker = SapiSpeaker()
-    voices = [v.GetDescription() for v in speaker.voices()]
-    results.append((bool(voices), f"Windows voices: {', '.join(voices) or 'none found'}"))
-    speaker.close()
+    # Speak into a sound file, so the check also works without speakers.
+    with tempfile.TemporaryDirectory() as tmp:
+        wav = os.path.join(tmp, "voice.wav")
+        speaker = SapiSpeaker(output_file=wav)
+        voices = [v.GetDescription() for v in speaker.voices()]
+        results.append((bool(voices), f"Windows voices: {', '.join(voices) or 'none found'}"))
+        speaker.say("Talking Scanner self test.")
+        speaker.voice.WaitUntilDone(10000)
+        speaker.close()
+        size = os.path.getsize(wav)
+        results.append((size > 10000, f"voice produced {size} bytes of sound"))
 
 
 def run(speak=True):
