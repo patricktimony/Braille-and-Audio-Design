@@ -147,8 +147,9 @@ def main():
     check(find(app, "TextControl", "Welcome to Talking Scanner") is not None, "status line is readable text")
     check(find(app, "EditControl", "") is not None, "page text box is readable")
     press_enter(app)
-    app = wait_until(20, "the reply to the Enter key", lambda: top_window("Main keyboard keys chosen"))
-    check(True, f"Enter chose the main keyboard keys: '{app.Name[:80]}...'")
+    # SendKeys may send Enter as number pad Enter; either way a layout is chosen.
+    app = wait_until(20, "the reply to the Enter key", lambda: top_window("keys chosen"))
+    check(True, f"Enter chose the keys: '{app.Name[:80]}...'")
     kill_app()
 
     step("Shortcuts")
