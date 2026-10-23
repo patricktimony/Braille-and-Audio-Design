@@ -1,0 +1,1 @@
+Simulation marker: pressing F5 on this file makes the simulated scanner fail with 'Timeout'.

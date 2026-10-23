@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Windows program. Dependencies (see docs/SECURITY.md for details):
+      * .NET 10 runtime + Windows Desktop (WinForms) runtime - Microsoft, bundled when published self-contained.
+      * Microsoft.Windows.SDK.NET.Ref - Microsoft; implied by the "-windows10.0.19041.0" target below.
+        Provides the C# projection used to call the built-in Windows.Media.Ocr engine.
+      * System.Speech - Microsoft; a .NET wrapper around the SAPI 5 voices built into Windows.
+    Windows Image Acquisition (scanner) is reached through COM, which is built into Windows; no package.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>ScanReader</AssemblyName>
+    <RootNamespace>ScanReader</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Product>Scan Reader</Product>
+    <Description>Offline one-key scan and read-aloud program</Description>
+    <Version>1.0.0</Version>
+    <Deterministic>true</Deterministic>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Only English resource files; keeps the output small. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- Allows compiling (not running) on non-Windows build machines. Harmless on Windows. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- COM late binding (dynamic) is used for WIA, so trimming must stay off. -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Speech" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ScanReader.Core\ScanReader.Core.csproj" />
+  </ItemGroup>
+
+</Project>
