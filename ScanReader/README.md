@@ -1,5 +1,7 @@
 # Scan Reader
 
+> **Looking for the easy version?** See [`../ScanReader-Simple`](../ScanReader-Simple): one script, nothing to build or install. This folder is the larger, compiled version.
+
 An offline, one-key scan-and-read program for Windows 11, built for a blind
 reader using a Canon CanoScan LiDE 300.
 
