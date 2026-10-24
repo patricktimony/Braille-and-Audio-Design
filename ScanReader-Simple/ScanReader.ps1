@@ -4,13 +4,15 @@
   Put a page face down on the scanner, press F5, and hear it read aloud.
 
   KEYS
-    F5 or Enter   scan a page and read it
+    F5, Enter, S  scan a page and read it
     Space         pause / continue (remembers the word)
     Left, Right   previous / next word
     Up, Down      previous / next line
     Page Up/Down  previous / next page
     Escape        stop talking
     Minus, Plus   slower / faster voice
+    Ctrl+C        copy all pages (to paste into an email or Word); Ctrl+A first is fine
+    Ctrl+S        save all pages as one file on the desktop
     Ctrl+N twice  start a new document
     F1            help
 
@@ -21,7 +23,13 @@
   Saves pages to:   Documents\Scanned Pages\<date and time>\Page 001.txt
   Remembers place:  %LOCALAPPDATA%\ScanReader\position.txt
 
-  Start it with "Start Scan Reader.cmd". For testing without a scanner:
+  The first time, start it with "Start Scan Reader.cmd". It then puts a
+  "Scan Reader" icon on the desktop (shortcut key Ctrl+Alt+S).
+
+  If JAWS is running, JAWS is told to be quiet while this window is in front,
+  and to talk again when you leave the window or close it.
+
+  For testing without a scanner:
     powershell -STA -ExecutionPolicy Bypass -File ScanReader.ps1 -TestImagesFolder "C:\some\pictures"
 #>
 param(
@@ -69,7 +77,11 @@ $Msg = @{
     UnknownKey   = 'That key does nothing. Press F1 for help.'
     Error        = 'Something unexpected went wrong. Please try again. If it keeps happening, ask your helper.'
     Goodbye      = 'Scan reader is closing. Goodbye.'
-    Keys         = 'Here are the keys. F5 scans a page. Space starts or pauses reading. Left and Right arrows move one word. Up and Down arrows move one line. Page Up and Page Down go to the previous or next page. Escape stops speaking. Minus and Plus make the voice slower or faster. Control N, pressed twice, starts a new document. F1 repeats this help.'
+    Selected     = 'All pages are selected. Press Control C to copy them.'
+    Copied       = 'Copied. You can now paste the text into an email or a document.'
+    SavedDesktop = 'Saved. The file is on the desktop. Its name starts with Scanned document.'
+    SaveDeskFail = 'Sorry, I could not save the file on the desktop.'
+    Keys         = 'Here are the keys. F5, Enter, or the letter S scans a page. Space starts or pauses reading. Left and Right arrows move one word. Up and Down arrows move one line. Page Up and Page Down go to the previous or next page. Escape stops speaking. Minus and Plus make the voice slower or faster. Control C copies all pages. Control S saves all pages on the desktop. Control N, pressed twice, starts a new document. F1 repeats this help.'
 }
 
 # ======================================================= PAGE LOGIC ===
@@ -357,6 +369,63 @@ function Get-PageText([string]$PngPath) {
     } finally { $bmp.Dispose() }
 }
 
+# ------------------------------------------------------------------- JAWS ---
+# JAWS and this program would talk over each other. While this window is in
+# front, JAWS is asked to be quiet; it talks again as soon as the window loses
+# focus or closes. "Start Scan Reader.cmd" also switches JAWS speech back on
+# after the program ends, even if it ended unexpectedly.
+$jaws = $null
+try { $jaws = New-Object -ComObject FreedomSci.JawsApi } catch { }    # only there if JAWS is installed
+Write-Log $(if ($jaws) { 'JAWS found.' } else { 'JAWS not found.' })
+
+function Set-JawsQuiet([bool]$Quiet) {
+    if (-not $jaws) { return }
+    try {
+        if ($Quiet) { $null = $jaws.StopSpeech(); $null = $jaws.RunFunction('SpeechOff') }
+        else { $null = $jaws.RunFunction('SpeechOn') }
+    } catch { Write-Log "JAWS call failed: $_" }
+}
+
+# ------------------------------------------------------------ desktop icon ---
+function Set-DesktopShortcut {
+    try {
+        $target = Join-Path $PSScriptRoot 'Start Scan Reader.cmd'
+        $path = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Scan Reader.lnk'
+        $shell = New-Object -ComObject WScript.Shell
+        if ((Test-Path $path) -and $shell.CreateShortcut($path).TargetPath -eq $target) { return }
+        $link = $shell.CreateShortcut($path)
+        $link.TargetPath = $target
+        $link.WorkingDirectory = $PSScriptRoot
+        $link.WindowStyle = 7                    # start minimised: no black box on screen
+        $link.Hotkey = 'CTRL+ALT+S'
+        $link.Description = 'Scan a page and hear it read aloud'
+        $link.Save()
+        Write-Log "Desktop shortcut created: $path"
+    } catch { Write-Log "Could not create desktop shortcut: $_" }
+}
+
+# ----------------------------------------------------------- copy and save ---
+function Get-AllText {
+    $parts = for ($i = 0; $i -lt $S.Pages.Count; $i++) { $S.Pages[$i].Text -replace "`n", "`r`n" }
+    $parts -join "`r`n`r`n"
+}
+
+function Copy-AllPages {
+    if (-not (Test-HavePages)) { return }
+    [System.Windows.Forms.Clipboard]::SetText((Get-AllText))
+    Say-Now $Msg.Copied
+}
+
+function Save-ToDesktop {
+    if (-not (Test-HavePages)) { return }
+    try {
+        $name = 'Scanned document ' + (Get-Date -Format 'yyyy-MM-dd HH-mm') + '.txt'
+        $file = Join-Path ([Environment]::GetFolderPath('Desktop')) $name
+        [IO.File]::WriteAllText($file, (Get-AllText), [Text.Encoding]::UTF8)
+        Say-Now $Msg.SavedDesktop
+    } catch { Write-Log "Desktop save failed: $_"; Say-Now $Msg.SaveDeskFail }
+}
+
 # ================================================================ ACTIONS ===
 function Start-Reading {
     $p = $S.Pages[$S.Page]
@@ -476,7 +545,11 @@ function Invoke-Key([System.Windows.Forms.KeyEventArgs]$e) {
     if ($key -ne 'N' -or -not $e.Control) { $S.NewDocUntil = [datetime]::MinValue }
 
     if ($e.Control) {
-        if ($key -eq 'N' -and -not $repeat) {
+        if ($repeat) { return }
+        if ($key -eq 'A') { if (Test-HavePages) { Say-Now $Msg.Selected }; return }
+        if ($key -eq 'C') { Copy-AllPages; return }
+        if ($key -eq 'S') { Save-ToDesktop; return }
+        if ($key -eq 'N') {
             if ((Get-Date) -le $S.NewDocUntil) {
                 $S.NewDocUntil = [datetime]::MinValue
                 $S.Folder = New-DocumentFolder; $S.Pages.Clear(); $S.Page = 0; $S.Word = 0
@@ -490,7 +563,7 @@ function Invoke-Key([System.Windows.Forms.KeyEventArgs]$e) {
     if ($e.Alt) { return }
 
     switch -Regex ($key) {
-        '^(F5|Return|Enter)$' { if (-not $repeat) { Invoke-ScanCommand }; break }
+        '^(F5|Return|Enter|S)$' { if (-not $repeat) { Invoke-ScanCommand }; break }
         '^Space$' {
             if ($repeat) { break }
             if ($S.Reading) { Stop-Talking; Save-Position -Force; Say $Msg.Paused }
@@ -533,7 +606,7 @@ function New-Label([float]$Size, [string]$Color, [string]$Dock) {
 }
 $lblKeys = New-Label 12 'Silver' 'Bottom'
 $lblKeys.Height = 60
-$lblKeys.Text = 'F5 / Enter: scan  |  Space: play/pause  |  Left/Right: word  |  Up/Down: line  |  Page Up/Down: page  |  Esc: stop  |  - / +: speed  |  Ctrl+N twice: new document  |  F1: help'
+$lblKeys.Text = 'F5 / Enter / S: scan  |  Space: play/pause  |  Left/Right: word  |  Up/Down: line  |  Page Up/Down: page  |  Esc: stop  |  - / +: speed  |  Ctrl+C: copy all  |  Ctrl+S: save to desktop  |  Ctrl+N twice: new document  |  F1: help'
 $lblLine = New-Label 36 'White' 'Fill'
 $lblPage = New-Label 22 'Gold' 'Top'
 $lblPage.Height = 70
@@ -549,6 +622,9 @@ $form.add_KeyDown({
 })
 $form.add_KeyUp({ param($sender, $e) $S.Down.Remove($e.KeyCode.ToString()) })
 
+$form.add_Activated({ Set-JawsQuiet $true })
+$form.add_Deactivate({ Set-JawsQuiet $false })
+
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 100
 $timer.add_Tick({ try { Watch-Reading } catch { Write-Log "Timer error: $_" } })
@@ -557,6 +633,8 @@ $form.add_Shown({ try { Start-Up } catch { Write-Log "Start-up error: $_"; Say-N
 
 function Start-Up {
     $form.Activate()
+    Set-JawsQuiet $true
+    Set-DesktopShortcut
     # Return to the last document and place.
     $rate = $StartSpeed
     if (Test-Path $PositionFile) {
@@ -589,6 +667,7 @@ $form.add_FormClosing({
     Save-Position -Force
     Stop-Talking
     if ($HasVoice) { $null = $voice.Speak($Msg.Goodbye, 16) }   # wait until said
+    Set-JawsQuiet $false
 })
 
 try {
@@ -598,5 +677,6 @@ try {
     Write-Log "Fatal: $_"
     if ($HasVoice) { $null = $voice.Speak($Msg.Error, 16) }
 } finally {
+    Set-JawsQuiet $false
     $mutex.ReleaseMutex()
 }
