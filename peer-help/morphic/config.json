@@ -1,0 +1,14 @@
+{
+  "version": 0,
+  "morphicBar": {
+    "extraItems": [
+      {
+        "type": "link",
+        "label": "Tech Help",
+        "tooltipHeader": "Peer Tech Help",
+        "tooltipText": "Get help with your technology from another person, or help someone else",
+        "url": "https://YOUR-DEPLOYMENT.example.org/index.html"
+      }
+    ]
+  }
+}

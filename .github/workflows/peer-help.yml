@@ -1,0 +1,26 @@
+name: Peer Tech Help checks
+
+on:
+  push:
+    paths: ["peer-help/**", ".github/workflows/peer-help.yml"]
+  pull_request:
+    paths: ["peer-help/**", ".github/workflows/peer-help.yml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: peer-help
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: peer-help/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:all
+        env:
+          CI: "true"

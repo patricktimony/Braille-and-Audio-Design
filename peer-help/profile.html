@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Profile – Peer Tech Help</title>
+</head>
+<body>
+<!-- header -->
+<main id="main" tabindex="-1">
+  <h1>My Profile</h1>
+  <form id="profile-form" novalidate>
+    <label for="name">Your first name or a nickname</label>
+    <input type="text" id="name" name="name" autocomplete="nickname">
+    <fieldset>
+      <legend>How do you want to use Peer Tech Help?</legend>
+      <div class="check"><input type="checkbox" id="is-learner" name="is-learner"><label for="is-learner">I want to learn</label></div>
+      <div class="check"><input type="checkbox" id="is-trainer" name="is-trainer"><label for="is-trainer">I want to help others</label></div>
+      <p class="hint">Add the skills you can teach on the <a href="./help-someone.html">Help Someone</a> page.</p>
+    </fieldset>
+    <label for="uses">Technology you use (optional)</label>
+    <p class="hint" id="uses-hint">For example: "iPhone with VoiceOver, Windows laptop with JAWS".</p>
+    <textarea id="uses" name="uses" rows="2" aria-describedby="uses-hint"></textarea>
+    <button type="submit">Save profile</button>
+    <p id="save-status" class="hint" aria-hidden="true"></p>
+  </form>
+  <section aria-labelledby="data-heading">
+    <h2 id="data-heading">Your information</h2>
+    <p id="data-summary"></p>
+    <button type="button" id="delete-all">Delete all my information from this device</button>
+  </section>
+</main>
+<!-- footer -->
+<script type="module" src="./src/pages/profile.ts"></script>
+</body>
+</html>

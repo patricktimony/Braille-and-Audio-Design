@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Instructions – Peer Tech Help</title>
+</head>
+<body>
+<!-- header -->
+<main id="main" tabindex="-1">
+  <div id="list-view" hidden>
+    <h1>My Instructions</h1>
+    <p>Instructions you have saved. Only you can see them unless you share one.</p>
+    <p id="list-summary"></p>
+    <ul id="instruction-list"></ul>
+
+    <section aria-labelledby="transcript-heading">
+      <h2 id="transcript-heading">Make instructions from a transcript</h2>
+      <p>If you recorded or wrote down a training conversation somewhere else, paste the text here.</p>
+      <form id="transcript-form" novalidate>
+        <label for="transcript-topic">What was the session about?</label>
+        <input type="text" id="transcript-topic" name="topic">
+        <label for="transcript">Transcript</label>
+        <p class="error" id="transcript-error" hidden></p>
+        <textarea id="transcript" name="transcript" rows="6" aria-describedby="transcript-error"></textarea>
+        <p class="error" id="transcript-consent-error" hidden></p>
+        <div class="check">
+          <input type="checkbox" id="transcript-consent" aria-describedby="transcript-consent-error">
+          <label for="transcript-consent">Everyone in this conversation agreed that it can be used to create instructions.</label>
+        </div>
+        <button type="submit">Create instructions</button>
+      </form>
+      <p>Or <button type="button" id="write-own">write steps myself</button></p>
+      <div id="editor"></div>
+    </section>
+  </div>
+
+  <div id="detail-view" hidden>
+    <p><a href="./instructions.html">Back to My Instructions</a></p>
+    <h1 id="detail-title"></h1>
+    <p id="detail-meta"></p>
+    <ol id="detail-steps"></ol>
+    <button type="button" id="read-aloud">Read steps aloud</button>
+    <button type="button" id="download">Download as a text file</button>
+    <section aria-labelledby="sharing-heading">
+      <h2 id="sharing-heading">Sharing</h2>
+      <p id="sharing-state"></p>
+      <form id="share-form" hidden novalidate>
+        <p class="error" id="share-error" hidden></p>
+        <div class="check">
+          <input type="checkbox" id="share-confirm" aria-describedby="share-error">
+          <label for="share-confirm">I want to share these steps in the Shared Library, and I confirm they contain no names, addresses, passwords, or other personal information.</label>
+        </div>
+        <button type="submit">Share in the library</button>
+      </form>
+      <button type="button" id="unshare" hidden>Stop sharing</button>
+    </section>
+    <section aria-labelledby="delete-heading">
+      <h2 id="delete-heading">Delete</h2>
+      <button type="button" id="delete">Delete these instructions</button>
+    </section>
+  </div>
+</main>
+<!-- footer -->
+<script type="module" src="./src/pages/instructions.ts"></script>
+</body>
+</html>

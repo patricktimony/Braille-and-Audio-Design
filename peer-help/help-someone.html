@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Help Someone – Peer Tech Help</title>
+</head>
+<body>
+<!-- header -->
+<main id="main" tabindex="-1">
+  <h1>Help Someone</h1>
+  <p>Tell learners what you can teach. You can be a learner and a trainer at the same time.</p>
+  <form id="trainer-form" novalidate>
+    <label for="name">Your first name or a nickname</label>
+    <p class="hint" id="name-hint">This is the name learners will see. Do not use your full name.</p>
+    <p class="error" id="name-error" hidden></p>
+    <input type="text" id="name" name="name" autocomplete="nickname" aria-describedby="name-hint name-error">
+    <fieldset aria-describedby="skills-error">
+      <legend>Skills you can teach</legend>
+      <p class="error" id="skills-error" hidden></p>
+      <div id="skills"></div>
+    </fieldset>
+    <label for="availability">When are you usually available?</label>
+    <p class="hint" id="availability-hint">For example: "Weekday evenings, US Eastern time".</p>
+    <textarea id="availability" name="availability" rows="2" aria-describedby="availability-hint"></textarea>
+    <fieldset>
+      <legend>Do you charge for training?</legend>
+      <div class="radio"><input type="radio" id="pricing-volunteer" name="pricing" value="volunteer" checked><label for="pricing-volunteer">No, I volunteer</label></div>
+      <div class="radio"><input type="radio" id="pricing-paid" name="pricing" value="paid"><label for="pricing-paid">Yes, I charge</label></div>
+      <label for="rate">If you charge, describe your rate (optional)</label>
+      <input type="text" id="rate" name="rate">
+    </fieldset>
+    <label for="bio">About you (optional)</label>
+    <textarea id="bio" name="bio" rows="3"></textarea>
+    <div class="check">
+      <input type="checkbox" id="listed" name="listed">
+      <label for="listed">List me as a trainer</label>
+    </div>
+    <button type="submit">Save trainer profile</button>
+    <p id="save-status" class="hint" aria-hidden="true"></p>
+  </form>
+  <section aria-labelledby="requests-heading">
+    <h2 id="requests-heading">Requests you could help with</h2>
+    <p class="notice">These are demonstration requests, not real people. Answering real requests needs the messaging server, which this prototype does not include yet.</p>
+    <p id="requests-summary"></p>
+    <ul id="requests"></ul>
+  </section>
+</main>
+<!-- footer -->
+<script type="module" src="./src/pages/help-someone.ts"></script>
+</body>
+</html>

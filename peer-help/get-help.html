@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Get Help – Peer Tech Help</title>
+</head>
+<body>
+<!-- header -->
+<main id="main" tabindex="-1">
+  <h1>Get Help</h1>
+  <form id="help-form" novalidate>
+    <label for="request">What do you need help with?</label>
+    <p class="hint" id="request-hint">For example: "I need help scanning a document" or "I need someone to teach me JAWS".</p>
+    <p class="error" id="request-error" hidden></p>
+    <textarea id="request" name="request" rows="3" aria-describedby="request-hint request-error"></textarea>
+    <button type="button" id="speak">Speak instead of typing</button>
+    <p class="hint" id="speech-help"></p>
+    <div class="check">
+      <input type="checkbox" id="volunteer-only" name="volunteer-only">
+      <label for="volunteer-only">Only show volunteers (free help)</label>
+    </div>
+    <button type="submit">Find helpers</button>
+  </form>
+  <section id="results" aria-labelledby="results-heading" hidden>
+    <h2 id="results-heading" tabindex="-1"></h2>
+    <p id="results-summary"></p>
+    <form id="topic-form" hidden>
+      <label for="topic">Choose the closest topic</label>
+      <select id="topic" name="topic"></select>
+      <button type="submit">Show helpers for this topic</button>
+    </form>
+    <ol id="results-list"></ol>
+  </section>
+</main>
+<!-- footer -->
+<script type="module" src="./src/pages/get-help.ts"></script>
+</body>
+</html>

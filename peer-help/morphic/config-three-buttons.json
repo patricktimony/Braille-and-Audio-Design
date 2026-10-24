@@ -1,0 +1,28 @@
+{
+  "version": 0,
+  "morphicBar": {
+    "extraItems": [
+      {
+        "type": "link",
+        "label": "Get Help",
+        "tooltipHeader": "Get Help",
+        "tooltipText": "Find someone who can teach you a technology skill",
+        "url": "https://YOUR-DEPLOYMENT.example.org/get-help.html"
+      },
+      {
+        "type": "link",
+        "label": "Help Someone",
+        "tooltipHeader": "Help Someone",
+        "tooltipText": "Offer to teach the skills you know",
+        "url": "https://YOUR-DEPLOYMENT.example.org/help-someone.html"
+      },
+      {
+        "type": "link",
+        "label": "My Instructions",
+        "tooltipHeader": "My Instructions",
+        "tooltipText": "Step-by-step instructions saved from your sessions",
+        "url": "https://YOUR-DEPLOYMENT.example.org/instructions.html"
+      }
+    ]
+  }
+}

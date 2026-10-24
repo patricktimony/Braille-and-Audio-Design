@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Training session – Peer Tech Help</title>
+</head>
+<body>
+<!-- header -->
+<main id="main" tabindex="-1">
+  <div id="not-found" hidden>
+    <h1>Session not found</h1>
+    <p>This session is not saved in this browser. <a href="./get-help.html">Ask for help</a> to start a new one.</p>
+  </div>
+  <div id="session" hidden>
+    <h1 id="session-title"></h1>
+    <p class="notice" id="simulated-notice" hidden>This is a simulated session. The trainer is a demonstration and their messages are scripted by the prototype.</p>
+    <p id="session-request"></p>
+
+    <section aria-labelledby="call-heading">
+      <h2 id="call-heading">Talk by voice</h2>
+      <p><a id="call-link" href="#" rel="noopener noreferrer">Join a voice call on Jitsi Meet (external website)</a></p>
+      <p class="hint" id="call-hint">The call opens on Jitsi Meet, a free external service. Share this link only with your trainer.</p>
+    </section>
+
+    <section aria-labelledby="messages-heading">
+      <h2 id="messages-heading">Messages</h2>
+      <ol id="messages" class="messages"></ol>
+      <form id="message-form" novalidate>
+        <label for="message">Your message</label>
+        <p class="error" id="message-error" hidden></p>
+        <input type="text" id="message" name="message" autocomplete="off" aria-describedby="message-error">
+        <button type="submit">Send</button>
+        <button type="button" id="speak">Speak a message</button>
+        <p class="hint" id="speech-help"></p>
+      </form>
+    </section>
+
+    <section aria-labelledby="create-heading">
+      <h2 id="create-heading">Create instructions from this session</h2>
+      <p>Turn this conversation into step-by-step instructions you can keep in My Instructions. They stay private unless you choose to share them.</p>
+      <p class="error" id="consent-error" hidden></p>
+      <div class="check">
+        <input type="checkbox" id="consent" aria-describedby="consent-hint consent-error">
+        <label for="consent">I agree to use the text of this conversation to create instructions.</label>
+      </div>
+      <p class="hint" id="consent-hint"></p>
+      <button type="button" id="create">Create instructions</button>
+      <div id="editor"></div>
+    </section>
+  </div>
+</main>
+<!-- footer -->
+<script type="module" src="./src/pages/session.ts"></script>
+</body>
+</html>
