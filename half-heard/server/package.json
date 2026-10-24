@@ -1,0 +1,13 @@
+{
+  "name": "half-heard-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Optional local server for Half-Heard Genius Engine that keeps the API key on the server.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0"
+  }
+}

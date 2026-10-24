@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Say or type a phrase. The Half-Heard Genius Engine mishears it on purpose and turns each misunderstanding into an invention, joke, observation or poem.">
+  <meta name="theme-color" content="#000000">
+  <title>Half-Heard Genius Engine</title>
+  <link rel="stylesheet" href="style.css">
+  <script>
+    // Optional: point this at a server that talks to a language model
+    // (see server/server.mjs). Leave empty to use the built-in engine only.
+    // Never put an API key here — this file is public.
+    window.HALF_HEARD_CONFIG = { llmEndpoint: '' };
+  </script>
+</head>
+<body>
+  <a class="skip" href="#results">Skip to results</a>
+
+  <header>
+    <h1>Half-Heard Genius Engine</h1>
+    <p class="tagline">Say something. I will mishear it on purpose, and find the genius in the mistake.</p>
+  </header>
+
+  <main>
+    <section aria-labelledby="input-heading" class="panel">
+      <h2 id="input-heading" class="visually-hidden">Your phrase</h2>
+
+      <button type="button" id="listen" class="btn btn-listen" aria-describedby="listen-help">
+        <span class="btn-icon" aria-hidden="true">●</span>
+        <span id="listen-label">Listen</span>
+      </button>
+      <p id="listen-help" class="help">Press Listen, wait for the beep, then say a short phrase.</p>
+
+      <p id="no-speech-note" class="note" hidden>
+        <strong>Voice input is not available in this browser.</strong>
+        Please type your phrase in the box below instead.
+      </p>
+
+      <form id="type-form" class="type-form" autocomplete="off">
+        <label for="phrase">Or type a phrase</label>
+        <div class="type-row">
+          <input id="phrase" name="phrase" type="text" inputmode="text" enterkeyhint="go"
+                 autocapitalize="sentences" spellcheck="false" maxlength="200"
+                 placeholder="For example: I scream">
+          <button type="submit" class="btn">Misunderstand It</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Spoken and visible status messages. -->
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+
+    <section id="results" aria-labelledby="heard-heading" class="panel" tabindex="-1">
+      <h2 id="heard-heading">What the computer heard</h2>
+      <p id="heard" class="heard">Nothing yet.</p>
+
+      <h2 id="mis-heading">Misunderstandings</h2>
+      <p id="empty-hint" class="help">Your misunderstandings will appear here.</p>
+      <ol id="list" class="list" aria-labelledby="mis-heading"></ol>
+
+      <div class="actions" role="group" aria-label="Result actions">
+        <button type="button" id="more" class="btn">More Misunderstandings</button>
+        <button type="button" id="read" class="btn">Read Aloud</button>
+        <button type="button" id="save" class="btn">Save</button>
+        <button type="button" id="copy" class="btn">Copy as Text</button>
+      </div>
+
+      <div id="copy-fallback" hidden>
+        <label for="copy-text">Plain text. Select it all and copy.</label>
+        <textarea id="copy-text" rows="10" readonly></textarea>
+      </div>
+    </section>
+
+    <section aria-labelledby="saved-heading" class="panel">
+      <h2 id="saved-heading" tabindex="-1">Saved</h2>
+      <p id="saved-empty" class="help">Nothing saved yet. Press Save to keep results on this device.</p>
+      <ul id="saved" class="saved"></ul>
+      <button type="button" id="copy-saved" class="btn" hidden>Copy All Saved as Text</button>
+    </section>
+  </main>
+
+  <footer>
+    <p>Works without an internet account or API key. Saved results stay on this device only.</p>
+    <p id="engine-note"></p>
+  </footer>
+
+  <script src="engine.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
