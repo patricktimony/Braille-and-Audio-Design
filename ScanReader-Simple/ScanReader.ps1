@@ -1,33 +1,43 @@
 <#
   SCAN READER (simple version)
   ----------------------------
-  Put a page face down on the scanner, press F5, and hear it read aloud.
+  A scanning and reading machine, like a SARA, made from the laptop and the
+  Canon scanner. Put a page face down on the scanner, press S (or F5 or Enter),
+  and it is read aloud.
+
+  WITH JAWS RUNNING
+    JAWS does all the talking, in its own voice and at its own speed. This
+    program never turns JAWS off or changes any JAWS setting. It only hands
+    JAWS text to say.
+    The pages appear in a normal text window, so all the usual JAWS reading
+    keys work (arrows, Say All, Control to stop, Control+A and Control+C).
+
+  WITHOUT JAWS
+    The program reads aloud with the Windows voice.
 
   KEYS
-    F5, Enter, S  scan a page and read it
-    Space         pause / continue (remembers the word)
-    Left, Right   previous / next word
-    Up, Down      previous / next line
+    S, F5, Enter  scan a page and read it
+    Space         start reading / pause (remembers the place)
     Page Up/Down  previous / next page
     Escape        stop talking
-    Minus, Plus   slower / faster voice
-    Ctrl+C        copy all pages (to paste into an email or Word); Ctrl+A first is fine
+    Ctrl+C        copy (copies all pages if nothing is selected)
     Ctrl+S        save all pages as one file on the desktop
     Ctrl+N twice  start a new document
     F1            help
+    Without JAWS also: arrows move by word / line, Minus / Plus change speed.
+
+  It is an ordinary window: Alt+Tab goes to other programs, Ctrl+Alt+S
+  comes back. It starts by itself when the laptop starts.
 
   Uses only parts of Windows: the scanner system (WIA), the text-recognition
-  engine (Windows.Media.Ocr) and the Windows voices (SAPI). No internet,
-  no installing, no administrator rights, no settings changed.
+  engine (Windows.Media.Ocr) and the Windows voice (SAPI). No internet,
+  no installing, no administrator rights, no Windows or JAWS settings changed.
 
   Saves pages to:   Documents\Scanned Pages\<date and time>\Page 001.txt
   Remembers place:  %LOCALAPPDATA%\ScanReader\position.txt
 
   The first time, start it with "Start Scan Reader.cmd". It then puts a
-  "Scan Reader" icon on the desktop (shortcut key Ctrl+Alt+S).
-
-  If JAWS is running, JAWS is told to be quiet while this window is in front,
-  and to talk again when you leave the window or close it.
+  "Scan Reader" icon on the desktop and in the Startup folder.
 
   For testing without a scanner:
     powershell -STA -ExecutionPolicy Bypass -File ScanReader.ps1 -TestImagesFolder "C:\some\pictures"
@@ -41,53 +51,52 @@ $ErrorActionPreference = 'Stop'
 
 # ============================================================== SETTINGS ===
 $Dpi        = 300     # scan resolution; 300 suits normal print
-$StartSpeed = -1      # voice speed -10 (slow) .. 10 (fast); Minus/Plus change it
-
+$StartSpeed = -1      # Windows voice speed -10 (slow) .. 10 (fast); not used with JAWS
 
 # ============================================================== WORDING ===
 $Msg = @{
     Ready        = 'Scan reader is ready.'
-    PlacePage    = 'Put a page face down on the scanner glass, close the lid, and press F5.'
+    PlacePage    = 'Put a page face down on the scanner glass, close the lid, and press S.'
     Scanning     = 'Scanning.'
     Recognizing  = 'Recognizing text.'
+    Reading      = 'Reading.'
     Paused       = 'Paused.'
-    Nothing      = 'There is nothing to read yet. Put a page face down on the scanner glass, close the lid, and press F5.'
-    NoText       = 'I could not find any text on this page. Please check that the printed side is face down on the glass, and press F5 again.'
+    Nothing      = 'There is nothing to read yet. Put a page face down on the scanner glass, close the lid, and press S.'
+    NoText       = 'I could not find any text on this page. Please check that the printed side is face down on the glass, and press S again.'
     Poor         = 'I could only read part of this page, so some words may be wrong.'
-    NoScanner    = 'I cannot find the scanner. Please check that the scanner cable is plugged into the computer, then press F5 to try again.'
-    Busy         = 'The scanner is busy. Please wait a moment, then press F5 to try again.'
-    LostScanner  = 'I lost contact with the scanner. Please check the cable, then press F5 to try again.'
-    WarmingUp    = 'The scanner is warming up. Please wait a few seconds, then press F5 again.'
-    ScanFailed   = 'Something went wrong while scanning. Please press F5 to try again. If this keeps happening, ask your helper.'
+    NoScanner    = 'I cannot find the scanner. Please check that the scanner cable is plugged into the computer, then press S to try again.'
+    Busy         = 'The scanner is busy. Please wait a moment, then press S to try again.'
+    LostScanner  = 'I lost contact with the scanner. Please check the cable, then press S to try again.'
+    WarmingUp    = 'The scanner is warming up. Please wait a few seconds, then press S again.'
+    ScanFailed   = 'Something went wrong while scanning. Please press S to try again. If this keeps happening, ask your helper.'
     NoOcr        = 'Text recognition is not installed on this computer. Please ask your helper.'
-    OcrFailed    = 'Something went wrong while recognizing the text. Please press F5 to try again.'
+    OcrFailed    = 'Something went wrong while recognizing the text. Please press S to try again.'
     SaveFailed   = 'I could not save this page, but I will read it to you. Please tell your helper.'
-    StartOfPage  = 'Beginning of the page.'
-    EndOfPage    = 'End of the page.'
-    TopOfPage    = 'Top of the page.'
-    BottomOfPage = 'Bottom of the page.'
+    EndOfDoc     = 'End of the last page. Press S to scan another page.'
+    StartOfDoc   = 'Beginning of the first page.'
     FirstPage    = 'This is the first page.'
-    LastPage     = 'This is the last page. Press F5 to scan another page.'
+    LastPage     = 'This is the last page. Press S to scan another page.'
     Slower       = 'Slower.'
     Faster       = 'Faster.'
     Slowest      = 'This is the slowest speed.'
     Fastest      = 'This is the fastest speed.'
     ConfirmNew   = 'To start a new document, press Control N again. Your pages so far are saved.'
-    NewStarted   = 'New document started. Put a page face down on the scanner glass, close the lid, and press F5.'
+    NewStarted   = 'New document started. Put a page face down on the scanner glass, close the lid, and press S.'
     UnknownKey   = 'That key does nothing. Press F1 for help.'
     Error        = 'Something unexpected went wrong. Please try again. If it keeps happening, ask your helper.'
     Goodbye      = 'Scan reader is closing. Goodbye.'
-    Selected     = 'All pages are selected. Press Control C to copy them.'
-    Copied       = 'Copied. You can now paste the text into an email or a document.'
+    SelectedAll  = 'All pages are selected. Press Control C to copy them.'
+    CopiedAll    = 'Copied all pages. You can now paste them into an email or a document.'
     SavedDesktop = 'Saved. The file is on the desktop. Its name starts with Scanned document.'
     SaveDeskFail = 'Sorry, I could not save the file on the desktop.'
-    Keys         = 'Here are the keys. F5, Enter, or the letter S scans a page. Space starts or pauses reading. Left and Right arrows move one word. Up and Down arrows move one line. Page Up and Page Down go to the previous or next page. Escape stops speaking. Minus and Plus make the voice slower or faster. Control C copies all pages. Control S saves all pages on the desktop. Control N, pressed twice, starts a new document. F1 repeats this help.'
+    KeysJaws     = 'Here are the keys. S scans a page. F5 and Enter also scan. Space starts or pauses reading. Your usual JAWS keys work for reading. Page Up and Page Down go to the previous or next page. Escape stops speaking. Control C copies all pages. Control S saves all pages on the desktop. Control N, pressed twice, starts a new document. Alt Tab goes to your other programs, and Control Alt S comes back here. F1 repeats this help.'
+    KeysVoice    = 'Here are the keys. S scans a page. F5 and Enter also scan. Space starts or pauses reading. Left and Right arrows move one word. Up and Down arrows move one line. Page Up and Page Down go to the previous or next page. Escape stops speaking. Minus and Plus make the voice slower or faster. Control C copies all pages. Control S saves all pages on the desktop. Control N, pressed twice, starts a new document. F1 repeats this help.'
 }
 
-# ======================================================= PAGE LOGIC ===
-# A page is its text plus where each word and line starts, for moving around.
-function New-Page([string]$Text) {
-    $Text = $Text -replace "`r`n", "`n" -replace "`r", "`n"
+# ======================================================= TEXT LOGIC ===
+# The whole document is one text: "Page 1", its text, a blank line, "Page 2", ...
+# For moving around we note where every word and line starts in that text.
+function New-TextMap([string]$Text) {
     $starts = New-Object System.Collections.Generic.List[int]
     $lengths = New-Object System.Collections.Generic.List[int]
     $lineOf = New-Object System.Collections.Generic.List[int]
@@ -105,21 +114,42 @@ function New-Page([string]$Text) {
     [pscustomobject]@{ Text = $Text; Starts = $starts; Lengths = $lengths; LineOf = $lineOf; LineFirst = $lineFirst; LineLast = $lineLast }
 }
 
-function Get-WordText($Page, [int]$i) { $Page.Text.Substring($Page.Starts[$i], $Page.Lengths[$i]) }
+# Joins the pages into one text and notes where each "Page N" heading starts.
+function New-DocumentText([string[]]$Pages) {
+    $starts = New-Object System.Collections.Generic.List[int]
+    $sb = New-Object System.Text.StringBuilder
+    for ($i = 0; $i -lt $Pages.Count; $i++) {
+        if ($i -gt 0) { [void]$sb.Append("`n`n") }
+        $starts.Add($sb.Length)
+        [void]$sb.Append("Page $($i + 1)`n").Append($Pages[$i])
+    }
+    [pscustomobject]@{ Text = $sb.ToString(); PageStarts = $starts }
+}
 
-function Get-LineText($Page, [int]$line) {
-    $a = $Page.Starts[$Page.LineFirst[$line]]
-    $z = $Page.LineLast[$line]
-    $Page.Text.Substring($a, $Page.Starts[$z] + $Page.Lengths[$z] - $a)
+function Get-CleanPageText([string]$Text) { ($Text -replace "`r`n", "`n" -replace "`r", "`n").Trim() }
+
+function Get-WordText($Map, [int]$i) { $Map.Text.Substring($Map.Starts[$i], $Map.Lengths[$i]) }
+
+function Get-LineText($Map, [int]$line) {
+    $a = $Map.Starts[$Map.LineFirst[$line]]
+    $z = $Map.LineLast[$line]
+    $Map.Text.Substring($a, $Map.Starts[$z] + $Map.Lengths[$z] - $a)
 }
 
 # The word that contains (or last started before) a character position.
-function Get-WordAt($Page, [int]$charIndex) {
+function Get-WordAt($Map, [int]$charIndex) {
     $found = 0
-    for ($i = 0; $i -lt $Page.Starts.Count; $i++) {
-        if ($Page.Starts[$i] -le $charIndex) { $found = $i } else { break }
+    for ($i = 0; $i -lt $Map.Starts.Count; $i++) {
+        if ($Map.Starts[$i] -le $charIndex) { $found = $i } else { break }
     }
     $found
+}
+
+# Which page (0, 1, 2...) a character position is on.
+function Get-PageAt($PageStarts, [int]$charIndex) {
+    $page = 0
+    for ($i = 0; $i -lt $PageStarts.Count; $i++) { if ($PageStarts[$i] -le $charIndex) { $page = $i } }
+    $page
 }
 
 # How much of the text looks like real words (used to spot upside-down pages).
@@ -141,18 +171,26 @@ function Test-PoorText([string]$Text) {
 if ($SelfTest) {
     $fails = 0
     function Check($name, $ok) { if ($ok) { "PASS  $name" } else { "FAIL  $name"; $script:fails++ } }
-    $p = New-Page "  Hello   world `r`n`r`nSecond line here`n"
+    $clean = Get-CleanPageText "  Hello   world `r`n`r`nSecond line here`n"
+    Check 'clean text' ($clean -eq "Hello   world `n`nSecond line here")
+    $p = New-TextMap $clean
     Check 'five words' ($p.Starts.Count -eq 5)
     Check 'two lines (blank line skipped)' ($p.LineFirst.Count -eq 2)
     Check 'word text' ((Get-WordText $p 1) -eq 'world')
     Check 'line text' ((Get-LineText $p 1) -eq 'Second line here')
     Check 'line of word' ($p.LineOf[2] -eq 1)
-    $q = New-Page "The quick brown fox`njumps over the lazy dog."
+    $q = New-TextMap "The quick brown fox`njumps over the lazy dog."
     Check 'char 0 is word 0' ((Get-WordAt $q 0) -eq 0)
     Check 'char 4 is word 1' ((Get-WordAt $q 4) -eq 1)
     Check 'jumps is word 4' ((Get-WordAt $q $q.Text.IndexOf('jumps')) -eq 4)
     Check 'past end is last word' ((Get-WordAt $q 9999) -eq 8)
-    Check 'empty page has no words' ((New-Page '').Starts.Count -eq 0)
+    Check 'empty text has no words' ((New-TextMap '').Starts.Count -eq 0)
+    $d = New-DocumentText @('first page text', "second page`nline two", 'third')
+    Check 'document has headings' ($d.Text.StartsWith("Page 1`nfirst page text`n`nPage 2`nsecond page"))
+    Check 'page starts point at headings' (($d.PageStarts | ForEach-Object { $d.Text.Substring($_, 6) }) -join ',' -eq 'Page 1,Page 2,Page 3')
+    Check 'position on page 2' ((Get-PageAt $d.PageStarts $d.Text.IndexOf('line two')) -eq 1)
+    Check 'position on page 3' ((Get-PageAt $d.PageStarts ($d.Text.Length - 1)) -eq 2)
+    Check 'empty document' ((New-DocumentText @()).Text -eq '')
     Check 'real text scores higher than noise' ((Get-TextScore 'This is a sentence with words') -gt (Get-TextScore '~| ;: ^^ lI1 ,,, ][ xzq'))
     Check 'noise is poor' (Test-PoorText '~|| ;:. ^^ lI1 ,,, ][ %% xzq')
     Check 'short real text is not poor' (-not (Test-PoorText 'Thank you'))
@@ -172,7 +210,8 @@ function Write-Log([string]$Text) {
     try { Add-Content -Path $LogFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $Text" } catch { }
 }
 
-# Only one copy at a time; a second copy just brings the first to the front.
+# Only one copy at a time; starting it again (desktop icon or Ctrl+Alt+S)
+# just brings the open window to the front.
 $created = $false
 $mutex = New-Object System.Threading.Mutex($true, 'Local\ScanReaderSimple', [ref]$created)
 if (-not $created) {
@@ -180,77 +219,7 @@ if (-not $created) {
     exit 0
 }
 
-# ------------------------------------------------------------------ voice ---
-$voice = New-Object -ComObject SAPI.SpVoice
-$HasVoice = $voice.GetVoices().Count -gt 0
-$SpeakAsync = 1 + 16          # SVSFlagsAsync + SVSFIsNotXML (read "<" as text)
-$SpeakPurge = 1 + 2 + 16      # ...plus SVSFPurgeBeforeSpeak (stop what is playing)
-
-# ------------------------------------------------------------------ state ---
 $script:testIndex = 0
-$S = @{
-    Folder = $null; Pages = (New-Object System.Collections.ArrayList); Page = 0; Word = 0
-    Reading = $false; ReadStream = 0; ReadStart = 0
-    Busy = $false; NewDocUntil = [datetime]::MinValue; LastSave = [datetime]::MinValue
-    Status = ''; Down = @{}
-}
-
-function Update-Screen {
-    $lblStatus.Text = $S.Status
-    if ($S.Pages.Count -eq 0) { $lblPage.Text = 'No pages yet'; $lblLine.Text = ''; return }
-    $p = $S.Pages[$S.Page]
-    $lblPage.Text = "Page $($S.Page + 1) of $($S.Pages.Count)" + $(if ($S.Reading) { '  -  reading' } else { '' })
-    $lblLine.Text = if ($p.Starts.Count) { Get-LineText $p $p.LineOf[$S.Word] } else { '' }
-}
-
-# Speak after whatever is already being said.
-function Say([string]$Text) {
-    $S.Status = $Text
-    Write-Log "Said: $Text"
-    if ($HasVoice) { $null = $voice.Speak($Text, $SpeakAsync) } else { [System.Media.SystemSounds]::Exclamation.Play() }
-    Update-Screen
-}
-
-# Stop everything, then speak.
-function Say-Now([string]$Text) { Stop-Talking; Say $Text }
-
-function Stop-Talking {
-    $S.Reading = $false
-    $S.ReadStream = 0
-    if ($HasVoice) { $null = $voice.Speak('', $SpeakPurge) }
-}
-
-function Speak-Content([string]$Text) {
-    Stop-Talking
-    if ($HasVoice) { $null = $voice.Speak($Text, $SpeakAsync) }
-    Update-Screen
-}
-
-# ---------------------------------------------------------- saving / place ---
-function Save-Position([switch]$Force) {
-    if (-not $Force -and ((Get-Date) - $S.LastSave).TotalSeconds -lt 3) { return }
-    $S.LastSave = Get-Date
-    try { Set-Content -Path $PositionFile -Value @($S.Folder, $S.Page, $S.Word, $voice.Rate) -Encoding UTF8 } catch { Write-Log "Save position failed: $_" }
-}
-
-function New-DocumentFolder { Join-Path $DocsRoot (Get-Date -Format 'yyyy-MM-dd HH-mm-ss') }
-
-function Load-Document([string]$Folder) {
-    $S.Pages.Clear()
-    if (-not $Folder -or -not (Test-Path $Folder)) { return }
-    Get-ChildItem -Path $Folder -Filter 'Page *.txt' | Sort-Object Name | ForEach-Object {
-        $p = New-Page ([IO.File]::ReadAllText($_.FullName))
-        if ($p.Starts.Count) { [void]$S.Pages.Add($p) }
-    }
-}
-
-function Save-Page([int]$Number, [string]$Text) {
-    New-Item -ItemType Directory -Path $S.Folder -Force | Out-Null
-    $windowsText = $Text -replace "`n", "`r`n"
-    [IO.File]::WriteAllText((Join-Path $S.Folder ('Page {0:000}.txt' -f $Number)), $windowsText, [Text.Encoding]::UTF8)
-    $all = for ($i = 0; $i -lt $S.Pages.Count; $i++) { "----- Page $($i + 1) -----`r`n" + ($S.Pages[$i].Text -replace "`n", "`r`n") }
-    [IO.File]::WriteAllText((Join-Path $S.Folder 'All pages.txt'), ($all -join "`r`n`r`n"), [Text.Encoding]::UTF8)
-}
 
 # ---------------------------------------------------------------- scanner ---
 function Set-WiaProperty($Item, [int]$Id, $Value, [switch]$Max) {
@@ -369,96 +338,221 @@ function Get-PageText([string]$PngPath) {
     } finally { $bmp.Dispose() }
 }
 
-# ------------------------------------------------------------------- JAWS ---
-# JAWS and this program would talk over each other. While this window is in
-# front, JAWS is asked to be quiet; it talks again as soon as the window loses
-# focus or closes. "Start Scan Reader.cmd" also switches JAWS speech back on
-# after the program ends, even if it ended unexpectedly.
-$jaws = $null
-try { $jaws = New-Object -ComObject FreedomSci.JawsApi } catch { }    # only there if JAWS is installed
-Write-Log $(if ($jaws) { 'JAWS found.' } else { 'JAWS not found.' })
 
-function Set-JawsQuiet([bool]$Quiet) {
-    if (-not $jaws) { return }
-    try {
-        if ($Quiet) { $null = $jaws.StopSpeech(); $null = $jaws.RunFunction('SpeechOff') }
-        else { $null = $jaws.RunFunction('SpeechOn') }
-    } catch { Write-Log "JAWS call failed: $_" }
+# ================================================================ SPEECH ===
+# With JAWS: everything is handed to JAWS to say. JAWS is never switched off,
+# muted or reconfigured; we only use its "say this" and "stop talking" calls
+# (the same as pressing Control) and its Say All command.
+# Without JAWS: the Windows voice (SAPI) is used.
+$voice = New-Object -ComObject SAPI.SpVoice
+$HasVoice = $voice.GetVoices().Count -gt 0
+$SpeakAsync = 1 + 16          # SVSFlagsAsync + SVSFIsNotXML (read "<" as text)
+$SpeakPurge = 1 + 2 + 16      # ...plus SVSFPurgeBeforeSpeak (stop what is playing)
+$script:jaws = $null
+
+function Test-Jaws {
+    if (-not (Get-Process -Name jfw -ErrorAction SilentlyContinue)) { return $false }
+    if (-not $script:jaws) {
+        try { $script:jaws = New-Object -ComObject FreedomSci.JawsApi } catch { return $false }
+    }
+    $true
 }
 
-# ------------------------------------------------------------ desktop icon ---
-function Set-DesktopShortcut {
-    try {
-        $target = Join-Path $PSScriptRoot 'Start Scan Reader.cmd'
-        $path = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Scan Reader.lnk'
-        $shell = New-Object -ComObject WScript.Shell
-        if ((Test-Path $path) -and $shell.CreateShortcut($path).TargetPath -eq $target) { return }
-        $link = $shell.CreateShortcut($path)
-        $link.TargetPath = $target
-        $link.WorkingDirectory = $PSScriptRoot
-        $link.WindowStyle = 7                    # start minimised: no black box on screen
-        $link.Hotkey = 'CTRL+ALT+S'
-        $link.Description = 'Scan a page and hear it read aloud'
-        $link.Save()
-        Write-Log "Desktop shortcut created: $path"
-    } catch { Write-Log "Could not create desktop shortcut: $_" }
+function Say([string]$Text, [switch]$Interrupt) {
+    $lblStatus.Text = $Text
+    Write-Log "Said: $Text"
+    if (Test-Jaws) {
+        try { $null = $script:jaws.SayString($Text, [bool]$Interrupt); return }
+        catch { Write-Log "JAWS SayString failed: $_"; $script:jaws = $null }
+    }
+    if ($Interrupt -and $HasVoice) { $null = $voice.Speak('', $SpeakPurge) }
+    if ($HasVoice) { $null = $voice.Speak($Text, $SpeakAsync) } else { [System.Media.SystemSounds]::Exclamation.Play() }
 }
 
-# ----------------------------------------------------------- copy and save ---
-function Get-AllText {
-    $parts = for ($i = 0; $i -lt $S.Pages.Count; $i++) { $S.Pages[$i].Text -replace "`n", "`r`n" }
-    $parts -join "`r`n`r`n"
+# Stop reading and anything being said, then say something.
+function Say-Now([string]$Text) { Stop-Reading; Say $Text -Interrupt }
+
+function Stop-Reading {
+    $S.Reading = $false
+    $S.ReadStream = 0
+    if ($HasVoice) { $null = $voice.Speak('', $SpeakPurge) }
+    if ($S.JawsReading) {
+        $S.JawsReading = $false
+        if (Test-Jaws) { try { $null = $script:jaws.StopSpeech() } catch { } }
+    }
 }
 
-function Copy-AllPages {
-    if (-not (Test-HavePages)) { return }
-    [System.Windows.Forms.Clipboard]::SetText((Get-AllText))
-    Say-Now $Msg.Copied
+# ================================================================= STATE ===
+$S = @{
+    Folder = $null; Pages = (New-Object System.Collections.ArrayList)
+    Map = (New-TextMap ''); PageStarts = (New-Object System.Collections.Generic.List[int])
+    Reading = $false; ReadStream = 0; ReadStart = 0; JawsReading = $false
+    Busy = $false; LastCaret = -1; NewDocUntil = [datetime]::MinValue; LastSave = [datetime]::MinValue
+    Down = @{}
 }
 
-function Save-ToDesktop {
-    if (-not (Test-HavePages)) { return }
-    try {
-        $name = 'Scanned document ' + (Get-Date -Format 'yyyy-MM-dd HH-mm') + '.txt'
-        $file = Join-Path ([Environment]::GetFolderPath('Desktop')) $name
-        [IO.File]::WriteAllText($file, (Get-AllText), [Text.Encoding]::UTF8)
-        Say-Now $Msg.SavedDesktop
-    } catch { Write-Log "Desktop save failed: $_"; Say-Now $Msg.SaveDeskFail }
+function Get-Caret { $box.SelectionStart }
+
+function Set-Caret([int]$Index) {
+    $box.SelectionStart = [Math]::Max(0, [Math]::Min($Index, $box.TextLength))
+    $box.SelectionLength = 0
+    $box.ScrollToCaret()
 }
 
-# ================================================================ ACTIONS ===
+# Puts all pages into the text window.
+function Update-Document {
+    $doc = New-DocumentText ([string[]]$S.Pages.ToArray())
+    $S.Map = New-TextMap $doc.Text
+    $S.PageStarts = $doc.PageStarts
+    $box.Text = $doc.Text
+    $form.Text = if ($S.Pages.Count) { "Scan Reader - $($S.Pages.Count) page$(if ($S.Pages.Count -ne 1) { 's' })" } else { 'Scan Reader' }
+}
+
+function Save-Position([switch]$Force) {
+    if (-not $Force -and (((Get-Date) - $S.LastSave).TotalSeconds -lt 3 -or (Get-Caret) -eq $S.LastCaret)) { return }
+    $S.LastSave = Get-Date
+    $S.LastCaret = Get-Caret
+    try { Set-Content -Path $PositionFile -Value @($S.Folder, (Get-Caret), $voice.Rate) -Encoding UTF8 } catch { Write-Log "Save position failed: $_" }
+}
+
+function New-DocumentFolder { Join-Path $DocsRoot (Get-Date -Format 'yyyy-MM-dd HH-mm-ss') }
+
+function Load-Document([string]$Folder) {
+    $S.Pages.Clear()
+    if ($Folder -and (Test-Path $Folder)) {
+        Get-ChildItem -Path $Folder -Filter 'Page *.txt' | Sort-Object Name | ForEach-Object {
+            $text = Get-CleanPageText ([IO.File]::ReadAllText($_.FullName))
+            if ($text) { [void]$S.Pages.Add($text) }
+        }
+    }
+    Update-Document
+}
+
+function Save-Page([int]$Number, [string]$Text) {
+    New-Item -ItemType Directory -Path $S.Folder -Force | Out-Null
+    [IO.File]::WriteAllText((Join-Path $S.Folder ('Page {0:000}.txt' -f $Number)), ($Text -replace "`n", "`r`n"), [Text.Encoding]::UTF8)
+    [IO.File]::WriteAllText((Join-Path $S.Folder 'All pages.txt'), (Get-AllText), [Text.Encoding]::UTF8)
+}
+
+function Get-AllText { $box.Text -replace "`r?`n", "`r`n" }
+
+# ========================================================= SHORTCUTS ===
+# A desktop icon (with the key Ctrl+Alt+S) and a Startup-folder icon, so the
+# reader is always there after the laptop starts. Plain shortcuts only.
+function Set-Shortcuts {
+    $target = Join-Path $PSScriptRoot 'Start Scan Reader.cmd'
+    $shell = New-Object -ComObject WScript.Shell
+    foreach ($place in @(@('Desktop', 'CTRL+ALT+S'), @('Startup', ''))) {
+        try {
+            $path = Join-Path ([Environment]::GetFolderPath($place[0])) 'Scan Reader.lnk'
+            if ((Test-Path $path) -and $shell.CreateShortcut($path).TargetPath -eq $target) { continue }
+            $link = $shell.CreateShortcut($path)
+            $link.TargetPath = $target
+            $link.WorkingDirectory = $PSScriptRoot
+            $link.WindowStyle = 7                    # minimised: no black box on screen
+            if ($place[1]) { $link.Hotkey = $place[1] }
+            $link.Description = 'Scan a page and hear it read aloud'
+            $link.Save()
+            Write-Log "Shortcut created: $path"
+        } catch { Write-Log "Could not create shortcut in $($place[0]): $_" }
+    }
+}
+
+# =============================================================== READING ===
+function Test-HavePages {
+    if ($S.Pages.Count -gt 0) { return $true }
+    Say-Now $Msg.Nothing
+    $false
+}
+
+# Reads from the cursor to the end of the document.
 function Start-Reading {
-    $p = $S.Pages[$S.Page]
-    $S.ReadStart = $p.Starts[$S.Word]
+    if (-not (Test-HavePages)) { return }
+    $map = $S.Map
+    $w = Get-WordAt $map (Get-Caret)
+    if ($w -ge $map.Starts.Count - 1) {        # at the very end: start the last page again
+        Set-Caret $S.PageStarts[$S.PageStarts.Count - 1]
+        $w = Get-WordAt $map (Get-Caret)
+    }
+    $start = $map.Starts[$w]
+    Set-Caret $start
+    if (Test-Jaws) {
+        $box.Focus() | Out-Null
+        $ok = $false
+        try { $ok = $script:jaws.RunScript('SayAll') } catch { Write-Log "JAWS SayAll failed: $_" }
+        if (-not $ok) { try { $null = $script:jaws.SayString($map.Text.Substring($start), $false) } catch { } }
+        $S.JawsReading = $true
+        return
+    }
+    $S.ReadStart = $start
     $S.Reading = $true
-    if ($HasVoice) { $S.ReadStream = $voice.Speak($p.Text.Substring($S.ReadStart), $SpeakAsync) }
-    Update-Screen
+    if ($HasVoice) { $S.ReadStream = $voice.Speak($map.Text.Substring($start), $SpeakAsync) }
 }
 
-# Called ten times a second: follows the voice word by word, and moves on at the end of a page.
+# Called ten times a second. Without JAWS: moves the cursor along with the voice.
 function Watch-Reading {
+    Save-Position
     if (-not $S.Reading -or -not $S.ReadStream) { return }
     $st = $voice.Status
     if ($st.CurrentStreamNumber -eq $S.ReadStream) {
-        $w = Get-WordAt $S.Pages[$S.Page] ($S.ReadStart + $st.InputWordPosition)
-        if ($w -ne $S.Word) { $S.Word = $w; Save-Position; Update-Screen }
+        $pos = $S.Map.Starts[(Get-WordAt $S.Map ($S.ReadStart + $st.InputWordPosition))]
+        if ($pos -ne (Get-Caret)) { Set-Caret $pos }
     }
     if ($voice.WaitUntilDone(0)) {
-        if ($S.Page -lt $S.Pages.Count - 1) {
-            $S.Page++; $S.Word = 0; Save-Position -Force
-            Say "Page $($S.Page + 1)."
-            Start-Reading
-        } else {
-            $S.Reading = $false; $S.ReadStream = 0; $S.Word = 0; Save-Position -Force
-            Say "End of page $($S.Page + 1). That was the last page. Press F5 to scan another page, or Space to hear this page again."
-        }
+        $S.Reading = $false; $S.ReadStream = 0
+        Save-Position -Force
+        Say $Msg.EndOfDoc
     }
 }
 
+function Switch-Reading {
+    if ($S.Reading -or $S.JawsReading) { Stop-Reading; Save-Position -Force; Say $Msg.Paused -Interrupt }
+    else { Stop-Reading; Start-Reading }
+}
+
+function Move-Word([int]$Delta) {
+    if (-not (Test-HavePages)) { return }
+    Stop-Reading
+    $map = $S.Map; $t = (Get-WordAt $map (Get-Caret)) + $Delta
+    if ($t -lt 0) { Say-Now $Msg.StartOfDoc; return }
+    if ($t -ge $map.Starts.Count) { Say-Now $Msg.EndOfDoc; return }
+    Set-Caret $map.Starts[$t]; Save-Position -Force
+    Say (Get-WordText $map $t) -Interrupt
+}
+
+function Move-Line([int]$Delta) {
+    if (-not (Test-HavePages)) { return }
+    Stop-Reading
+    $map = $S.Map; $t = $map.LineOf[(Get-WordAt $map (Get-Caret))] + $Delta
+    if ($t -lt 0) { Set-Caret 0; Say-Now $Msg.StartOfDoc; return }
+    if ($t -ge $map.LineFirst.Count) { Say-Now $Msg.EndOfDoc; return }
+    Set-Caret $map.Starts[$map.LineFirst[$t]]; Save-Position -Force
+    Say (Get-LineText $map $t) -Interrupt
+}
+
+function Move-Page([int]$Delta) {
+    if (-not (Test-HavePages)) { return }
+    Stop-Reading
+    $t = (Get-PageAt $S.PageStarts (Get-Caret)) + $Delta
+    if ($t -lt 0) { Say-Now $Msg.FirstPage; return }
+    if ($t -ge $S.Pages.Count) { Say-Now $Msg.LastPage; return }
+    Set-Caret $S.PageStarts[$t]; Save-Position -Force
+    Start-Reading                               # reads "Page N" and then the page
+}
+
+function Set-Speed([int]$Delta) {
+    $wasReading = $S.Reading
+    $new = [Math]::Max(-10, [Math]::Min(10, $voice.Rate + $Delta))
+    if ($new -eq $voice.Rate) { Say-Now $(if ($Delta -lt 0) { $Msg.Slowest } else { $Msg.Fastest }) }
+    else { $voice.Rate = $new; Save-Position -Force; Say-Now $(if ($Delta -lt 0) { $Msg.Slower } else { $Msg.Faster }) }
+    if ($wasReading) { Start-Reading }
+}
+
+# ============================================================== SCANNING ===
 function Invoke-ScanCommand {
-    Stop-Talking
+    Stop-Reading
     $S.Busy = $true
-    Say $Msg.Scanning
+    Say $Msg.Scanning -Interrupt
     $form.Refresh()
     try {
         if (-not $ocr) { Say-Now $Msg.NoOcr; return }
@@ -472,189 +566,167 @@ function Invoke-ScanCommand {
 
         Say $Msg.Recognizing
         $form.Refresh()
-        try { $text = Get-PageText $png } catch { Write-Log "OCR error: $_"; Say-Now $Msg.OcrFailed; return }
+        try { $text = Get-CleanPageText (Get-PageText $png) } catch { Write-Log "OCR error: $_"; Say-Now $Msg.OcrFailed; return }
+        if (-not $text) { Remove-Item $png -ErrorAction SilentlyContinue; Say-Now $Msg.NoText; return }
 
-        $page = New-Page $text
-        if ($page.Starts.Count -eq 0) { Remove-Item $png -ErrorAction SilentlyContinue; Say-Now $Msg.NoText; return }
-
-        [void]$S.Pages.Add($page)
-        $S.Page = $S.Pages.Count - 1
-        $S.Word = 0
+        [void]$S.Pages.Add($text)
+        Update-Document
+        Set-Caret $S.PageStarts[$S.PageStarts.Count - 1]
         $intro = @()
-        try { Save-Page $number $page.Text } catch { Write-Log "Save failed: $_"; $intro += $Msg.SaveFailed }
+        try { Save-Page $number $text } catch { Write-Log "Save failed: $_"; $intro += $Msg.SaveFailed }
         Save-Position -Force
-        if (Test-PoorText $page.Text) { $intro += $Msg.Poor }
-        $intro += "Page $($S.Page + 1). Reading."
+        if (Test-PoorText $text) { $intro += $Msg.Poor }
+        $intro += $Msg.Reading
         Say ($intro -join ' ')
         Start-Reading
     } finally {
         [System.Windows.Forms.Application]::DoEvents()   # throw away keys pressed while busy
         $S.Busy = $false
-        Update-Screen
     }
 }
 
-function Test-HavePages {
-    if ($S.Pages.Count -gt 0) { return $true }
-    Say-Now $Msg.Nothing
+# ========================================================== COPY / SAVE ===
+function Copy-AllPages {
+    if (-not (Test-HavePages)) { return }
+    [System.Windows.Forms.Clipboard]::SetText((Get-AllText))
+    Say-Now $Msg.CopiedAll
+}
+
+function Save-ToDesktop {
+    if (-not (Test-HavePages)) { return }
+    try {
+        $name = 'Scanned document ' + (Get-Date -Format 'yyyy-MM-dd HH-mm') + '.txt'
+        [IO.File]::WriteAllText((Join-Path ([Environment]::GetFolderPath('Desktop')) $name), (Get-AllText), [Text.Encoding]::UTF8)
+        Say-Now $Msg.SavedDesktop
+    } catch { Write-Log "Desktop save failed: $_"; Say-Now $Msg.SaveDeskFail }
+}
+
+function Start-NewDocument {
+    if ((Get-Date) -le $S.NewDocUntil) {
+        $S.NewDocUntil = [datetime]::MinValue
+        Stop-Reading
+        $S.Folder = New-DocumentFolder; $S.Pages.Clear(); Update-Document
+        Save-Position -Force; Say-Now $Msg.NewStarted
+    } else {
+        $S.NewDocUntil = (Get-Date).AddSeconds(10); Say-Now $Msg.ConfirmNew
+    }
+}
+
+# ================================================================= KEYS ===
+# Returns $true if the key was used here; other keys go on to the text window
+# (and to JAWS) as normal.
+function Invoke-Key([System.Windows.Forms.KeyEventArgs]$e) {
+    $key = $e.KeyCode.ToString()
+    if ($S.Busy) { return $true }               # keys pressed during a scan are ignored
+    $repeat = $S.Down.ContainsKey($key); $S.Down[$key] = $true
+    if ($key -ne 'N' -or -not $e.Control) { $S.NewDocUntil = [datetime]::MinValue }
+    if ($key -ne 'Space') { $S.JawsReading = $false }   # JAWS stops Say All on any key
+    $jawsOn = Test-Jaws
+
+    if ($e.Alt) { return $false }
+    if ($e.Control) {
+        switch ($key) {
+            'C' { if ($box.SelectionLength -gt 0) { return $false }; if (-not $repeat) { Copy-AllPages }; return $true }
+            'A' { if (-not $jawsOn -and $S.Pages.Count) { Say $Msg.SelectedAll -Interrupt }; return $false }
+            'S' { if (-not $repeat) { Save-ToDesktop }; return $true }
+            'N' { if (-not $repeat) { Start-NewDocument }; return $true }
+        }
+        return $false
+    }
+
+    switch -Regex ($key) {
+        '^(S|F5|Return|Enter)$' { if (-not $repeat) { Invoke-ScanCommand }; return $true }
+        '^Space$'  { if (-not $repeat) { Switch-Reading }; return $true }
+        '^Escape$' { Stop-Reading; Save-Position -Force; return $true }
+        '^F1$'     { if (-not $repeat) { Say-Now $(if ($jawsOn) { $Msg.KeysJaws } else { $Msg.KeysVoice }) }; return $true }
+        '^(PageUp|Prior)$'  { Move-Page -1; return $true }
+        '^(PageDown|Next)$' { Move-Page 1; return $true }
+    }
+    if ($jawsOn) {
+        # With JAWS, arrows and the other reading keys work exactly as usual.
+        return ($key -match '^([A-Z]|D[0-9])$')   # swallow letters so the window does not beep
+    }
+    switch -Regex ($key) {
+        '^Left$'  { Move-Word -1; return $true }
+        '^Right$' { Move-Word 1; return $true }
+        '^Up$'    { Move-Line -1; return $true }
+        '^Down$'  { Move-Line 1; return $true }
+        '^(OemMinus|Subtract)$' { Set-Speed -1; return $true }
+        '^(Oemplus|Add)$'       { Set-Speed 1; return $true }
+        '^([A-Z]|D[0-9])$'      { if (-not $S.Reading -and -not $repeat) { Say-Now $Msg.UnknownKey }; return $true }
+    }
     $false
 }
 
-function Move-Word([int]$Delta) {
-    if (-not (Test-HavePages)) { return }
-    Stop-Talking
-    $p = $S.Pages[$S.Page]; $t = $S.Word + $Delta
-    if ($t -lt 0) { Say-Now $Msg.StartOfPage; return }
-    if ($t -ge $p.Starts.Count) { Say-Now $Msg.EndOfPage; return }
-    $S.Word = $t; Save-Position -Force
-    Speak-Content (Get-WordText $p $t)
-}
-
-function Move-Line([int]$Delta) {
-    if (-not (Test-HavePages)) { return }
-    Stop-Talking
-    $p = $S.Pages[$S.Page]; $t = $p.LineOf[$S.Word] + $Delta
-    if ($t -lt 0) { $S.Word = 0; Save-Position -Force; Say-Now $Msg.TopOfPage; return }
-    if ($t -ge $p.LineFirst.Count) { Say-Now $Msg.BottomOfPage; return }
-    $S.Word = $p.LineFirst[$t]; Save-Position -Force
-    Speak-Content (Get-LineText $p $t)
-}
-
-function Move-Page([int]$Delta) {
-    if (-not (Test-HavePages)) { return }
-    $t = $S.Page + $Delta
-    if ($t -lt 0) { Say-Now $Msg.FirstPage; return }
-    if ($t -ge $S.Pages.Count) { Say-Now $Msg.LastPage; return }
-    $S.Page = $t; $S.Word = 0; Save-Position -Force
-    Say-Now "Page $($t + 1) of $($S.Pages.Count)."
-    Start-Reading
-}
-
-function Set-Speed([int]$Delta) {
-    $wasReading = $S.Reading
-    $new = [Math]::Max(-10, [Math]::Min(10, $voice.Rate + $Delta))
-    if ($new -eq $voice.Rate) { Say-Now $(if ($Delta -lt 0) { $Msg.Slowest } else { $Msg.Fastest }) }
-    else { $voice.Rate = $new; Save-Position -Force; Say-Now $(if ($Delta -lt 0) { $Msg.Slower } else { $Msg.Faster }) }
-    if ($wasReading) { Start-Reading }
-}
-
-function Invoke-Key([System.Windows.Forms.KeyEventArgs]$e) {
-    $key = $e.KeyCode.ToString()
-    if ($S.Busy) { return }                     # keys pressed during a scan are ignored
-    $repeat = $S.Down.ContainsKey($key); $S.Down[$key] = $true
-    if ($key -ne 'N' -or -not $e.Control) { $S.NewDocUntil = [datetime]::MinValue }
-
-    if ($e.Control) {
-        if ($repeat) { return }
-        if ($key -eq 'A') { if (Test-HavePages) { Say-Now $Msg.Selected }; return }
-        if ($key -eq 'C') { Copy-AllPages; return }
-        if ($key -eq 'S') { Save-ToDesktop; return }
-        if ($key -eq 'N') {
-            if ((Get-Date) -le $S.NewDocUntil) {
-                $S.NewDocUntil = [datetime]::MinValue
-                $S.Folder = New-DocumentFolder; $S.Pages.Clear(); $S.Page = 0; $S.Word = 0
-                Save-Position -Force; Say-Now $Msg.NewStarted
-            } else {
-                $S.NewDocUntil = (Get-Date).AddSeconds(10); Say-Now $Msg.ConfirmNew
-            }
-        }
-        return
-    }
-    if ($e.Alt) { return }
-
-    switch -Regex ($key) {
-        '^(F5|Return|Enter|S)$' { if (-not $repeat) { Invoke-ScanCommand }; break }
-        '^Space$' {
-            if ($repeat) { break }
-            if ($S.Reading) { Stop-Talking; Save-Position -Force; Say $Msg.Paused }
-            elseif (Test-HavePages) { Stop-Talking; Start-Reading }
-            break
-        }
-        '^Left$'  { Move-Word -1; break }
-        '^Right$' { Move-Word 1; break }
-        '^Up$'    { Move-Line -1; break }
-        '^Down$'  { Move-Line 1; break }
-        '^(PageUp|Prior)$'  { Move-Page -1; break }
-        '^(PageDown|Next)$' { Move-Page 1; break }
-        '^Escape$' { Stop-Talking; Save-Position -Force; Update-Screen; break }
-        '^F1$' {
-            if ($repeat) { break }
-            $where = if ($S.Pages.Count) { "You are on page $($S.Page + 1) of $($S.Pages.Count). " } else { 'No pages scanned yet. ' }
-            Say-Now ($where + $Msg.Keys); break
-        }
-        '^(OemMinus|Subtract)$' { Set-Speed -1; break }
-        '^(Oemplus|Add)$'       { Set-Speed 1; break }
-        '^([A-Z]|D[0-9])$'      { if (-not $S.Reading -and -not $repeat) { Say-Now $Msg.UnknownKey }; break }
-    }
-}
-
-# ================================================================= WINDOW ===
+# ================================================================ WINDOW ===
+# An ordinary window: Alt+Tab leaves it, Ctrl+Alt+S (or the icon) comes back.
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'Scan Reader'
 $form.BackColor = 'Black'
 $form.WindowState = 'Maximized'
-$form.TopMost = $true
 $form.KeyPreview = $true
 
-function New-Label([float]$Size, [string]$Color, [string]$Dock) {
-    $l = New-Object System.Windows.Forms.Label
-    $l.ForeColor = $Color; $l.BackColor = 'Black'; $l.Dock = $Dock; $l.UseMnemonic = $false
-    $l.Font = New-Object System.Drawing.Font('Segoe UI', $Size, [System.Drawing.FontStyle]::Bold)
-    $l.Padding = New-Object System.Windows.Forms.Padding(30, 15, 30, 15)
-    $l.AutoSize = $false
-    $l
-}
-$lblKeys = New-Label 12 'Silver' 'Bottom'
-$lblKeys.Height = 60
-$lblKeys.Text = 'F5 / Enter / S: scan  |  Space: play/pause  |  Left/Right: word  |  Up/Down: line  |  Page Up/Down: page  |  Esc: stop  |  - / +: speed  |  Ctrl+C: copy all  |  Ctrl+S: save to desktop  |  Ctrl+N twice: new document  |  F1: help'
-$lblLine = New-Label 36 'White' 'Fill'
-$lblPage = New-Label 22 'Gold' 'Top'
-$lblPage.Height = 70
-$lblStatus = New-Label 24 'White' 'Top'
-$lblStatus.Height = 160
-$form.Controls.AddRange(@($lblLine, $lblPage, $lblStatus, $lblKeys))
+$lblStatus = New-Object System.Windows.Forms.Label
+$lblStatus.Dock = 'Top'; $lblStatus.Height = 70; $lblStatus.ForeColor = 'Gold'; $lblStatus.BackColor = 'Black'
+$lblStatus.Font = New-Object System.Drawing.Font('Segoe UI', 18, [System.Drawing.FontStyle]::Bold)
+$lblStatus.Padding = New-Object System.Windows.Forms.Padding(20, 10, 20, 10)
+$lblStatus.UseMnemonic = $false
 
-$form.add_PreviewKeyDown({ $_.IsInputKey = $true })     # let the arrow keys through
+$lblKeys = New-Object System.Windows.Forms.Label
+$lblKeys.Dock = 'Bottom'; $lblKeys.Height = 50; $lblKeys.ForeColor = 'Silver'; $lblKeys.BackColor = 'Black'
+$lblKeys.Font = New-Object System.Drawing.Font('Segoe UI', 12)
+$lblKeys.Padding = New-Object System.Windows.Forms.Padding(20, 10, 20, 10)
+$lblKeys.Text = 'S / F5 / Enter: scan  |  Space: read / pause  |  Page Up/Down: page  |  Esc: stop  |  Ctrl+C: copy  |  Ctrl+S: save to desktop  |  Ctrl+N twice: new document  |  F1: help'
+
+# The pages, in a normal read-only text box that JAWS can read like any document.
+$box = New-Object System.Windows.Forms.RichTextBox
+$box.Dock = 'Fill'
+$box.ReadOnly = $true
+$box.BackColor = 'Black'; $box.ForeColor = 'White'
+$box.Font = New-Object System.Drawing.Font('Segoe UI', 26)
+$box.BorderStyle = 'None'
+$box.HideSelection = $false
+$box.DetectUrls = $false
+$box.AccessibleName = 'Scanned pages'
+
+$form.Controls.AddRange(@($box, $lblStatus, $lblKeys))
+$form.ActiveControl = $box
+
 $form.add_KeyDown({
     param($sender, $e)
-    $e.Handled = $true; $e.SuppressKeyPress = $true
-    try { Invoke-Key $e } catch { Write-Log "Key error: $_"; Say-Now $Msg.Error }
+    try {
+        if (Invoke-Key $e) { $e.Handled = $true; $e.SuppressKeyPress = $true }
+    } catch { Write-Log "Key error: $_"; $e.Handled = $true; Say-Now $Msg.Error }
 })
 $form.add_KeyUp({ param($sender, $e) $S.Down.Remove($e.KeyCode.ToString()) })
 
-$form.add_Activated({ Set-JawsQuiet $true })
-$form.add_Deactivate({ Set-JawsQuiet $false })
+# Leaving the window stops our own voice, so it never talks over other programs.
+$form.add_Deactivate({ if ($S.Reading) { Stop-Reading; Save-Position -Force } })
 
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 100
 $timer.add_Tick({ try { Watch-Reading } catch { Write-Log "Timer error: $_" } })
 
-$form.add_Shown({ try { Start-Up } catch { Write-Log "Start-up error: $_"; Say-Now $Msg.Error } })
-
 function Start-Up {
     $form.Activate()
-    Set-JawsQuiet $true
-    Set-DesktopShortcut
-    # Return to the last document and place.
-    $rate = $StartSpeed
+    $box.Focus() | Out-Null
+    Set-Shortcuts
+    $rate = $StartSpeed; $caret = 0
     if (Test-Path $PositionFile) {
         $saved = @(Get-Content $PositionFile)
-        if ($saved.Count -ge 4) {
+        if ($saved.Count -ge 3) {
             Load-Document $saved[0]
-            if ($S.Pages.Count) {
-                $S.Folder = $saved[0]
-                $S.Page = [Math]::Min([int]$saved[1], $S.Pages.Count - 1)
-                $S.Word = [Math]::Min([int]$saved[2], $S.Pages[$S.Page].Starts.Count - 1)
-            }
-            $rate = [int]$saved[3]
+            if ($S.Pages.Count) { $S.Folder = $saved[0]; $caret = [int]$saved[1] }
+            $rate = [int]$saved[2]
         }
     }
+    Set-Caret $caret
     $voice.Rate = [Math]::Max(-10, [Math]::Min(10, $rate))
 
     $parts = @($Msg.Ready)
     if (-not $ocr) { $parts += $Msg.NoOcr }
     if ($S.Pages.Count) {
-        $parts += "You have $($S.Pages.Count) page$(if ($S.Pages.Count -ne 1) { 's' }) from last time. You are on page $($S.Page + 1). Press Space to continue reading, or press F5 to scan another page."
+        $parts += "You have $($S.Pages.Count) page$(if ($S.Pages.Count -ne 1) { 's' }) from last time. You are on page $((Get-PageAt $S.PageStarts (Get-Caret)) + 1). Press Space to continue reading, or S to scan another page."
     } else {
         $parts += $Msg.PlacePage
     }
@@ -662,12 +734,14 @@ function Start-Up {
     $timer.Start()
 }
 
+$form.add_Shown({ try { Start-Up } catch { Write-Log "Start-up error: $_"; Say-Now $Msg.Error } })
+
 $form.add_FormClosing({
     $timer.Stop()
     Save-Position -Force
-    Stop-Talking
-    if ($HasVoice) { $null = $voice.Speak($Msg.Goodbye, 16) }   # wait until said
-    Set-JawsQuiet $false
+    Stop-Reading
+    if (Test-Jaws) { try { $null = $script:jaws.SayString($Msg.Goodbye, $true) } catch { } }
+    elseif ($HasVoice) { $null = $voice.Speak($Msg.Goodbye, 16) }   # wait until said
 })
 
 try {
@@ -675,8 +749,7 @@ try {
     [System.Windows.Forms.Application]::Run($form)
 } catch {
     Write-Log "Fatal: $_"
-    if ($HasVoice) { $null = $voice.Speak($Msg.Error, 16) }
+    if ($HasVoice -and -not (Test-Jaws)) { $null = $voice.Speak($Msg.Error, 16) }
 } finally {
-    Set-JawsQuiet $false
     $mutex.ReleaseMutex()
 }
