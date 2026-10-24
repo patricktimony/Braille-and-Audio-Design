@@ -1,4 +1,4 @@
-import { announce, byId } from "../common";
+import { announce, byId, confirmOnPage } from "../common";
 import { auth } from "../services/auth";
 import { repository } from "../services/repository";
 
@@ -36,8 +36,7 @@ byId<HTMLFormElement>("profile-form").addEventListener("submit", (e) => {
   );
 });
 
-byId("delete-all").addEventListener("click", () => {
-  if (!window.confirm("Delete your profile, sessions, and saved instructions from this device? This cannot be undone.")) return;
+confirmOnPage(byId("delete-all"), byId("delete-confirm"), byId("delete-question"), byId("delete-yes"), byId("delete-no"), () => {
   repository.deleteEverything();
   window.location.href = "./index.html";
 });

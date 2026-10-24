@@ -149,8 +149,13 @@ test("delete all information clears this device", async ({ page }) => {
   await page.goto("profile.html");
   await page.getByLabel("Your first name or a nickname").fill("Sam");
   await page.getByRole("button", { name: "Save profile" }).press("Enter");
-  page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Delete all my information from this device" }).press("Enter");
+  await expect(page.getByText(/Delete your profile, sessions/)).toBeFocused();
+  await page.getByRole("button", { name: "No, keep my information" }).press("Enter");
+  await expect(page.getByRole("button", { name: "Delete all my information from this device" })).toBeFocused();
+  await expect(status(page)).toHaveText("Nothing was deleted.");
+  await page.getByRole("button", { name: "Delete all my information from this device" }).press("Enter");
+  await page.getByRole("button", { name: "Yes, delete everything" }).press("Enter");
   await expect(page).toHaveURL(/index\.html/);
   await page.goto("profile.html");
   await expect(page.getByLabel("Your first name or a nickname")).toHaveValue("");

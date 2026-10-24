@@ -1,4 +1,4 @@
-import { announce, byId, clearFieldError, formatDate, h, moveFocusTo, queryParam, showFieldError } from "../common";
+import { announce, byId, clearFieldError, confirmOnPage, formatDate, h, moveFocusTo, queryParam, showFieldError } from "../common";
 import { showInstructionEditor } from "../editor";
 import { nowIso } from "../services/ids";
 import { RuleBasedInstructionGenerator } from "../services/instruction-generator";
@@ -94,8 +94,9 @@ function showDetail(i: Instruction): void {
 
   renderSharing(i);
 
-  byId("delete").addEventListener("click", () => {
-    if (!window.confirm(`Delete "${i.title}"? This cannot be undone.`)) return;
+  // The confirmation is part of the page rather than a browser dialog, so it
+  // works everywhere the page is shown, including embedded viewers.
+  confirmOnPage(byId("delete"), byId("delete-confirm"), byId("delete-question"), byId("delete-yes"), byId("delete-no"), () => {
     repository.deleteInstruction(i.id);
     window.location.href = "./instructions.html";
   });

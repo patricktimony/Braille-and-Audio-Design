@@ -15,8 +15,8 @@ function partials(): Plugin {
     transformIndexHtml(html, ctx) {
       const page = ctx.path.replace(/^\//, "") || "index.html";
       const header = readFileSync(resolve(root, "partials/header.html"), "utf8").replace(
-        `<a href="./${page}">`,
-        `<a href="./${page}" aria-current="page">`,
+        `<li><a href="./${page}">`,
+        `<li><a href="./${page}" aria-current="page">`,
       );
       const footer = readFileSync(resolve(root, "partials/footer.html"), "utf8");
       return html.replace("<!-- header -->", header).replace("<!-- footer -->", footer);

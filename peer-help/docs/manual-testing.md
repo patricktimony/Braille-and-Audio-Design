@@ -57,8 +57,9 @@ Start each run with fresh data: My Profile, then "Delete all my information from
    ticking the confirmation. **Expect** an error read aloud, and nothing saved.
 4. Open a private instruction and use **Share in the library** with the confirmation. **Expect** "Shared in
    the library." Then check that it appears on Shared Library. Use **Stop sharing** and check it disappears.
-5. On My Profile, use **Delete all my information from this device**. **Expect** the browser's own
-   confirmation dialog to be fully readable and answerable with the keyboard or gestures.
+5. On My Profile, use **Delete all my information from this device**. **Expect** focus to move to the
+   question "Delete your profile…?", with "Yes, delete everything" and "No, keep my information" buttons
+   after it. Choose No and check focus returns to the delete button and "Nothing was deleted." is read.
 
 ## Script C: Being a trainer
 

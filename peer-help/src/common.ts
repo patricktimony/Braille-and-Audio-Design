@@ -62,6 +62,32 @@ export function clearFieldError(field: HTMLElement, errorEl: HTMLElement): void 
   field.removeAttribute("aria-invalid");
 }
 
+/**
+ * A two-step confirmation shown in the page: the trigger reveals a question
+ * with Yes and No buttons, and focus moves to the question so it is read.
+ */
+export function confirmOnPage(
+  trigger: HTMLElement,
+  panel: HTMLElement,
+  question: HTMLElement,
+  yes: HTMLElement,
+  no: HTMLElement,
+  onYes: () => void,
+): void {
+  trigger.addEventListener("click", () => {
+    panel.hidden = false;
+    trigger.hidden = true;
+    question.focus();
+  });
+  no.addEventListener("click", () => {
+    panel.hidden = true;
+    trigger.hidden = false;
+    trigger.focus();
+    announce("Nothing was deleted.");
+  });
+  yes.addEventListener("click", onYes);
+}
+
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
 }

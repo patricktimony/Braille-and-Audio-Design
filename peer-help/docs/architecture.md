@@ -15,8 +15,8 @@ learned, without navigating a complicated interface. Every design choice below f
 - **Accessibility patterns used everywhere:** a skip link; one `h1` per page; labelled controls; hints and
   errors connected with `aria-describedby`; `aria-invalid` with focus moved to the problem; one
   `role="status"` region for announcements (`announce()` in `src/common.ts`); focus moved to the new heading
-  when content appears; 44-pixel targets; no drag-and-drop, custom menus, or custom pop-ups (only the
-  browser's own `confirm()` for deleting).
+  when content appears; 44-pixel targets; no drag-and-drop, menus, or pop-ups (deleting asks for
+  confirmation on the page itself).
 - **Security:** user text is only ever inserted with `textContent`, never as HTML. The built pages carry a
   strict Content Security Policy (own scripts only, no third-party code). Record and call-room IDs come from
   `crypto.getRandomValues`.
