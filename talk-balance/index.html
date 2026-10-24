@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<title>Talk Balance</title>
+<style>
+  :root {
+    --bg: #000;
+    --fg: #fff;
+    --muted: #c8c8c8;
+    --me: #ffd60a;
+    --others: #4cc9f0;
+    --track: #333;
+    --focus: #ffffff;
+    --alert: #ff4d4d;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, system-ui, "Helvetica Neue", Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  }
+  #main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+    gap: 3vh;
+    width: 100%;
+    margin: 0;
+    padding: 24px 20px;
+    border: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #main:focus-visible { outline: 4px solid var(--focus); outline-offset: -8px; }
+  #main:active { background: #111; }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-weight: 800;
+    font-size: clamp(2.6rem, 14vw, 6rem);
+    line-height: 1.05;
+  }
+  .me { color: var(--me); }
+  .others { color: var(--others); }
+  #bar {
+    display: flex;
+    height: 44px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--track);
+    border: 2px solid var(--fg);
+  }
+  #barMe { background: var(--me); width: 0; transition: width .4s; }
+  #barOthers { background: var(--others); flex: 1; transition: width .4s; }
+  #bar.empty #barOthers { background: var(--track); }
+  #status {
+    font-size: clamp(1.3rem, 6vw, 2rem);
+    font-weight: 700;
+    color: var(--muted);
+    min-height: 1.3em;
+  }
+  #status.big { font-size: clamp(1.8rem, 9vw, 3rem); color: var(--fg); }
+  footer {
+    padding: 12px 20px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    font-size: 1rem;
+    color: var(--muted);
+  }
+  #reset {
+    font: inherit;
+    font-size: 1.1rem;
+    color: var(--fg);
+    background: none;
+    border: 0;
+    padding: 12px 4px;
+    text-decoration: underline;
+    cursor: pointer;
+    flex: none;
+  }
+  #reset:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  body.nudge #main { animation: flash .5s 4 alternate; }
+  @keyframes flash { from { background: var(--bg); } to { background: var(--alert); } }
+  /* Hidden iOS switch: toggling it via its label gives a haptic tap on iOS 18+. */
+  #hap, #hapLabel { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+</style>
+</head>
+<body>
+  <button id="main" type="button" aria-label="Talk Balance. Tap to start listening.">
+    <div class="row"><span class="me">Me</span><span class="me" id="mePct">–</span></div>
+    <div class="row"><span class="others">Others</span><span class="others" id="othersPct">–</span></div>
+    <div id="bar" class="empty" aria-hidden="true"><div id="barMe"></div><div id="barOthers"></div></div>
+    <div id="status" class="big">Tap anywhere to start</div>
+  </button>
+  <footer>
+    <span>Nothing is recorded or sent anywhere.</span>
+    <button id="reset" type="button">Reset</button>
+  </footer>
+  <input type="checkbox" switch id="hap" tabindex="-1" aria-hidden="true">
+  <label for="hap" id="hapLabel" aria-hidden="true"></label>
+
+<script>
+(() => {
+  'use strict';
+
+  const TICK_MS = 100;            // ~10 readings a second
+  const SWITCH_TICKS = 5;         // ~0.5 s of steady sound before changing speaker
+  const SMOOTH = 0.3;             // smoothing for loudness readings
+  const HISTORY = 3000;           // ~5 minutes of levels used to learn the groups
+  const NUDGE_SECONDS = 180;      // 3 minutes
+  const NUDGE_SHARE = 0.6;        // more than 60 percent
+
+  const $ = id => document.getElementById(id);
+  const mainBtn = $('main'), resetBtn = $('reset');
+  const mePctEl = $('mePct'), othersPctEl = $('othersPct');
+  const barMe = $('barMe'), bar = $('bar'), statusEl = $('status');
+
+  let started = false, starting = false;
+  let ctx = null, analyser = null, buf = null, timer = null, wakeLock = null;
+  let smoothDb = null, lastTick = 0, speaking = false;
+
+  // Learned levels
+  const history = [];
+  let talkThreshold = null, splitLevel = null;
+
+  // Speaker state with debounce
+  let current = 'quiet', candidate = 'quiet', candidateTicks = 0;
+
+  // Totals
+  let meSec = 0, othersSec = 0, startTime = 0;
+
+  // Per-second buckets for the 3-minute nudge
+  let buckets = [], bucket = { me: 0, others: 0, t: 0 };
+
+  // ---------- Level learning ----------
+  function percentile(sorted, p) {
+    if (!sorted.length) return 0;
+    return sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
+  }
+
+  function relearn() {
+    if (history.length < 30) return;
+    const sorted = history.slice().sort((a, b) => a - b);
+    const floor = percentile(sorted, 0.1);           // quietest steady level = silence
+    const minTalk = floor + 8;
+    const voiced = sorted.filter(v => v > minTalk);
+    if (voiced.length < 20) { talkThreshold = minTalk; splitLevel = null; return; }
+
+    // Two groups among the louder sounds: middle (others) and loudest (me)
+    let lo = percentile(voiced, 0.25), hi = percentile(voiced, 0.9);
+    for (let i = 0; i < 10; i++) {
+      const mid = (lo + hi) / 2;
+      let sl = 0, nl = 0, sh = 0, nh = 0;
+      for (const v of voiced) { if (v < mid) { sl += v; nl++; } else { sh += v; nh++; } }
+      if (nl) lo = sl / nl;
+      if (nh) hi = sh / nh;
+    }
+    talkThreshold = Math.max(minTalk, (floor + lo) / 2);
+    splitLevel = (hi - lo >= 6) ? (lo + hi) / 2 : null;
+    if (splitLevel === null) splitLevel = floor + 25; // one voice only so far: guess by closeness
+  }
+
+  function label(db) {
+    if (talkThreshold === null) return 'quiet';
+    if (db < talkThreshold) return 'quiet';
+    return db >= splitLevel ? 'me' : 'others';
+  }
+
+  // ---------- Audio loop ----------
+  function readDb() {
+    analyser.getFloatTimeDomainData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+    const rms = Math.sqrt(sum / buf.length);
+    return 20 * Math.log10(rms + 1e-9);
+  }
+
+  let tickCount = 0;
+  function tick() {
+    const now = performance.now();
+    const dt = Math.min(0.5, (now - lastTick) / 1000);
+    lastTick = now;
+    if (!analyser) return;
+
+    const db = readDb();
+    smoothDb = smoothDb === null ? db : smoothDb + SMOOTH * (db - smoothDb);
+
+    // Don't learn from or count our own spoken status
+    if (speaking || (window.speechSynthesis && speechSynthesis.speaking)) return;
+
+    history.push(smoothDb);
+    if (history.length > HISTORY) history.shift();
+    if (++tickCount % 10 === 0) relearn();
+
+    const l = label(smoothDb);
+    if (l === current) { candidateTicks = 0; }
+    else if (l === candidate) { if (++candidateTicks >= SWITCH_TICKS) { current = l; candidateTicks = 0; } }
+    else { candidate = l; candidateTicks = 1; }
+
+    if (current === 'me') { meSec += dt; bucket.me += dt; }
+    else if (current === 'others') { othersSec += dt; bucket.others += dt; }
+
+    bucket.t += dt;
+    if (bucket.t >= 1) {
+      buckets.push(bucket);
+      if (buckets.length > NUDGE_SECONDS) buckets.shift();
+      bucket = { me: 0, others: 0, t: 0 };
+      checkNudge();
+    }
+    if (tickCount % 5 === 0) render();
+  }
+
+  // ---------- Nudge ----------
+  function checkNudge() {
+    if (buckets.length < NUDGE_SECONDS) return;
+    let m = 0, o = 0;
+    for (const b of buckets) { m += b.me; o += b.others; }
+    if (m + o < 30) return;
+    if (m / (m + o) > NUDGE_SHARE) {
+      nudge();
+      buckets = []; // needs another 3 full minutes before the next nudge
+    }
+  }
+
+  function buzz() {
+    if (navigator.vibrate) { navigator.vibrate(200); return; }
+    try { $('hapLabel').click(); } catch (e) {}
+  }
+
+  function nudge() {
+    buzz();
+    setTimeout(buzz, 400);
+    document.body.classList.remove('nudge');
+    void document.body.offsetWidth;
+    document.body.classList.add('nudge');
+    setTimeout(() => document.body.classList.remove('nudge'), 2200);
+  }
+
+  // ---------- Display and speech ----------
+  function shares() {
+    const total = meSec + othersSec;
+    if (total < 1) return null;
+    const me = Math.round(100 * meSec / total);
+    return { me, others: 100 - me };
+  }
+
+  function minutesText() {
+    const min = Math.floor((performance.now() - startTime) / 60000);
+    if (min < 1) return 'less than a minute';
+    return min === 1 ? '1 minute' : min + ' minutes';
+  }
+
+  function render() {
+    const s = shares();
+    if (s) {
+      mePctEl.textContent = s.me + '%';
+      othersPctEl.textContent = s.others + '%';
+      barMe.style.width = s.me + '%';
+      bar.classList.remove('empty');
+    } else {
+      mePctEl.textContent = '–';
+      othersPctEl.textContent = '–';
+      barMe.style.width = '0';
+      bar.classList.add('empty');
+    }
+    if (started) {
+      const now = { me: 'Hearing: me', others: 'Hearing: others', quiet: 'Listening' }[current];
+      const min = Math.floor((performance.now() - startTime) / 60000);
+      statusEl.textContent = now + ' · ' + min + ' min';
+      statusEl.classList.remove('big');
+    }
+  }
+
+  function say(text) {
+    if (!window.speechSynthesis) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1;
+    speaking = true;
+    u.onend = u.onerror = () => { setTimeout(() => { speaking = false; }, 300); };
+    speechSynthesis.speak(u);
+  }
+
+  function statusSentence() {
+    const s = shares();
+    if (!s) return 'No talking heard yet. ' + minutesText() + '.';
+    return 'You: ' + s.me + ' percent. Others: ' + s.others + ' percent. ' + minutesText() + '.';
+  }
+
+  // ---------- Start ----------
+  async function start() {
+    starting = true;
+    statusEl.textContent = 'Starting…';
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      ctx = new AC();
+      // Prime speech inside the tap so later speech is allowed on iOS
+      if (window.speechSynthesis) speechSynthesis.speak(new SpeechSynthesisUtterance(''));
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+      });
+      if (ctx.state === 'suspended') await ctx.resume();
+      const src = ctx.createMediaStreamSource(stream);
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 2048;
+      buf = new Float32Array(analyser.fftSize);
+      src.connect(analyser);
+
+      started = true;
+      startTime = lastTick = performance.now();
+      timer = setInterval(tick, TICK_MS);
+      mainBtn.setAttribute('aria-label', 'Talk Balance. Tap to hear the talk balance.');
+      keepAwake();
+      render();
+      say('Listening.');
+    } catch (e) {
+      statusEl.textContent = 'Microphone not available. Tap to try again.';
+      say('Microphone not available. Tap to try again.');
+      if (ctx) { try { ctx.close(); } catch (_) {} ctx = null; }
+    }
+    starting = false;
+  }
+
+  async function keepAwake() {
+    try {
+      if ('wakeLock' in navigator && document.visibilityState === 'visible') {
+        wakeLock = await navigator.wakeLock.request('screen');
+      }
+    } catch (e) {}
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && started) {
+      if (ctx && ctx.state !== 'running') ctx.resume();
+      lastTick = performance.now();
+      keepAwake();
+    }
+  });
+
+  mainBtn.addEventListener('click', () => {
+    if (starting) return;
+    if (!started) { start(); return; }
+    if (ctx && ctx.state !== 'running') ctx.resume();
+    say(statusSentence());
+  });
+
+  resetBtn.addEventListener('click', () => {
+    meSec = othersSec = 0;
+    buckets = []; bucket = { me: 0, others: 0, t: 0 };
+    current = candidate = 'quiet'; candidateTicks = 0;
+    startTime = performance.now();
+    render();
+  });
+})();
+</script>
+</body>
+</html>
