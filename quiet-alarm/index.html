@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b1210">
+<title>Library Quiet Alarm</title>
+<style>
+  :root {
+    --bg: #0b1210;
+    --panel: #15201c;
+    --fg: #ffffff;
+    --muted: #c4d1cb;
+    --ok: #3ddc84;
+    --warn: #ffd60a;
+    --loud: #ff5a4e;
+    --track: #2a3732;
+    --focus: #ffffff;
+    --start: #1f8f55;
+    --stop: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, system-ui, "Helvetica Neue", Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    min-height: 100dvh;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+             max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+  main {
+    max-width: 520px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  h1 { font-size: 1.6rem; margin: 4px 0 0; text-wrap: balance; }
+  #status {
+    font-size: 1.35rem;
+    font-weight: 700;
+    min-height: 1.6em;
+    margin: 0;
+  }
+  #detail { color: var(--muted); font-size: 1.05rem; margin: -12px 0 0; min-height: 1.4em; }
+
+  .meter-wrap { background: var(--panel); border-radius: 16px; padding: 16px; }
+  .meter-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .meter-head span { font-size: 1.05rem; color: var(--muted); }
+  #levelNum { font-size: 2rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--fg); }
+  .meter {
+    position: relative;
+    height: 44px;
+    margin-top: 10px;
+    background: var(--track);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  #bar {
+    position: absolute; inset: 0 auto 0 0;
+    width: 0%;
+    background: var(--ok);
+    transition: width 90ms linear, background-color 200ms;
+  }
+  #mark {
+    position: absolute; top: 0; bottom: 0;
+    width: 4px; margin-left: -2px;
+    background: var(--fg);
+  }
+  #holdTrack { height: 8px; margin-top: 10px; background: var(--track); border-radius: 4px; overflow: hidden; }
+  #hold { height: 100%; width: 0%; background: var(--loud); transition: width 90ms linear; }
+  .legend { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.95rem; margin-top: 8px; }
+
+  .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  button {
+    font: inherit;
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    min-height: 96px;
+    border: 0;
+    border-radius: 18px;
+    color: #fff;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
+  button:disabled { opacity: 0.35; }
+  #startBtn { background: var(--start); }
+  #stopBtn { background: var(--stop); }
+  #testBtn {
+    font-size: 1.1rem; font-weight: 600; letter-spacing: 0;
+    min-height: 56px; background: var(--panel); color: var(--fg);
+  }
+
+  .slider-wrap { background: var(--panel); border-radius: 16px; padding: 16px; }
+  .slider-wrap label { display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: 700; }
+  #sensText { color: var(--warn); }
+  input[type=range] {
+    width: 100%;
+    height: 48px;
+    margin: 8px 0 0;
+    accent-color: var(--warn);
+  }
+  .slider-legend { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.95rem; }
+
+  .note { color: var(--muted); font-size: 1rem; line-height: 1.45; margin: 0; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  @media (prefers-reduced-motion: reduce) { #bar, #hold { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Library Quiet Alarm</h1>
+
+  <p id="status">Off. Tap START to begin.</p>
+  <p id="detail"></p>
+  <div id="announce" class="sr-only" role="status" aria-live="polite"></div>
+
+  <section class="meter-wrap" aria-label="Noise meter">
+    <div class="meter-head">
+      <span>Noise level</span>
+      <span id="levelNum" aria-hidden="true">0</span>
+    </div>
+    <div class="meter" id="meter" role="meter" aria-label="Noise level"
+         aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0 out of 100, quiet">
+      <div id="bar"></div>
+      <div id="mark" aria-hidden="true"></div>
+    </div>
+    <div id="holdTrack" aria-hidden="true"><div id="hold"></div></div>
+    <div class="legend" aria-hidden="true"><span>Quiet</span><span>White line = alarm level</span><span>Loud</span></div>
+  </section>
+
+  <div class="buttons">
+    <button id="startBtn" type="button">START</button>
+    <button id="stopBtn" type="button" disabled>STOP</button>
+  </div>
+
+  <section class="slider-wrap">
+    <label for="sens"><span>Sensitivity</span><span id="sensText" aria-hidden="true">5</span></label>
+    <input id="sens" type="range" min="1" max="10" step="1" value="5">
+    <div class="slider-legend" aria-hidden="true"><span>1 · only very loud</span><span>10 · whispers</span></div>
+  </section>
+
+  <button id="testBtn" type="button">Test the voice</button>
+
+  <p class="note">When noise stays above the white line for 3 seconds, the phone says
+    “Please be quiet.” It then waits 30 seconds before it can speak again.</p>
+  <p class="note">Keep Safari open and the screen on. Monitoring stops if the phone locks or you
+    switch apps. Turn the volume up. Sound is measured on this phone only. Nothing is recorded, saved or sent.</p>
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  const HOLD_MS = 3000;       // noise must stay loud this long
+  const COOLDOWN_MS = 30000;  // wait between alarms
+  const GRACE_MS = 600;       // short dips between words don't reset the timer
+  const MESSAGE = 'Please be quiet.';
+
+  const $ = id => document.getElementById(id);
+  const statusEl = $('status'), detailEl = $('detail'), announceEl = $('announce');
+  const bar = $('bar'), mark = $('mark'), hold = $('hold'), levelNum = $('levelNum'), meter = $('meter');
+  const startBtn = $('startBtn'), stopBtn = $('stopBtn'), testBtn = $('testBtn');
+  const sens = $('sens'), sensText = $('sensText');
+
+  let ctx = null, analyser = null, source = null, stream = null, buf = null;
+  let timer = null, wakeLock = null, running = false;
+  let smooth = 0, loudSince = 0, lastLoud = 0, cooldownUntil = 0, ignoreUntil = 0;
+  let lastMeterLabel = '';
+
+  // ---- settings ----
+  try { const s = localStorage.getItem('qa-sens'); if (s) sens.value = s; } catch (e) {}
+
+  // Sensitivity 1..10 -> alarm level on the 0..100 meter (higher sensitivity = lower line).
+  const threshold = () => 95 - Number(sens.value) * 6;
+
+  function sensWord(v) {
+    if (v <= 3) return 'low';
+    if (v <= 7) return 'medium';
+    return 'high';
+  }
+  function updateSens() {
+    const v = Number(sens.value);
+    sensText.textContent = v;
+    sens.setAttribute('aria-valuetext', v + ' of 10, ' + sensWord(v));
+    mark.style.left = threshold() + '%';
+    try { localStorage.setItem('qa-sens', String(v)); } catch (e) {}
+  }
+  sens.addEventListener('input', updateSens);
+  updateSens();
+
+  // ---- messages ----
+  function setStatus(text, detail, speakToVO) {
+    statusEl.textContent = text;
+    detailEl.textContent = detail || '';
+    if (speakToVO) announceEl.textContent = text + (detail ? ' ' + detail : '');
+  }
+
+  // ---- speech ----
+  function pickVoice() {
+    const voices = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+    return voices.find(v => /^en[-_]/i.test(v.lang) && v.localService) ||
+           voices.find(v => /^en/i.test(v.lang)) || null;
+  }
+  function say(text) {
+    if (!window.speechSynthesis) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    const v = pickVoice();
+    if (v) u.voice = v;
+    u.lang = v ? v.lang : 'en-US';
+    u.rate = 0.9;
+    u.volume = 1;
+    // don't let the phone hear itself
+    ignoreUntil = Date.now() + 4000;
+    u.onend = () => { ignoreUntil = Date.now() + 1200; };
+    speechSynthesis.speak(u);
+  }
+  if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => {};
+
+  testBtn.addEventListener('click', () => {
+    if (!window.speechSynthesis) { setStatus('This browser cannot speak.', '', true); return; }
+    say(MESSAGE);
+  });
+
+  // ---- wake lock ----
+  async function keepAwake() {
+    try {
+      if ('wakeLock' in navigator && document.visibilityState === 'visible' && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      }
+    } catch (e) { wakeLock = null; }
+  }
+
+  // ---- microphone ----
+  async function start() {
+    if (running) return;
+    startBtn.disabled = true;
+    setStatus('Starting…', 'Allow the microphone if Safari asks.', true);
+
+    try {
+      // Create audio and unlock speech inside the tap, as iPhone Safari requires.
+      const AC = window.AudioContext || window.webkitAudioContext;
+      ctx = new AC();
+      if (window.speechSynthesis) {
+        const unlock = new SpeechSynthesisUtterance(' ');
+        unlock.volume = 0;
+        speechSynthesis.speak(unlock);
+      }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw { name: 'Unsupported' };
+
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+      });
+      if (ctx.state !== 'running') await ctx.resume();
+
+      source = ctx.createMediaStreamSource(stream);
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 2048;
+      buf = new Float32Array(analyser.fftSize);
+      source.connect(analyser); // analysed only, never played or stored
+
+      stream.getAudioTracks().forEach(t => t.addEventListener('ended', () => {
+        if (running) { stop(); setStatus('Microphone stopped.', 'Tap START to listen again.', true); }
+      }));
+
+      running = true;
+      smooth = 0; loudSince = 0; lastLoud = 0; cooldownUntil = 0; ignoreUntil = Date.now() + 800;
+      stopBtn.disabled = false;
+      timer = setInterval(tick, 100);
+      keepAwake();
+      setStatus('Listening.', 'Keep this screen open.', true);
+      stopBtn.focus();
+    } catch (err) {
+      cleanup();
+      startBtn.disabled = false;
+      const n = err && err.name;
+      if (n === 'NotAllowedError' || n === 'SecurityError') {
+        setStatus('Microphone blocked.',
+          'Tap “aA” in the address bar, choose Website Settings, set Microphone to Allow, then tap START.', true);
+      } else if (n === 'NotFoundError') {
+        setStatus('No microphone found.', '', true);
+      } else if (n === 'Unsupported') {
+        setStatus('This browser cannot use the microphone.', 'Open this link in Safari.', true);
+      } else {
+        setStatus('Could not start.', 'Tap START to try again.', true);
+      }
+    }
+  }
+
+  function cleanup() {
+    clearInterval(timer); timer = null;
+    try { source && source.disconnect(); } catch (e) {}
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    if (ctx) { try { ctx.close(); } catch (e) {} }
+    ctx = analyser = source = stream = buf = null;
+    if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
+  }
+
+  function stop() {
+    running = false;
+    cleanup();
+    if (window.speechSynthesis) speechSynthesis.cancel();
+    smooth = 0; loudSince = 0;
+    draw(0, 0);
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    setStatus('Off. Tap START to begin.', '', true);
+    startBtn.focus();
+  }
+
+  startBtn.addEventListener('click', start);
+  stopBtn.addEventListener('click', stop);
+
+  // ---- measuring ----
+  function readLevel() {
+    if (analyser.getFloatTimeDomainData) {
+      analyser.getFloatTimeDomainData(buf);
+    } else {
+      const b = new Uint8Array(analyser.fftSize);
+      analyser.getByteTimeDomainData(b);
+      for (let i = 0; i < b.length; i++) buf[i] = (b[i] - 128) / 128;
+    }
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+    const rms = Math.sqrt(sum / buf.length);
+    const db = 20 * Math.log10(rms + 1e-9);          // about -90 (silence) to 0 (max)
+    return Math.max(0, Math.min(100, (db + 80) / 70 * 100)); // -80 dB -> 0, -10 dB -> 100
+  }
+
+  function tick() {
+    if (!running || !analyser) return;
+    if (ctx.state !== 'running') { ctx.resume().catch(() => {}); return; }
+
+    const now = Date.now();
+    const raw = readLevel();
+    smooth = raw > smooth ? smooth * 0.5 + raw * 0.5 : smooth * 0.8 + raw * 0.2;
+
+    const speaking = now < ignoreUntil || (window.speechSynthesis && speechSynthesis.speaking);
+    const cooling = now < cooldownUntil;
+    const line = threshold();
+    let progress = 0;
+
+    if (speaking) {
+      loudSince = 0;
+    } else {
+      if (smooth >= line) {
+        if (!loudSince) loudSince = now;
+        lastLoud = now;
+      } else if (loudSince && now - lastLoud > GRACE_MS) {
+        loudSince = 0;
+      }
+      if (loudSince) progress = Math.min(1, (now - loudSince) / HOLD_MS);
+
+      if (loudSince && now - loudSince >= HOLD_MS && !cooling) {
+        say(MESSAGE);
+        cooldownUntil = now + COOLDOWN_MS;
+        loudSince = 0;
+        progress = 0;
+      }
+    }
+
+    draw(smooth, cooling ? 0 : progress);
+
+    if (cooling) {
+      const s = Math.ceil((cooldownUntil - now) / 1000);
+      setStatus('Alarm spoken. Waiting ' + s + ' seconds.', 'The alarm can speak again after the wait.', false);
+    } else if (cooldownUntil && now >= cooldownUntil) {
+      cooldownUntil = 0;
+      setStatus('Listening.', 'Ready to alarm again.', true);
+    } else if (progress > 0) {
+      setStatus('Too loud…', 'Alarm in ' + Math.max(0, Math.ceil((1 - progress) * 3)) + ' seconds if it stays loud.', false);
+    } else if (!speaking) {
+      setStatus('Listening.', 'Keep this screen open.', false);
+    }
+  }
+
+  function draw(level, progress) {
+    const v = Math.round(level);
+    bar.style.width = v + '%';
+    const line = threshold();
+    bar.style.backgroundColor = v >= line ? 'var(--loud)' : v >= line - 12 ? 'var(--warn)' : 'var(--ok)';
+    hold.style.width = Math.round(progress * 100) + '%';
+    levelNum.textContent = v;
+    const word = v >= line ? 'too loud' : v >= line - 12 ? 'getting loud' : 'quiet';
+    meter.setAttribute('aria-valuenow', String(v));
+    const label = v + ' out of 100, ' + word;
+    if (label !== lastMeterLabel) { meter.setAttribute('aria-valuetext', label); lastMeterLabel = label; }
+  }
+
+  // ---- iPhone pauses the page when hidden ----
+  document.addEventListener('visibilitychange', () => {
+    if (!running) return;
+    if (document.visibilityState === 'visible') {
+      keepAwake();
+      if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {});
+      const live = stream && stream.getAudioTracks().some(t => t.readyState === 'live');
+      if (!live) { stop(); setStatus('Monitoring stopped while the screen was off.', 'Tap START to listen again.', true); }
+    }
+  });
+})();
+</script>
+</body>
+</html>
