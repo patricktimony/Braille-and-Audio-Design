@@ -148,10 +148,13 @@ def main():
         print(f"    {line}")
     for words in ("Press Enter to install", "Installing Talking Scanner", "Press Enter to finish"):
         check(any(words in line for line in spoken), f"installer speaks '{words}'")
-    # No screen reader runs here, so the installer must try to speak each step.
-    # (This test machine has no sound card, so SAPI may report it could not.)
+    # No screen reader runs here, so the installer must speak each step.  This
+    # test machine has no sound card, so the Windows voice itself may refuse
+    # (an OLE error from SAPI); any other failure is a bug in the installer.
     attempts = [line for line in spoken if line == "spoken" or line.startswith("could not speak")]
     check(len(attempts) >= 3, f"installer tried to speak every step ({len(attempts)} attempts)")
+    script_errors = [line for line in attempts if line != "spoken" and "OLE" not in line and "SAPI" not in line]
+    check(not script_errors, f"speech failed only for lack of sound output: {script_errors or 'none'}")
 
     step("Talking Scanner starts from the Finish page and is readable by screen readers")
     app = wait_until(60, "the Talking Scanner window", lambda: top_window("Welcome to Talking Scanner"))
