@@ -94,8 +94,6 @@ begin
 end;
 
 procedure Say(Text: String);
-var
-  V: Variant;
 begin
   Log('Speech: ' + Text);
   if WizardSilent then
@@ -109,10 +107,7 @@ begin
       Voice := CreateOleObject('SAPI.SpVoice');
       HaveVoice := True;
     end;
-    // Pascal Script only calls COM methods on local variables.  The global
-    // keeps the voice alive so background speech is not cut off.
-    V := Voice;
-    V.Speak(Text, SVSF_ASYNC_PURGE);
+    Voice.Speak(Text, SVSF_ASYNC_PURGE);
     Log('Speech: spoken');
   except
     Log('Speech: could not speak: ' + GetExceptionMessage);
