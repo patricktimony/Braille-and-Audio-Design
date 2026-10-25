@@ -106,7 +106,10 @@ def main():
     kill_app()
 
     step("Install with the keyboard only")
-    setup = subprocess.Popen([SETUP])
+    setup_log = os.path.join(tempfile.gettempdir(), "ts-setup.log")
+    if os.path.exists(setup_log):
+        os.remove(setup_log)
+    setup = subprocess.Popen([SETUP, f"/LOG={setup_log}"])
     wizard = wait_until(60, "the installer window", lambda: top_window(class_name="TWizardForm"))
     install = wait_until(30, "an Install button", lambda: find(wizard, "ButtonControl", "Install"))
     print(f"  Window: '{wizard.Name}'")
@@ -138,6 +141,17 @@ def main():
     check(os.path.isfile(EXE), f"TalkingScanner.exe installed at {EXE}")
     press_enter(wizard)
     check(setup.wait(60) == 0, "installer finished with exit code 0")
+    spoken = [line.split("Speech: ", 1)[1].strip() for line in open(setup_log, encoding="utf-8", errors="replace")
+              if "Speech: " in line]
+    print("  Installer speech log:")
+    for line in spoken:
+        print(f"    {line}")
+    for words in ("Press Enter to install", "Installing Talking Scanner", "Press Enter to finish"):
+        check(any(words in line for line in spoken), f"installer speaks '{words}'")
+    # No screen reader runs here, so the installer must try to speak each step.
+    # (This test machine has no sound card, so SAPI may report it could not.)
+    attempts = [line for line in spoken if line == "spoken" or line.startswith("could not speak")]
+    check(len(attempts) >= 3, f"installer tried to speak every step ({len(attempts)} attempts)")
 
     step("Talking Scanner starts from the Finish page and is readable by screen readers")
     app = wait_until(60, "the Talking Scanner window", lambda: top_window("Welcome to Talking Scanner"))

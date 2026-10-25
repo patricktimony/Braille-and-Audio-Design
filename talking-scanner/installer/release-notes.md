@@ -11,6 +11,8 @@ recognition program and the Windows voices are all included or built in.
 2. If Windows says "Windows protected your PC", press Tab to "More info" and press Enter,
    then press Tab to "Run anyway" and press Enter. This appears because the installer is new.
 3. Press Enter to install, then press Enter to finish. Talking Scanner starts by itself.
+   The installer speaks each step, so no screen reader is needed. If JAWS, NVDA or Narrator
+   is running, the installer stays quiet and your screen reader reads it.
 
 Start it again at any time with **Control + Alt + T**, or press the Windows key,
 type *Talking Scanner* and press Enter. No administrator password is needed.
