@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-title" content="Talk">
+<meta name="theme-color" content="#0b1d33">
+<title>Talk – voice assistant</title>
+<style>
+  :root {
+    --bg: #0b1d33;
+    --fg: #ffffff;
+    --btn: #ffd23f;
+    --btn-fg: #111111;
+    --focus: #ffffff;
+    --listen: #4ade80;
+    --think: #93c5fd;
+    --speak: #ffd23f;
+    --error: #fca5a5;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font: 1.25rem/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  h1 { font-size: 1.5rem; margin: 0 0 12px; text-align: center; }
+  #talk {
+    flex: 1;
+    width: 100%;
+    min-height: 60vh;
+    border: 0;
+    border-radius: 32px;
+    background: var(--btn);
+    color: var(--btn-fg);
+    font: 800 clamp(3rem, 18vw, 6rem)/1.1 inherit;
+    font-family: inherit;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+  #talk:focus-visible { outline: 6px solid var(--focus); outline-offset: 4px; }
+  #talk .sub { font-size: 1.25rem; font-weight: 600; }
+  body[data-state="listening"] #talk { background: var(--listen); }
+  body[data-state="thinking"] #talk { background: var(--think); }
+  body[data-state="speaking"] #talk { background: var(--speak); }
+  body[data-state="error"] #talk { background: var(--error); }
+  #status { min-height: 2.8em; margin: 16px 0 0; text-align: center; font-size: 1.25rem; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  @media (prefers-reduced-motion: no-preference) {
+    body[data-state="listening"] #talk { animation: pulse 1.6s ease-in-out infinite; }
+    @keyframes pulse { 50% { transform: scale(0.98); } }
+  }
+</style>
+</head>
+<body data-state="idle">
+<h1>Talk</h1>
+<button id="talk" type="button" aria-describedby="hint">
+  <span id="label" aria-hidden="true">Talk</span>
+  <span class="sub" id="sub" aria-hidden="true">Tap to start talking</span>
+</button>
+<p id="hint" class="sr-only">Starts a spoken conversation with an AI assistant. It will answer out loud. Double tap again at any time to interrupt or stop.</p>
+<p id="status" role="status" aria-live="polite"></p>
+<noscript><p>This app needs JavaScript turned on in Safari.</p></noscript>
+
+<script>
+"use strict";
+(() => {
+  const btn = document.getElementById("talk");
+  const labelEl = document.getElementById("label");
+  const subEl = document.getElementById("sub");
+  const statusEl = document.getElementById("status");
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const synth = window.speechSynthesis;
+  const SILENCE_MS = 1600;      // pause after speech that ends a turn
+  const NO_SPEECH_MS = 9000;    // give up listening if nothing heard
+  const REPLY_TIMEOUT_MS = 30000;
+
+  let state = "idle";           // idle | listening | thinking | speaking | error
+  let history = [];             // [{role, content}] — kept only in this page
+  let rec = null, recTimer = null, silenceTimer = null, transcript = "", recDone = false;
+  let abortCtl = null, thinkTimer = null, tickTimer = null;
+  let speakQueue = [], speaking = false, replyDone = false, speakToken = 0;
+  let keepAlive = [];           // iOS: hold utterance refs so they are not garbage-collected
+  let voice = null, audioCtx = null, wakeLock = null;
+  let listenCount = 0, missCount = 0, autoRestartFailed = false;
+
+  // ---------- UI ----------
+  const UI = {
+    idle:      ["Talk", "Tap to start talking", "Talk. Double tap to start talking."],
+    listening: ["Listening", "Speak now. Tap to stop.", "Listening. Speak now. Double tap to stop."],
+    thinking:  ["Thinking", "Tap to cancel", "Thinking. Double tap to cancel and talk again."],
+    speaking:  ["Answering", "Tap to interrupt and talk", "Answering. Double tap to interrupt and talk."],
+    error:     ["Talk", "Tap to try again", "Talk. Double tap to try again."],
+  };
+  function setState(s) {
+    state = s;
+    document.body.dataset.state = s;
+    const [l, sub, aria] = UI[s];
+    labelEl.textContent = l;
+    subEl.textContent = sub;
+    btn.setAttribute("aria-label", aria);
+  }
+  // Visible text for sighted helpers. Not a live announcement of what the voice
+  // already says, so VoiceOver does not talk over the app's own speech.
+  function show(msg) { statusEl.setAttribute("aria-live", "off"); statusEl.textContent = msg; }
+  // For messages that must reach VoiceOver even if speech synthesis fails.
+  function announce(msg) { statusEl.setAttribute("aria-live", "assertive"); statusEl.textContent = ""; setTimeout(() => { statusEl.textContent = msg; }, 60); }
+  setState("idle");
+
+  // ---------- Sounds (short tones so state changes are audible without words) ----------
+  function ensureAudio() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+    } catch { audioCtx = null; }
+  }
+  function tone(freqs, dur = 0.12, vol = 0.18) {
+    if (!audioCtx) return;
+    try {
+      let t = audioCtx.currentTime;
+      for (const f of freqs) {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = "sine"; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g).connect(audioCtx.destination);
+        o.start(t); o.stop(t + dur + 0.02);
+        t += dur;
+      }
+    } catch {}
+  }
+  const earcon = {
+    listen: () => tone([660, 880]),
+    heard:  () => tone([880, 660]),
+    tick:   () => tone([440], 0.08, 0.08),
+    error:  () => tone([300, 220], 0.2),
+  };
+
+  // ---------- Speech output ----------
+  function pickVoice() {
+    if (!synth) return;
+    const vs = synth.getVoices().filter((v) => /^en(-|_)/i.test(v.lang));
+    const rank = (v) => (/premium/i.test(v.name) ? 3 : /enhanced/i.test(v.name) ? 2 : 0) + (/en[-_]US/i.test(v.lang) ? 1 : 0) + (v.default ? 0.5 : 0);
+    voice = vs.sort((a, b) => rank(b) - rank(a))[0] || null;
+  }
+  if (synth) { pickVoice(); synth.addEventListener?.("voiceschanged", pickVoice); }
+
+  // Speak one phrase; resolves when finished (or after a safety timeout,
+  // because iOS sometimes never fires "end").
+  function say(textToSay, token = speakToken) {
+    return new Promise((resolve) => {
+      if (!synth || token !== speakToken) return resolve();
+      const u = new SpeechSynthesisUtterance(textToSay);
+      if (voice) u.voice = voice;
+      u.lang = (voice && voice.lang) || "en-US";
+      u.rate = 1; u.pitch = 1; u.volume = 1;
+      keepAlive.push(u); if (keepAlive.length > 20) keepAlive.shift();
+      let finished = false;
+      const done = () => { if (finished) return; finished = true; clearTimeout(guard); resolve(); };
+      const guard = setTimeout(done, 4000 + textToSay.length * 110);
+      u.onend = done; u.onerror = done;
+      synth.speak(u);
+    });
+  }
+  function stopSpeaking() {
+    speakToken++;
+    speakQueue = [];
+    speaking = false;
+    try { synth && synth.cancel(); } catch {}
+  }
+
+  // ---------- Listening ----------
+  function startListening(fromGesture) {
+    stopSpeaking();
+    clearTimers();
+    if (!SR) return unsupported();
+    transcript = ""; recDone = false;
+    try { rec && rec.abort(); } catch {}
+    rec = new SR();
+    rec.lang = navigator.language || "en-US";
+    rec.interimResults = true;
+    rec.continuous = true;
+    rec.maxAlternatives = 1;
+
+    rec.onresult = (e) => {
+      let t = "";
+      for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+      transcript = t.trim();
+      if (transcript) show("You: " + transcript);
+      clearTimeout(silenceTimer);
+      clearTimeout(recTimer);
+      silenceTimer = setTimeout(finishListening, SILENCE_MS);
+    };
+    rec.onerror = (e) => {
+      if (recDone) return;
+      if (e.error === "aborted") return;
+      recDone = true;
+      clearTimers();
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        if (!fromGesture && listenCount > 0) return needTap();
+        return permissionProblem();
+      }
+      if (e.error === "no-speech") return noSpeech();
+      if (e.error === "network") return fail("Speech recognition needs an internet connection. Check your connection, then double tap to try again.");
+      if (e.error === "audio-capture") return fail("I can't use the microphone. Another app may be using it. Double tap to try again.");
+      fail("Listening stopped unexpectedly. Double tap to try again.");
+    };
+    rec.onend = () => {
+      if (recDone) return;
+      if (transcript) finishListening();
+      else { recDone = true; clearTimers(); noSpeech(); }
+    };
+
+    try {
+      rec.start();
+    } catch (err) {
+      return fromGesture ? permissionProblem() : needTap();
+    }
+    listenCount++;
+    setState("listening");
+    show("Listening…");
+    earcon.listen();
+    recTimer = setTimeout(() => { if (!transcript) { recDone = true; try { rec.abort(); } catch {} noSpeech(); } }, NO_SPEECH_MS);
+  }
+
+  function finishListening() {
+    if (recDone && state !== "listening") return;
+    recDone = true;
+    clearTimers();
+    try { rec && rec.stop(); } catch {}
+    const said = transcript.trim();
+    if (!said) return noSpeech();
+    missCount = 0;
+    earcon.heard();
+    ask(said);
+  }
+
+  async function noSpeech() {
+    missCount++;
+    setState("idle");
+    if (missCount >= 2) {
+      missCount = 0;
+      show("Paused. Tap to talk.");
+      await say("I'm pausing for now. Double tap the button whenever you want to talk.");
+      return;
+    }
+    show("I didn't hear anything.");
+    await say("I didn't hear anything. Go ahead.");
+    if (state === "idle") startListening(false);
+  }
+
+  async function needTap() {
+    // iOS may refuse to reopen the microphone without a fresh tap.
+    autoRestartFailed = true;
+    setState("idle");
+    show("Tap to talk.");
+    tone([660], 0.15);
+    await say("Your turn. Double tap to talk.");
+  }
+
+  async function permissionProblem() {
+    setState("error");
+    earcon.error();
+    const msg = "I can't use the microphone or speech recognition. When Safari asks for permission, choose Allow. If it doesn't ask, open the Settings app, go to Apps, then Safari, then Microphone, and choose Ask or Allow. Also make sure Siri, or Dictation, is turned on. Then come back and double tap to try again.";
+    show(msg); announce(msg);
+    await say(msg);
+  }
+
+  function unsupported() {
+    setState("error");
+    const msg = "Speech recognition isn't available in this browser. Please open this link in Safari on iPhone, and make sure Siri or Dictation is turned on in Settings.";
+    show(msg); announce(msg);
+    say(msg);
+  }
+
+  async function fail(msg) {
+    setState("error");
+    earcon.error();
+    show(msg);
+    if (synth) await say(msg); else announce(msg);
+  }
+
+  // ---------- Asking the AI ----------
+  async function ask(said) {
+    history.push({ role: "user", content: said });
+    setState("thinking");
+    show("Thinking…");
+    abortCtl = new AbortController();
+    const myToken = ++speakToken;
+    speakQueue = []; replyDone = false; speaking = false;
+    let reply = "", pending = "", gotAny = false;
+
+    thinkTimer = setTimeout(() => { if (!gotAny && state === "thinking") say("Thinking.", myToken); }, 1200);
+    tickTimer = setInterval(() => { if (state === "thinking") earcon.tick(); }, 2500);
+    const timeout = setTimeout(() => abortCtl && abortCtl.abort("timeout"), REPLY_TIMEOUT_MS);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ messages: history }),
+        signal: abortCtl.signal,
+      });
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        throw new Error(res.status === 429 ? "busy" : t || "server");
+      }
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        let chunk = dec.decode(value, { stream: true });
+        if (chunk.includes("\u0000ERROR")) { chunk = chunk.split("\u0000ERROR")[0]; throw Object.assign(new Error("stream"), { partial: reply + chunk }); }
+        if (myToken !== speakToken) return; // interrupted
+        if (!gotAny && chunk) { gotAny = true; clearTimeout(thinkTimer); }
+        reply += chunk; pending += chunk;
+        // Speak complete sentences as soon as they arrive.
+        let m;
+        while ((m = pending.match(/^[\s\S]*?[.!?…](\s+|$)(?=\S|$)/)) && m[0].length < pending.length) {
+          enqueue(m[0], myToken);
+          pending = pending.slice(m[0].length);
+        }
+        if (pending.length > 220) { const cut = pending.lastIndexOf(",", 200); if (cut > 40) { enqueue(pending.slice(0, cut + 1), myToken); pending = pending.slice(cut + 1); } }
+      }
+      clearTimeout(timeout);
+      if (myToken !== speakToken) return;
+      if (pending.trim()) enqueue(pending, myToken);
+      if (!reply.trim()) throw new Error("empty");
+      history.push({ role: "assistant", content: reply.trim() });
+      replyDone = true;
+      if (!speaking && speakQueue.length === 0) afterReply(myToken);
+    } catch (err) {
+      clearTimeout(timeout);
+      if (myToken !== speakToken) return; // user interrupted; not an error
+      clearTimers();
+      if (err && err.partial) history.push({ role: "assistant", content: err.partial.trim() || "…" });
+      else history.pop();
+      const offline = !navigator.onLine;
+      const msg = offline ? "You seem to be offline. Check your internet connection, then double tap to try again."
+        : abortCtl && abortCtl.signal.aborted ? "The answer is taking too long. Double tap to try again."
+        : err && err.message === "busy" ? "The assistant is busy right now. Wait a minute, then double tap to try again."
+        : "Sorry, something went wrong getting an answer. Double tap to try again.";
+      stopSpeaking();
+      fail(msg);
+    }
+  }
+
+  function enqueue(sentence, token) {
+    const s = sentence.replace(/[*_#`>|]/g, " ").replace(/\s+/g, " ").trim();
+    if (!s) return;
+    speakQueue.push(s);
+    if (!speaking) drain(token);
+  }
+  async function drain(token) {
+    if (token !== speakToken) return;
+    speaking = true;
+    clearTimers();
+    if (state !== "speaking") { setState("speaking"); }
+    while (speakQueue.length && token === speakToken) {
+      const s = speakQueue.shift();
+      show(s);
+      await say(s, token);
+    }
+    if (token !== speakToken) return;
+    speaking = false;
+    if (replyDone) afterReply(token);
+  }
+  function afterReply(token) {
+    if (token !== speakToken) return;
+    setState("idle");
+    // Keep the conversation going: reopen the microphone. iOS sometimes blocks
+    // this without a tap; needTap() then says so out loud.
+    setTimeout(() => { if (state === "idle" && token === speakToken) startListening(false); }, 250);
+  }
+
+  function clearTimers() {
+    clearTimeout(recTimer); clearTimeout(silenceTimer); clearTimeout(thinkTimer); clearInterval(tickTimer);
+  }
+
+  // ---------- Button ----------
+  let first = true;
+  btn.addEventListener("click", async () => {
+    ensureAudio();
+    keepScreenOn();
+    if (first) {
+      first = false;
+      if (!SR) return unsupported();
+      // The first utterance must come from a tap for iOS to allow speech.
+      say("Hi. After the tone, ask me anything. Double tap at any time to interrupt.").then(() => { if (state === "idle") startListening(false); });
+      setState("idle"); show("Starting…");
+      return;
+    }
+    switch (state) {
+      case "listening":
+        recDone = true; clearTimers();
+        try { rec && rec.abort(); } catch {}
+        setState("idle");
+        show("Stopped. Tap to talk.");
+        await say("Stopped. Double tap when you want to talk.");
+        break;
+      case "thinking":
+      case "speaking":
+        // Interrupt: stop the answer and listen right away.
+        try { abortCtl && abortCtl.abort(); } catch {}
+        stopSpeaking(); clearTimers();
+        startListening(true);
+        break;
+      default:
+        missCount = 0;
+        startListening(true);
+    }
+  });
+
+  // ---------- Screen and app lifecycle ----------
+  async function keepScreenOn() {
+    try { if ("wakeLock" in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); } } catch {}
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      try { rec && rec.abort(); } catch {}
+      try { abortCtl && abortCtl.abort(); } catch {}
+      stopSpeaking(); clearTimers(); recDone = true;
+      if (!first) setState("idle");
+    } else if (!first) {
+      setState("idle");
+      show("Tap to talk.");
+      say("Welcome back. Double tap to talk.");
+    }
+  });
+  window.addEventListener("offline", () => { if (state === "thinking") show("Offline…"); });
+})();
+</script>
+</body>
+</html>
