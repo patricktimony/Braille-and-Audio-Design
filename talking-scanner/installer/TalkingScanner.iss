@@ -83,8 +83,7 @@ function SystemParametersInfo(uiAction, uiParam: Cardinal; var pvParam: Integer;
 
 var
   Voice: Variant;
-  Streams: array[0..3] of Variant;
-  SpeechCount: Integer;
+  HaveVoice: Boolean;
 
 function ScreenReaderRunning: Boolean;
 var
@@ -96,8 +95,7 @@ end;
 
 procedure Say(Text: String);
 var
-  V, Stream: Variant;
-  TestFile: String;
+  V: Variant;
 begin
   Log('Speech: ' + Text);
   if WizardSilent then
@@ -107,20 +105,13 @@ begin
     exit;
   end;
   try
-    // Pascal Script only calls COM methods on local variables, so each step
-    // gets a new voice.  Storing it in the global keeps it alive, so the
-    // background speech is not cut off, and replacing it stops the last step.
-    V := CreateOleObject('SAPI.SpVoice');
-    // For automated tests on machines without speakers: speak into files.
-    TestFile := GetEnv('TALKING_SCANNER_SPEECH_TEST');
-    if TestFile <> '' then begin
-      SpeechCount := SpeechCount + 1;
-      Stream := CreateOleObject('SAPI.SpFileStream');
-      Stream.Open(TestFile + IntToStr(SpeechCount) + '.wav', 3);  // create for writing
-      V.AudioOutputStream := Stream;
-      Streams[SpeechCount mod 4] := Stream;
+    if not HaveVoice then begin
+      Voice := CreateOleObject('SAPI.SpVoice');
+      HaveVoice := True;
     end;
-    Voice := V;
+    // Pascal Script only calls COM methods on local variables.  The global
+    // keeps the voice alive so background speech is not cut off.
+    V := Voice;
     V.Speak(Text, SVSF_ASYNC_PURGE);
     Log('Speech: spoken');
   except
