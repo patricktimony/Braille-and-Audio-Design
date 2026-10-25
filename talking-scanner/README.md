@@ -128,9 +128,7 @@ OCR and the sample pages, and packs everything into the single installer
 (`installer\TalkingScanner.iss`).
 
 The installer is per-user (no administrator prompt) and has two pages: Install
-and Finish. It speaks each step with the Windows voice, unless a screen reader
-(JAWS, NVDA or Narrator) is running, in which case it stays quiet and the
-screen reader reads the pages. It adds a Start menu shortcut with the hotkey **Ctrl+Alt+T**, a
+and Finish. It adds a Start menu shortcut with the hotkey **Ctrl+Alt+T**, a
 desktop shortcut, and a *Talking Scanner Tools* folder (practice with sample
 pages, key test, self test, user guide, uninstall). It adds nothing to startup.
 

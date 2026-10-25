@@ -20,9 +20,6 @@ Open the downloaded file. Windows may show a message called
 not yet known to Microsoft. Press Tab until you hear "More info", and press
 Enter. Then press Tab until you hear "Run anyway", and press Enter.
 
-The installer speaks each step aloud. If JAWS, NVDA or Narrator is running,
-the installer stays quiet and your screen reader reads it instead.
-
 The installer has two steps:
   Step one: press Enter to install.
   Step two: press Enter to finish. Talking Scanner then starts by itself.
