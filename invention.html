@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spoken Diff</title>
+<meta name="description" content="Compare two versions of a text and hear every change in plain words. Built for screen readers and keyboards. Works offline.">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #555555;
+    --panel: #f4f4f2;
+    --border: #8a8a8a;
+    --accent: #0b57d0;
+    --focus: #b3261e;
+    --ins-bg: #d7f5dd;
+    --ins-fg: #0b4d1c;
+    --del-bg: #fde0e0;
+    --del-fg: #8a1414;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121212;
+      --fg: #eeeeee;
+      --muted: #b8b8b8;
+      --panel: #1e1e1e;
+      --border: #9a9a9a;
+      --accent: #8ab4f8;
+      --focus: #ffb4ab;
+      --ins-bg: #0f3d1d;
+      --ins-fg: #b6f2c4;
+      --del-bg: #4a1414;
+      --del-fg: #ffc9c9;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121212; --fg: #eeeeee; --muted: #b8b8b8; --panel: #1e1e1e; --border: #9a9a9a;
+    --accent: #8ab4f8; --focus: #ffb4ab; --ins-bg: #0f3d1d; --ins-fg: #b6f2c4; --del-bg: #4a1414; --del-fg: #ffc9c9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 1.0625rem/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 64rem; margin: 0 auto; padding: 1rem 16px 4rem; }
+  h1 { font-size: 1.9rem; margin: 0.5rem 0 0.25rem; }
+  h2 { font-size: 1.35rem; margin: 2rem 0 0.5rem; }
+  h3 { font-size: 1.05rem; margin: 0; }
+  p { margin: 0.4rem 0; }
+  .lead { color: var(--muted); max-width: 46rem; }
+  .texts { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 720px) { .texts { grid-template-columns: 1fr; } }
+  .field { display: flex; flex-direction: column; gap: 0.35rem; }
+  label, legend { font-weight: 600; }
+  textarea {
+    width: 100%;
+    min-height: 13rem;
+    resize: vertical;
+    padding: 0.6rem;
+    font: 0.95rem/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--fg);
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 6px;
+  }
+  input[type="file"] { font: inherit; color: var(--fg); max-width: 100%; }
+  .hint { font-size: 0.9rem; color: var(--muted); }
+  fieldset {
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem 1rem 0.9rem;
+    margin: 1rem 0 0;
+  }
+  .opts { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; }
+  .opts label { font-weight: 400; display: inline-flex; align-items: center; gap: 0.4rem; }
+  select, input[type="range"] { font: inherit; }
+  select { color: var(--fg); background: var(--panel); border: 2px solid var(--border); border-radius: 4px; padding: 0.2rem; max-width: 100%; }
+  .row { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; align-items: center; }
+  button {
+    font: inherit;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    border: 2px solid var(--accent);
+    background: var(--panel);
+    color: var(--fg);
+    cursor: pointer;
+  }
+  button.primary { background: var(--accent); color: var(--bg); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  [tabindex="-1"]:focus { outline: 3px solid var(--focus); outline-offset: 4px; }
+  #results-heading:focus, .change h3:focus { outline-offset: 4px; }
+  .changes { list-style: none; padding: 0; margin: 1rem 0 0; display: flex; flex-direction: column; gap: 0.75rem; }
+  .change {
+    border: 2px solid var(--border);
+    border-left-width: 8px;
+    border-radius: 6px;
+    padding: 0.7rem 0.9rem;
+    background: var(--panel);
+  }
+  .change.current { border-color: var(--accent); }
+  .change[data-kind^="added"], .change[data-kind="lines-added"] { border-left-color: var(--ins-fg); }
+  .change[data-kind^="removed"], .change[data-kind="lines-removed"] { border-left-color: var(--del-fg); }
+  .snippet {
+    margin-top: 0.5rem;
+    font: 0.95rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  ins, del { padding: 0 0.15em; border-radius: 3px; }
+  ins { background: var(--ins-bg); color: var(--ins-fg); text-decoration: underline; text-decoration-thickness: 2px; }
+  del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; text-decoration-thickness: 2px; }
+  .ctx { color: var(--muted); }
+  .visually-hidden {
+    position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  kbd {
+    font: 0.85em ui-monospace, Menlo, Consolas, monospace;
+    border: 1px solid var(--border); border-radius: 4px; padding: 0 0.3em; background: var(--panel);
+  }
+  details { margin-top: 1rem; }
+  summary { cursor: pointer; font-weight: 600; }
+  #nav[hidden] { display: none; }
+  @media (forced-colors: active) {
+    ins { text-decoration: underline; }
+    del { text-decoration: line-through; }
+    .change { border-left-color: CanvasText; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Spoken Diff</h1>
+  <p class="lead">Paste or open two versions of a text. Spoken Diff lists every change in plain words,
+    such as: Line 4: “Tuesday” replaced with “Wednesday”, after “meeting on”. That way you can review edits
+    with a screen reader, a braille display or the keyboard alone. It doesn't rely on colour. Nothing leaves your computer.</p>
+
+  <form id="form" novalidate>
+    <h2>Texts to compare</h2>
+    <div class="texts">
+      <div class="field">
+        <label for="old">Original text</label>
+        <textarea id="old" spellcheck="false"></textarea>
+        <label for="old-file" class="hint" id="old-hint">Or open a text file for the original:</label>
+        <input type="file" id="old-file" accept=".txt,.md,.csv,.html,.htm,.xml,.json,.js,.ts,.py,.css,.yml,.yaml,.ini,.log,.srt,.vtt,text/*">
+      </div>
+      <div class="field">
+        <label for="new">Revised text</label>
+        <textarea id="new" spellcheck="false"></textarea>
+        <label for="new-file" class="hint" id="new-hint">Or open a text file for the revision:</label>
+        <input type="file" id="new-file" accept=".txt,.md,.csv,.html,.htm,.xml,.json,.js,.ts,.py,.css,.yml,.yaml,.ini,.log,.srt,.vtt,text/*">
+      </div>
+    </div>
+
+    <div class="row">
+      <button type="submit" class="primary" id="compare">Compare</button>
+      <button type="button" id="swap">Swap texts</button>
+      <button type="button" id="sample">Load example</button>
+      <button type="button" id="clear">Clear both</button>
+    </div>
+
+    <h2>Options</h2>
+    <fieldset>
+      <legend>What counts as a change</legend>
+      <div class="opts">
+        <label><input type="checkbox" id="opt-case"> Ignore capitalization</label>
+        <label><input type="checkbox" id="opt-space"> Ignore extra spaces and tabs</label>
+        <label><input type="checkbox" id="opt-blank"> Ignore blank lines</label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Sound</legend>
+      <div class="opts">
+        <label><input type="checkbox" id="opt-tones" checked> Play a short tone for each change (rising means added, falling means removed, two notes mean replaced)</label>
+        <label><input type="checkbox" id="opt-voice"> Also read changes in this page's own voice (leave off if you use a screen reader)</label>
+      </div>
+      <div class="opts" style="margin-top:0.6rem">
+        <label for="voice">Voice</label>
+        <select id="voice"><option value="">System default</option></select>
+        <label for="rate">Speed</label>
+        <input type="range" id="rate" min="0.6" max="2" step="0.1" value="1.1" aria-valuetext="1.1 times">
+      </div>
+    </fieldset>
+  </form>
+
+  <section aria-labelledby="results-heading">
+    <h2 id="results-heading" tabindex="-1">Results</h2>
+    <p id="summary">Press Compare to list the changes.</p>
+    <div id="nav" class="row" hidden>
+      <button type="button" id="prev">Previous change</button>
+      <button type="button" id="next">Next change</button>
+      <button type="button" id="repeat">Repeat change</button>
+      <button type="button" id="copy">Copy report</button>
+      <button type="button" id="download">Save report as text file</button>
+    </div>
+    <p id="keys" class="hint" hidden>Shortcuts anywhere on the page: <kbd>F8</kbd> or <kbd>Alt</kbd>+<kbd>J</kbd> for the next change,
+      <kbd>Shift</kbd>+<kbd>F8</kbd> or <kbd>Alt</kbd>+<kbd>K</kbd> for the previous change. Each change is also a level 3 heading, so you can use your screen reader's heading keys.</p>
+    <ol id="changes" class="changes" aria-label="Changes"></ol>
+  </section>
+
+  <div id="status" role="status" aria-live="polite" class="visually-hidden"></div>
+
+  <details>
+    <summary>How it works</summary>
+    <p>Spoken Diff first matches whole lines, then compares the changed lines word by word. Each change names its line number,
+      what was removed or added, and the words just before it so you can find the spot. Punctuation and spacing changes are named, such as
+      <q>comma removed</q> or <q>2 spaces became 1 space</q>. Changes that only affect capital letters are reported as capitalization changes.
+      If most of a line is different, the whole line is reported as rewritten, with the old and new versions.</p>
+    <p>Your texts are kept in this browser so they're still there when you come back. They are never sent anywhere.</p>
+  </details>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const oldBox = $('old'), newBox = $('new');
+  const changesList = $('changes'), summaryEl = $('summary'), statusEl = $('status');
+  const resultsHeading = $('results-heading');
+
+  let changes = [];
+  let current = -1;
+  let reportText = '';
+
+  /* ---------- Storage (optional convenience) ---------- */
+  const store = {
+    get(k) { try { return localStorage.getItem('spoken-diff:' + k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem('spoken-diff:' + k, v); } catch (e) { /* ignore */ } }
+  };
+
+  /* ---------- Myers diff over arrays of keys ---------- */
+  const MAX_EDIT_DISTANCE = 2500;
+
+  // Returns a list of ops: {t:'=', a, b} | {t:'-', a} | {t:'+', b}, or null if too different.
+  function myers(a, b) {
+    const n = a.length, m = b.length, max = n + m;
+    const off = max + 1;
+    const v = new Int32Array(2 * max + 3);
+    const trace = [];
+    for (let d = 0; d <= max; d++) {
+      if (d > MAX_EDIT_DISTANCE) return null;
+      trace.push(v.slice(off - d, off + d + 1));
+      for (let k = -d; k <= d; k += 2) {
+        let x = (k === -d || (k !== d && v[off + k - 1] < v[off + k + 1])) ? v[off + k + 1] : v[off + k - 1] + 1;
+        let y = x - k;
+        while (x < n && y < m && a[x] === b[y]) { x++; y++; }
+        v[off + k] = x;
+        if (x >= n && y >= m) return backtrack(trace, n, m);
+      }
+    }
+    return [];
+  }
+
+  function backtrack(trace, n, m) {
+    const ops = [];
+    let x = n, y = m;
+    for (let d = trace.length - 1; d >= 0; d--) {
+      const V = trace[d];
+      const at = (k) => V[k + d];
+      const k = x - y;
+      let prevK;
+      if (d === 0) prevK = 0;
+      else prevK = (k === -d || (k !== d && at(k - 1) < at(k + 1))) ? k + 1 : k - 1;
+      const prevX = d === 0 ? 0 : at(prevK);
+      const prevY = prevX - prevK;
+      while (x > prevX && y > prevY) { x--; y--; ops.push({ t: '=', a: x, b: y }); }
+      if (d > 0) {
+        if (x === prevX) ops.push({ t: '+', b: y - 1 });
+        else ops.push({ t: '-', a: x - 1 });
+      }
+      x = prevX; y = prevY;
+    }
+    return ops.reverse();
+  }
+
+  // Trims common prefix and suffix, then diffs the middle.
+  function diffKeys(a, b) {
+    let start = 0;
+    while (start < a.length && start < b.length && a[start] === b[start]) start++;
+    let endA = a.length, endB = b.length;
+    while (endA > start && endB > start && a[endA - 1] === b[endB - 1]) { endA--; endB--; }
+    const ops = [];
+    for (let i = 0; i < start; i++) ops.push({ t: '=', a: i, b: i });
+    const mid = myers(a.slice(start, endA), b.slice(start, endB));
+    let tooBig = false;
+    if (mid === null) {
+      tooBig = true;
+      for (let i = start; i < endA; i++) ops.push({ t: '-', a: i });
+      for (let j = start; j < endB; j++) ops.push({ t: '+', b: j });
+    } else {
+      for (const op of mid) {
+        if (op.t === '=') ops.push({ t: '=', a: op.a + start, b: op.b + start });
+        else if (op.t === '-') ops.push({ t: '-', a: op.a + start });
+        else ops.push({ t: '+', b: op.b + start });
+      }
+    }
+    for (let i = endA, j = endB; i < a.length; i++, j++) ops.push({ t: '=', a: i, b: j });
+    ops.tooBig = tooBig;
+    return ops;
+  }
+
+  // Groups ops into runs of changes. Within a run, deletions come before insertions.
+  function hunks(ops) {
+    const out = [];
+    let cur = null;
+    for (const op of ops) {
+      if (op.t === '=') { if (cur) { out.push(cur); cur = null; } continue; }
+      if (!cur) cur = { del: [], ins: [], firstIndex: out.length };
+      if (op.t === '-') cur.del.push(op.a); else cur.ins.push(op.b);
+    }
+    if (cur) out.push(cur);
+    return out;
+  }
+
+  /* ---------- Tokens ---------- */
+  const TOKEN_RE = /\n|[ \t ]+|[\p{L}\p{N}\p{M}_]+(?:['’][\p{L}\p{N}\p{M}_]+)*|[^\s\p{L}\p{N}\p{M}_]/gu;
+  const isWord = (t) => /[\p{L}\p{N}]/u.test(t);
+  const isSpace = (t) => /^[ \t ]+$/.test(t);
+
+  function tokenize(text) { return text.match(TOKEN_RE) || []; }
+
+  /* ---------- Plain-language descriptions ---------- */
+  const PUNCT = {
+    ',': 'comma', '.': 'period', ';': 'semicolon', ':': 'colon', '!': 'exclamation mark', '?': 'question mark',
+    "'": 'apostrophe', '’': 'apostrophe', '‘': 'opening single quote', '"': 'quotation mark', '“': 'opening quote', '”': 'closing quote',
+    '(': 'opening parenthesis', ')': 'closing parenthesis', '[': 'opening bracket', ']': 'closing bracket',
+    '{': 'opening brace', '}': 'closing brace', '<': 'less-than sign', '>': 'greater-than sign',
+    '-': 'hyphen', '–': 'en dash', '—': 'em dash', '…': 'ellipsis', '/': 'slash', '\\': 'backslash',
+    '&': 'ampersand', '*': 'asterisk', '#': 'number sign', '@': 'at sign', '%': 'percent sign', '$': 'dollar sign',
+    '€': 'euro sign', '£': 'pound sign', '+': 'plus sign', '=': 'equals sign', '_': 'underscore', '|': 'vertical bar',
+    '~': 'tilde', '^': 'caret', '`': 'backtick', '•': 'bullet', '°': 'degree sign', '§': 'section sign'
+  };
+
+  function plural(n, word, many) { return n + ' ' + (n === 1 ? word : (many || word + 's')); }
+
+  function describeSpace(t) {
+    const nl = (t.match(/\n/g) || []).length;
+    const tabs = (t.match(/\t/g) || []).length;
+    const spaces = (t.match(/[  ]/g) || []).length;
+    const parts = [];
+    if (nl) parts.push(nl === 1 ? 'a line break' : plural(nl, 'line break'));
+    if (tabs) parts.push(tabs === 1 ? 'a tab' : plural(tabs, 'tab'));
+    if (spaces) parts.push(plural(spaces, 'space'));
+    return parts.join(' and ') || 'nothing';
+  }
+
+  function describePunct(t) {
+    const names = [...t].filter((c) => !/\s/.test(c)).map((c) => PUNCT[c] || ('the character “' + c + '”'));
+    // Collapse repeats: "period, period, period" -> "3 periods"
+    const out = [];
+    for (let i = 0; i < names.length;) {
+      let j = i;
+      while (j < names.length && names[j] === names[i]) j++;
+      const count = j - i;
+      out.push(count > 1 ? count + ' × ' + names[i] : names[i]);
+      i = j;
+    }
+    return out.join(', ');
+  }
+
+  // Short, speakable name for a piece of text.
+  function say(text, limit) {
+    limit = limit || 160;
+    if (text === '') return 'nothing';
+    if (/^\s+$/.test(text)) return describeSpace(text);
+    const visible = text.replace(/\s+/g, ' ').trim();
+    if (!isWord(visible) && visible.length <= 6) return describePunct(visible);
+    let shown = text.replace(/\n+/g, ' / ').replace(/[ \t ]+/g, ' ').trim();
+    if (shown.length > limit) shown = shown.slice(0, limit).replace(/\s\S*$/, '') + ' …';
+    return '“' + shown + '”';
+  }
+
+  function contextWords(tokens, from, step, count) {
+    const words = [];
+    for (let i = from; i >= 0 && i < tokens.length && words.length < count; i += step) {
+      const t = tokens[i];
+      if (t === '\n') break;
+      if (!isSpace(t)) words.push(t);
+    }
+    if (step < 0) words.reverse();
+    return words.join(' ').replace(/ ([,.;:!?)\]}”’])/g, '$1').replace(/([(\[{“‘]) /g, '$1')
+      .replace(/^[,.;:!?)\]}”’]+\s*/, '').replace(/\s*[(\[{“‘]+$/, '');
+  }
+
+  /* ---------- Build changes ---------- */
+  function lineKey(line, opts) {
+    let k = line;
+    if (opts.space) k = k.replace(/[ \t ]+/g, ' ').trim();
+    if (opts.caseless) k = k.toLowerCase();
+    return k;
+  }
+  function tokenKey(t, opts) {
+    if (opts.space && isSpace(t)) return ' ';
+    return opts.caseless ? t.toLowerCase() : t;
+  }
+
+  function compare(oldText, newText, opts) {
+    oldText = oldText.replace(/\r\n?/g, '\n');
+    newText = newText.replace(/\r\n?/g, '\n');
+    const oldLines = oldText.split('\n');
+    const newLines = newText.split('\n');
+
+    // With "ignore blank lines", diff only the non-blank lines but keep real line numbers.
+    const pick = (lines) => {
+      const idx = [];
+      lines.forEach((l, i) => { if (!opts.blank || l.trim() !== '') idx.push(i); });
+      return idx;
+    };
+    const oldIdx = pick(oldLines), newIdx = pick(newLines);
+    const ops = diffKeys(oldIdx.map((i) => lineKey(oldLines[i], opts)), newIdx.map((i) => lineKey(newLines[i], opts)));
+
+    // For each hunk, find where it sits in the other text (to name a line number).
+    const result = [];
+    let lastA = -1, lastB = -1;
+    let run = null;
+    const flush = () => {
+      if (!run) return;
+      const del = run.del.map((i) => oldIdx[i]);
+      const ins = run.ins.map((i) => newIdx[i]);
+      const anchorNew = lastB + 1; // index in newIdx where the hunk would sit
+      const anchorNewLine = anchorNew < newIdx.length ? newIdx[anchorNew] : newLines.length;
+      buildHunk(result, oldLines, newLines, del, ins, anchorNewLine, opts);
+      run = null;
+    };
+    for (const op of ops) {
+      if (op.t === '=') { flush(); lastA = op.a; lastB = op.b; continue; }
+      if (!run) run = { del: [], ins: [] };
+      if (op.t === '-') run.del.push(op.a); else { run.ins.push(op.b); }
+    }
+    flush();
+    result.tooBig = ops.tooBig;
+    return result;
+  }
+
+  function buildHunk(out, oldLines, newLines, del, ins, anchorNewLine, opts) {
+    if (del.length && !ins.length) {
+      out.push({
+        kind: 'lines-removed', oldLine: del[0] + 1, line: anchorNewLine + 1,
+        oldLines: del.map((i) => oldLines[i]), newLines: [],
+        before: anchorNewLine > 0 ? newLines[anchorNewLine - 1] : null
+      });
+      return;
+    }
+    if (ins.length && !del.length) {
+      out.push({
+        kind: 'lines-added', line: ins[0] + 1, oldLine: null,
+        oldLines: [], newLines: ins.map((i) => newLines[i]),
+        before: ins[0] > 0 ? newLines[ins[0] - 1] : null
+      });
+      return;
+    }
+    // Replaced lines: pair up lines that resemble each other, so an edited line is not
+    // mixed up with a neighbouring line that was added or removed.
+    let nextNew = ins[0];
+    let pendDel = [], pendIns = [];
+    const flushPending = () => {
+      if (pendDel.length && pendIns.length) wordLevel(out, oldLines, newLines, pendDel, pendIns, opts);
+      else if (pendDel.length) buildHunk(out, oldLines, newLines, pendDel, [], nextNew, opts);
+      else if (pendIns.length) buildHunk(out, oldLines, newLines, [], pendIns, nextNew, opts);
+      pendDel = []; pendIns = [];
+    };
+    for (const seg of alignLines(del.map((i) => oldLines[i]), ins.map((i) => newLines[i]))) {
+      if (seg.t === '-') pendDel.push(del[seg.a]);
+      else if (seg.t === '+') { pendIns.push(ins[seg.b]); nextNew = ins[seg.b] + 1; }
+      else {
+        flushPending();
+        wordLevel(out, oldLines, newLines, [del[seg.a]], [ins[seg.b]], opts);
+        nextNew = ins[seg.b] + 1;
+      }
+    }
+    flushPending();
+  }
+
+  function wordSet(line) {
+    return (line.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []);
+  }
+  function similar(a, b) {
+    if (a.trim() === '' || b.trim() === '') return a.trim() === b.trim();
+    const wa = wordSet(a), wb = wordSet(b);
+    if (!wa.length || !wb.length) return a.replace(/\s+/g, '') === b.replace(/\s+/g, '');
+    const count = new Map();
+    wa.forEach((w) => count.set(w, (count.get(w) || 0) + 1));
+    let shared = 0;
+    wb.forEach((w) => { const c = count.get(w); if (c) { shared++; count.set(w, c - 1); } });
+    return (2 * shared) / (wa.length + wb.length) >= 0.5;
+  }
+
+  // Order-preserving matching of similar lines (longest common subsequence on similarity).
+  function alignLines(A, B) {
+    if (A.length * B.length > 40000) {
+      return A.map((_, a) => ({ t: '-', a })).concat(B.map((_, b) => ({ t: '+', b })));
+    }
+    const n = A.length, m = B.length;
+    const L = Array.from({ length: n + 1 }, () => new Int32Array(m + 1));
+    for (let i = n - 1; i >= 0; i--) {
+      for (let j = m - 1; j >= 0; j--) {
+        L[i][j] = similar(A[i], B[j]) ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+      }
+    }
+    const segs = [];
+    let i = 0, j = 0;
+    while (i < n && j < m) {
+      if (similar(A[i], B[j]) && L[i][j] === L[i + 1][j + 1] + 1) { segs.push({ t: '~', a: i, b: j }); i++; j++; }
+      else if (L[i + 1][j] >= L[i][j + 1]) segs.push({ t: '-', a: i++ });
+      else segs.push({ t: '+', b: j++ });
+    }
+    while (i < n) segs.push({ t: '-', a: i++ });
+    while (j < m) segs.push({ t: '+', b: j++ });
+    return segs;
+  }
+
+  function wordLevel(out, oldLines, newLines, del, ins, opts) {
+    const oldChunk = del.map((i) => oldLines[i]).join('\n');
+    const newChunk = ins.map((i) => newLines[i]).join('\n');
+    const aT = tokenize(oldChunk), bT = tokenize(newChunk);
+    const ops = diffKeys(aT.map((t) => tokenKey(t, opts)), bT.map((t) => tokenKey(t, opts)));
+
+    // Measure how much of the text survived, to decide between "edited" and "rewritten".
+    let sameWords = 0, oldWords = 0, newWords = 0;
+    aT.forEach((t) => { if (isWord(t)) oldWords++; });
+    bT.forEach((t) => { if (isWord(t)) newWords++; });
+    ops.forEach((op) => { if (op.t === '=' && isWord(aT[op.a])) sameWords++; });
+    const most = Math.max(oldWords, newWords);
+    const lineCountsDiffer = del.length !== ins.length;
+    if (ops.tooBig || (most > 4 && sameWords / most < 0.4) || (lineCountsDiffer && del.length + ins.length > 6 && sameWords / Math.max(most, 1) < 0.6)) {
+      out.push({
+        kind: 'rewritten', line: ins[0] + 1, oldLine: del[0] + 1,
+        oldLines: del.map((i) => oldLines[i]), newLines: ins.map((i) => newLines[i])
+      });
+      return;
+    }
+
+    // Walk the token ops, grouping edits. Whitespace-only gaps between two edits are merged in.
+    const edits = [];
+    let e = null;
+    let pendingGap = []; // equal ops (spaces only) between edits
+    const lineOfNew = (bi) => ins[0] + countNewlines(bT, bi);
+    const lineOfOld = (ai) => del[0] + countNewlines(aT, ai);
+
+    for (let i = 0; i < ops.length; i++) {
+      const op = ops[i];
+      if (op.t === '=') {
+        if (e) {
+          if (isSpace(aT[op.a]) && nextIsChange(ops, i)) { pendingGap.push(op); continue; }
+          edits.push(e); e = null; pendingGap = [];
+        }
+        continue;
+      }
+      if (!e) {
+        e = { oldTok: [], newTok: [], aStart: null, bStart: null, aEnd: null, bEnd: null };
+      } else if (pendingGap.length) {
+        for (const g of pendingGap) { e.oldTok.push(aT[g.a]); e.newTok.push(bT[g.b]); }
+        pendingGap = [];
+      }
+      if (op.t === '-') {
+        e.oldTok.push(aT[op.a]);
+        if (e.aStart === null) e.aStart = op.a;
+        e.aEnd = op.a;
+      } else {
+        e.newTok.push(bT[op.b]);
+        if (e.bStart === null) e.bStart = op.b;
+        e.bEnd = op.b;
+      }
+      // Remember which ops belong to this edit, for context lookup.
+      e.ops = e.ops || [];
+      e.ops.push(i);
+    }
+    if (e) edits.push(e);
+
+    for (const ed of edits) {
+      // Find the token positions just before and after this edit in the new text.
+      const firstOpIdx = ed.ops[0], lastOpIdx = ed.ops[ed.ops.length - 1];
+      let bBefore = -1, aBefore = -1;
+      for (let k = firstOpIdx - 1; k >= 0; k--) { const o = ops[k]; if (o.t === '=') { bBefore = o.b; aBefore = o.a; break; } }
+      let bAfter = bT.length, aAfter = aT.length;
+      for (let k = lastOpIdx + 1; k < ops.length; k++) { const o = ops[k]; if (o.t === '=') { bAfter = o.b; aAfter = o.a; break; } }
+
+      // Trim whitespace that is part of the edit on both sides equally (keeps descriptions short).
+      const oldText = ed.oldTok.join('');
+      const newText = ed.newTok.join('');
+      const line = ed.bStart !== null ? lineOfNew(ed.bStart) : lineOfNew(Math.max(bBefore, 0)) + (bBefore >= 0 && bT[bBefore] === '\n' ? 1 : 0);
+      const oldLine = ed.aStart !== null ? lineOfOld(ed.aStart) : null;
+
+      let before = bBefore >= 0 ? contextWords(bT, bBefore, -1, 3) : '';
+      let after = bAfter < bT.length ? contextWords(bT, bAfter, 1, 3) : '';
+
+      let kind;
+      if (!oldText) kind = 'added';
+      else if (!newText) kind = 'removed';
+      else if (oldText.toLowerCase() === newText.toLowerCase()) kind = 'case';
+      else if (oldText.replace(/\s+/g, '') === newText.replace(/\s+/g, '')) kind = 'spacing';
+      else kind = 'replaced';
+
+      out.push({ kind, line: line + 1, oldLine: oldLine === null ? null : oldLine + 1, oldText, newText, before, after,
+        lineText: newLines[line] !== undefined ? newLines[line] : '' });
+    }
+  }
+
+  function nextIsChange(ops, i) {
+    for (let k = i + 1; k < ops.length; k++) {
+      if (ops[k].t !== '=') return true;
+      return false;
+    }
+    return false;
+  }
+
+  function countNewlines(tokens, upto) {
+    let n = 0;
+    for (let i = 0; i < upto && i < tokens.length; i++) if (tokens[i] === '\n') n++;
+    return n;
+  }
+
+  /* ---------- Sentences ---------- */
+  function where(c) {
+    let s = 'line ' + c.line;
+    if (c.oldLine && c.oldLine !== c.line) s += ' (was line ' + c.oldLine + ')';
+    return s;
+  }
+
+  function linesSay(lines) {
+    if (lines.length === 1) return lines[0].trim() === '' ? 'a blank line' : say(lines[0]);
+    const nonBlank = lines.filter((l) => l.trim() !== '');
+    if (!nonBlank.length) return plural(lines.length, 'blank line');
+    return plural(lines.length, 'line') + ', starting ' + say(nonBlank[0], 80);
+  }
+
+  function sentence(c) {
+    const ctx = () => {
+      if (c.before) return ', after “' + c.before + '”';
+      if (c.after) return ', before “' + c.after + '”';
+      return ', at the start of the line';
+    };
+    switch (c.kind) {
+      case 'added': return cap(where(c)) + ': ' + say(c.newText) + ' added' + ctx() + '.';
+      case 'removed': return cap(where(c)) + ': ' + say(c.oldText) + ' removed' + ctx() + '.';
+      case 'replaced': return cap(where(c)) + ': ' + say(c.oldText) + ' replaced with ' + say(c.newText) + ctx() + '.';
+      case 'case': return cap(where(c)) + ': capitalization changed from ' + say(c.oldText) + ' to ' + say(c.newText) + ctx() + '.';
+      case 'spacing': return cap(where(c)) + ': spacing changed, ' + say(c.oldText) + ' became ' + say(c.newText) + ctx() + '.';
+      case 'lines-added': {
+        const n = c.newLines.length;
+        const span = n === 1 ? 'Line ' + c.line : 'Lines ' + c.line + ' to ' + (c.line + n - 1);
+        return span + ' added: ' + linesSay(c.newLines) + '.';
+      }
+      case 'lines-removed': {
+        const n = c.oldLines.length;
+        const span = n === 1 ? 'Original line ' + c.oldLine : 'Original lines ' + c.oldLine + ' to ' + (c.oldLine + n - 1);
+        const place = c.before === null ? ' at the very start' : (c.before.trim() === '' ? ' after a blank line' : ' after ' + say(c.before, 60));
+        return span + ' removed' + place + ': ' + linesSay(c.oldLines) + '.';
+      }
+      case 'rewritten': {
+        const n = c.newLines.length;
+        const span = n === 1 ? 'Line ' + c.line : 'Lines ' + c.line + ' to ' + (c.line + n - 1);
+        return span + ' rewritten. Was: ' + say(c.oldLines.join('\n'), 220) + '. Now: ' + say(c.newLines.join('\n'), 220) + '.';
+      }
+    }
+    return '';
+  }
+
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  const KIND_LABEL = {
+    added: 'added', 'lines-added': 'added', removed: 'removed', 'lines-removed': 'removed',
+    replaced: 'replaced', rewritten: 'replaced', case: 'capitalization', spacing: 'spacing'
+  };
+
+  /* ---------- Rendering ---------- */
+  function el(tag, attrs, children) {
+    const n = document.createElement(tag);
+    if (attrs) for (const k in attrs) {
+      if (k === 'text') n.textContent = attrs[k];
+      else if (k === 'class') n.className = attrs[k];
+      else n.setAttribute(k, attrs[k]);
+    }
+    (children || []).forEach((c) => n.append(c));
+    return n;
+  }
+
+  function marked(kind, text) {
+    // Text labels make the marks perceivable without colour or strike-through support.
+    const tag = kind === 'del' ? 'del' : 'ins';
+    const label = kind === 'del' ? 'removed: ' : 'added: ';
+    return el(tag, null, [el('span', { class: 'visually-hidden', text: '[' + label }), text,
+      el('span', { class: 'visually-hidden', text: ']' })]);
+  }
+
+  function snippet(c) {
+    const box = el('div', { class: 'snippet' });
+    if (c.kind === 'lines-added') {
+      box.append(marked('ins', c.newLines.join('\n') || ' '));
+    } else if (c.kind === 'lines-removed') {
+      box.append(marked('del', c.oldLines.join('\n') || ' '));
+    } else if (c.kind === 'rewritten') {
+      box.append(marked('del', c.oldLines.join('\n')), '\n', marked('ins', c.newLines.join('\n')));
+    } else {
+      if (c.before) box.append(el('span', { class: 'ctx', text: '… ' + c.before + ' ' }));
+      if (c.oldText) box.append(marked('del', visibleSpace(c.oldText)));
+      if (c.newText) box.append(marked('ins', visibleSpace(c.newText)));
+      if (c.after) box.append(el('span', { class: 'ctx', text: ' ' + c.after + ' …' }));
+    }
+    return box;
+  }
+
+  function visibleSpace(t) {
+    return /^\s+$/.test(t) ? t.replace(/\n/g, '↵').replace(/\t/g, '→').replace(/ /g, '·') : t;
+  }
+
+  function render(result, opts) {
+    changes = result;
+    current = -1;
+    changesList.textContent = '';
+
+    const counts = {};
+    result.forEach((c) => { const k = KIND_LABEL[c.kind]; counts[k] = (counts[k] || 0) + 1; });
+    const parts = ['replaced', 'added', 'removed', 'capitalization', 'spacing']
+      .filter((k) => counts[k])
+      .map((k) => counts[k] + ' ' + k);
+
+    const ignored = [];
+    if (opts.caseless) ignored.push('capitalization');
+    if (opts.space) ignored.push('extra spaces');
+    if (opts.blank) ignored.push('blank lines');
+    const ignoreNote = ignored.length ? ' Ignoring ' + ignored.join(', ') + '.' : '';
+
+    if (!result.length) {
+      resultsHeading.textContent = 'Results: no differences';
+      summaryEl.textContent = 'The two texts are the same.' + ignoreNote;
+      $('nav').hidden = true; $('keys').hidden = true;
+      reportText = 'Spoken Diff report\nNo differences.' + ignoreNote + '\n';
+    } else {
+      resultsHeading.textContent = 'Results: ' + plural(result.length, 'change');
+      summaryEl.textContent = (parts.length ? cap(parts.join(', ')) + '.' : '') + ignoreNote +
+        (result.tooBig ? ' The texts are very different, so some parts are reported as whole blocks.' : '') +
+        ' Use Next change to step through them.';
+      $('nav').hidden = false; $('keys').hidden = false;
+      const lines = ['Spoken Diff report', summaryEl.textContent.replace(' Use Next change to step through them.', ''), ''];
+      result.forEach((c, i) => {
+        c.text = sentence(c);
+        const h = el('h3', { tabindex: '-1', id: 'change-' + (i + 1), text: 'Change ' + (i + 1) + ' of ' + result.length + '. ' + c.text });
+        const li = el('li', { class: 'change', 'data-kind': c.kind }, [h, snippet(c)]);
+        li.addEventListener('click', (ev) => { if (!ev.target.closest('button')) setCurrent(i, false); });
+        changesList.append(li);
+        lines.push((i + 1) + '. ' + c.text);
+      });
+      reportText = lines.join('\n') + '\n';
+    }
+    updateNav();
+    resultsHeading.focus();
+  }
+
+  function updateNav() {
+    $('prev').disabled = current <= 0;
+    $('next').disabled = current >= changes.length - 1;
+    $('repeat').disabled = current < 0;
+  }
+
+  function setCurrent(i, focus) {
+    if (!changes.length) return;
+    if (i < 0) { announce('This is the first change.'); return; }
+    if (i >= changes.length) { announce('That was the last change.'); return; }
+    const items = changesList.children;
+    if (items[current]) items[current].classList.remove('current');
+    current = i;
+    items[i].classList.add('current');
+    if (focus !== false) {
+      const h = items[i].querySelector('h3');
+      h.focus();
+      h.scrollIntoView({ block: 'nearest' });
+    }
+    updateNav();
+    playTone(changes[i].kind);
+    speak('Change ' + (i + 1) + ' of ' + changes.length + '. ' + changes[i].text);
+  }
+
+  function announce(msg) {
+    statusEl.textContent = '';
+    setTimeout(() => { statusEl.textContent = msg; }, 50);
+  }
+
+  /* ---------- Tones ---------- */
+  let audio = null;
+  function playTone(kind) {
+    if (!$('opt-tones').checked) return;
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state === 'suspended') audio.resume();
+      const k = KIND_LABEL[kind];
+      const notes = k === 'added' ? [523, 784] : k === 'removed' ? [784, 523] : k === 'replaced' ? [659, 659] : [440];
+      notes.forEach((f, idx) => {
+        const t0 = audio.currentTime + idx * 0.09;
+        const o = audio.createOscillator(), g = audio.createGain();
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(0.18, t0 + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.08);
+        o.connect(g).connect(audio.destination);
+        o.start(t0); o.stop(t0 + 0.09);
+      });
+    } catch (e) { /* audio not available */ }
+  }
+
+  /* ---------- Built-in voice ---------- */
+  const synth = window.speechSynthesis;
+  function loadVoices() {
+    if (!synth) return;
+    const sel = $('voice');
+    const saved = store.get('voice') || sel.value;
+    const voices = synth.getVoices();
+    sel.textContent = '';
+    sel.append(el('option', { value: '', text: 'System default' }));
+    voices.forEach((v) => sel.append(el('option', { value: v.voiceURI, text: v.name + ' (' + v.lang + ')' + (v.localService ? '' : ', online') })));
+    sel.value = voices.some((v) => v.voiceURI === saved) ? saved : '';
+  }
+  function speak(text) {
+    if (!synth || !$('opt-voice').checked) return;
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    const v = synth.getVoices().find((x) => x.voiceURI === $('voice').value);
+    if (v) { u.voice = v; u.lang = v.lang; }
+    u.rate = parseFloat($('rate').value) || 1;
+    synth.speak(u);
+  }
+  if (synth) {
+    loadVoices();
+    synth.addEventListener ? synth.addEventListener('voiceschanged', loadVoices) : (synth.onvoiceschanged = loadVoices);
+  } else {
+    $('opt-voice').disabled = true;
+    $('opt-voice').parentElement.append(' (not supported in this browser)');
+  }
+
+  /* ---------- Wiring ---------- */
+  function options() {
+    return { caseless: $('opt-case').checked, space: $('opt-space').checked, blank: $('opt-blank').checked };
+  }
+
+  function run() {
+    const opts = options();
+    let result;
+    try {
+      result = compare(oldBox.value, newBox.value, opts);
+    } catch (err) {
+      summaryEl.textContent = 'Something went wrong while comparing: ' + err.message;
+      resultsHeading.focus();
+      return;
+    }
+    render(result, opts);
+    if (result.length) {
+      speak(resultsHeading.textContent + '. ' + summaryEl.textContent);
+    }
+  }
+
+  $('form').addEventListener('submit', (e) => { e.preventDefault(); run(); });
+  $('next').addEventListener('click', () => setCurrent(current + 1));
+  $('prev').addEventListener('click', () => setCurrent(current - 1));
+  $('repeat').addEventListener('click', () => setCurrent(current));
+  $('swap').addEventListener('click', () => {
+    const t = oldBox.value; oldBox.value = newBox.value; newBox.value = t; save();
+    announce('Texts swapped. The revised text is now the original.');
+  });
+  $('clear').addEventListener('click', () => {
+    oldBox.value = ''; newBox.value = ''; save(); oldBox.focus();
+    announce('Both texts cleared.');
+  });
+  $('sample').addEventListener('click', () => {
+    oldBox.value = 'Team meeting notes\n\nThe meeting is on Tuesday at 3 pm in room 12.\nPlease bring the budget report.\nLunch will be provided.\n\nContact: Sam Lee, extension 204.';
+    newBox.value = 'Team meeting notes\n\nThe meeting is on Wednesday at 3 pm in room 12.\nPlease bring the final budget report, and your laptop.\n\nParking is free after 2 pm\nContact: sam lee, extension 204';
+    save();
+    announce('Example texts loaded. Press Compare.');
+    $('compare').focus();
+  });
+
+  function readFile(input, box, which) {
+    input.addEventListener('change', () => {
+      const f = input.files && input.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = () => { box.value = String(r.result); save(); announce(cap(which) + ' loaded from ' + f.name + ', ' + plural(box.value.split(/\r\n?|\n/).length, 'line') + '.'); };
+      r.onerror = () => announce('Could not read ' + f.name + '.');
+      r.readAsText(f);
+    });
+  }
+  readFile($('old-file'), oldBox, 'original');
+  readFile($('new-file'), newBox, 'revision');
+
+  $('copy').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(reportText);
+      announce('Report copied.');
+    } catch (e) {
+      const ta = el('textarea'); ta.value = reportText; document.body.append(ta); ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e2) { /* ignore */ }
+      ta.remove();
+      $('copy').focus();
+      announce(ok ? 'Report copied.' : 'Copying is blocked here. Use Save report as text file instead.');
+    }
+  });
+  $('download').addEventListener('click', () => {
+    const url = URL.createObjectURL(new Blob([reportText], { type: 'text/plain' }));
+    const a = el('a', { href: url, download: 'spoken-diff-report.txt' });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    announce('Report saved as spoken-diff-report.txt.');
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (!changes.length) return;
+    const next = (e.key === 'F8' && !e.shiftKey) || (e.altKey && !e.ctrlKey && !e.metaKey && e.code === 'KeyJ');
+    const prev = (e.key === 'F8' && e.shiftKey) || (e.altKey && !e.ctrlKey && !e.metaKey && e.code === 'KeyK');
+    if (next) { e.preventDefault(); setCurrent(current + 1); }
+    else if (prev) { e.preventDefault(); setCurrent(current < 0 ? 0 : current - 1); }
+  });
+
+  function save() { store.set('old', oldBox.value); store.set('new', newBox.value); }
+  let saveTimer;
+  [oldBox, newBox].forEach((b) => b.addEventListener('input', () => { clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); }));
+  ['opt-case', 'opt-space', 'opt-blank', 'opt-tones', 'opt-voice'].forEach((id) => {
+    const saved = store.get(id);
+    if (saved !== null) $(id).checked = saved === '1';
+    $(id).addEventListener('change', () => store.set(id, $(id).checked ? '1' : '0'));
+  });
+  $('voice').addEventListener('change', () => store.set('voice', $('voice').value));
+  $('rate').addEventListener('input', () => { $('rate').setAttribute('aria-valuetext', $('rate').value + ' times'); store.set('rate', $('rate').value); });
+  const savedRate = store.get('rate');
+  if (savedRate) { $('rate').value = savedRate; $('rate').setAttribute('aria-valuetext', savedRate + ' times'); }
+  oldBox.value = store.get('old') || '';
+  newBox.value = store.get('new') || '';
+
+  // Exposed for testing.
+  window.SpokenDiff = { compare: (a, b, o) => compare(a, b, o || {}).map((c) => sentence(c)) };
+})();
+</script>
+</body>
+</html>
