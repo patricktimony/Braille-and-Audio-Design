@@ -1,0 +1,327 @@
+From demo@example.com Thu Jan  1 00:00:00 2026
+From: Apple (demo) <no_reply@apple.example>
+To: Demo User <demo.user@example.com>
+Subject: Your receipt from Apple (demo)
+Date: Wed, 05 Aug 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Receipt
+Apple Account: demo.user@example.com
+Date: Aug 5, 2026
+Order ID: MX7Q2L9K08
+
+iCloud+ with 50 GB (Monthly)  $2.99
+
+Subtotal $2.99
+Total $2.99
+Billed to: Visa Debit ending 4417
+
+This is a fictional demonstration receipt.
+
+From demo@example.com Thu Jan  1 00:00:00 2026
+From: Apple (demo) <no_reply@apple.example>
+To: Demo User <demo.user@example.com>
+Subject: Your receipt from Apple (demo)
+Date: Wed, 12 Aug 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Receipt
+Apple Account: demo.user@example.com
+Date: Aug 12, 2026
+Order ID: MT4R8N2P18
+
+Apple Music Individual (Monthly)  $10.99
+
+Subtotal $10.99
+Total $10.99
+Billed to: Visa Debit ending 4417
+
+This is a fictional demonstration receipt.
+
+From demo@example.com Thu Jan  1 00:00:00 2026
+From: Apple (demo) <no_reply@apple.example>
+To: Demo User <demo.user@example.com>
+Subject: Your receipt from Apple (demo)
+Date: Sat, 05 Sep 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Receipt
+Apple Account: demo.user@example.com
+Date: Sep 5, 2026
+Order ID: MX7Q2L9K09
+
+iCloud+ with 50 GB (Monthly)  $2.99
+
+Subtotal $2.99
+Total $2.99
+Billed to: Visa Debit ending 4417
+
+This is a fictional demonstration receipt.
+
+From demo@example.com Thu Jan  1 00:00:00 2026
+From: Apple (demo) <no_reply@apple.example>
+To: Demo User <demo.user@example.com>
+Subject: Your receipt from Apple (demo)
+Date: Sat, 12 Sep 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Receipt
+Apple Account: demo.user@example.com
+Date: Sep 12, 2026
+Order ID: MT4R8N2P19
+
+Apple Music Individual (Monthly)  $10.99
+
+Subtotal $10.99
+Total $10.99
+Billed to: Visa Debit ending 4417
+
+This is a fictional demonstration receipt.
+
+From demo@example.com Thu Jan  1 00:00:00 2026
+From: Apple (demo) <no_reply@apple.example>
+To: Demo User <demo.user@example.com>
+Subject: Your receipt from Apple (demo)
+Date: Mon, 05 Oct 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Receipt
+Apple Account: demo.user@example.com
+Date: Oct 5, 2026
+Order ID: MX7Q2L9K010
+
+iCloud+ with 50 GB (Monthly)  $2.99
+
+Subtotal $2.99
+Total $2.99
+Billed to: Visa Debit ending 4417
+
+This is a fictional demonstration receipt.
+
+From demo@example.com Thu Jan  1 00:00:00 2026
+From: Apple (demo) <no_reply@apple.example>
+To: Demo User <demo.user@example.com>
+Subject: Your receipt from Apple (demo)
+Date: Mon, 12 Oct 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Receipt
+Apple Account: demo.user@example.com
+Date: Oct 12, 2026
+Order ID: MT4R8N2P110
+
+Apple Music Individual (Monthly)  $10.99
+
+Subtotal $10.99
+Total $10.99
+Billed to: Visa Debit ending 4417
+
+This is a fictional demonstration receipt.
+
+From demo@example.com Thu Jan  1 00:00:00 2026
+From: Apple (demo) <no_reply@apple.example>
+To: Demo User <demo.user@example.com>
+Subject: Your receipt from Apple (demo)
+Date: Thu, 10 Sep 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Receipt
+Apple Account: demo.user@example.com
+Date: Sep 10, 2026
+Order ID: MW2H6J9D33
+
+PhotoStudio Pro - Annual subscription (renews Sep 10, 2027)  $147.99
+
+Subtotal $147.99
+Total $147.99
+Billed to: Visa Debit ending 4417
+
+This is a fictional demonstration receipt.
+
+From demo@example.com Thu Jan  1 00:00:00 2026
+From: Amazon (demo) <orders@amazon.example>
+To: Demo User <demo.user@example.com>
+Subject: Your order 112-4471029-7731 has shipped
+Date: Sun, 09 Aug 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Hello Demo User,
+
+Order number: 112-4471029-7731
+Item: USB-C charging cable, 2-pack
+Quantity: 1
+
+Order Total: $34.18
+Payment: Visa Debit ending 4417
+
+This is a fictional demonstration email.
+
+From demo@example.com Thu Jan  1 00:00:00 2026
+From: Amazon (demo) <orders@amazon.example>
+To: Demo User <demo.user@example.com>
+Subject: Your order 112-9930217-4410 has shipped
+Date: Thu, 27 Aug 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Hello Demo User,
+
+Order number: 112-9930217-4410
+Item: Paperback: Container Gardening
+Quantity: 1
+
+Order Total: $21.56
+Payment: Visa Debit ending 4417
+
+This is a fictional demonstration email.
+
+From demo@example.com Thu Jan  1 00:00:00 2026
+From: Amazon (demo) <orders@amazon.example>
+To: Demo User <demo.user@example.com>
+Subject: Your order 112-6604381-2209 has shipped
+Date: Tue, 22 Sep 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Hello Demo User,
+
+Order number: 112-6604381-2209
+Item: Wireless keyboard
+Quantity: 1
+
+Order Total: $64.27
+Payment: Visa Debit ending 4417
+
+This is a fictional demonstration email.
+
+From demo@example.com Thu Jan  1 00:00:00 2026
+From: Amazon (demo) <orders@amazon.example>
+To: Demo User <demo.user@example.com>
+Subject: Your order 112-3378106-5523 has shipped
+Date: Wed, 14 Oct 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Hello Demo User,
+
+Order number: 112-3378106-5523
+Item: Kitchen scale
+Quantity: 1
+
+Order Total: $42.90
+Payment: Visa Debit ending 4417
+
+This is a fictional demonstration email.
+
+From demo@example.com Thu Jan  1 00:00:00 2026
+From: Northwind Electronics (demo) <receipts@northwind.example>
+To: Demo User <demo.user@example.com>
+Subject: Thanks for your purchase
+Date: Thu, 20 Aug 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Receipt number: NW-88213
+Portable Bluetooth speaker  $129.00
+Total: $129.00
+Paid with debit card ending 4417
+
+From demo@example.com Thu Jan  1 00:00:00 2026
+From: FitLife Gym (demo) <billing@fitlifegym.example>
+To: Demo User <demo.user@example.com>
+Subject: FitLife membership receipt
+Date: Sat, 01 Aug 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Monthly membership dues
+Amount charged: $39.99
+Card: Demo Rewards Card ending 9902
+
+From demo@example.com Thu Jan  1 00:00:00 2026
+From: Streamflix (demo) <billing@streamflix.example>
+To: Demo User <demo.user@example.com>
+Subject: Your Streamflix receipt
+Date: Sat, 15 Aug 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Plan: Standard
+Total charged: $15.49
+Card: Demo Rewards Card ending 9902
+
+From demo@example.com Thu Jan  1 00:00:00 2026
+From: Streamflix (demo) <billing@streamflix.example>
+To: Demo User <demo.user@example.com>
+Subject: Your Streamflix receipt
+Date: Tue, 15 Sep 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Plan: Standard
+Total charged: $15.49
+Card: Demo Rewards Card ending 9902
+
+From demo@example.com Thu Jan  1 00:00:00 2026
+From: Streamflix (demo) <billing@streamflix.example>
+To: Demo User <demo.user@example.com>
+Subject: Your Streamflix receipt
+Date: Thu, 15 Oct 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Plan: Standard
+Total charged: $22.99
+Card: Demo Rewards Card ending 9902
+
+From demo@example.com Thu Jan  1 00:00:00 2026
+From: Blue Heron Cafe (demo) <receipts@blueheron.example>
+To: Demo User <demo.user@example.com>
+Subject: Receipt from Blue Heron Cafe
+Date: Wed, 09 Sep 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+1 Oat latte  $6.25
+1 Scone  $1.55
+Total: $7.80
+
+From demo@example.com Thu Jan  1 00:00:00 2026
+From: Page Turner Books (demo) <orders@pageturner.example>
+To: Demo User <demo.user@example.com>
+Subject: Order confirmed
+Date: Fri, 30 Oct 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Order number: PT-50917
+2 books
+Order Total: $36.20
+Your card will be charged when your order ships.
+

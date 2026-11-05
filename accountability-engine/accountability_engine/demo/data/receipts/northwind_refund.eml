@@ -1,0 +1,12 @@
+From: Northwind Electronics (demo) <returns@northwind.example>
+To: Demo User <demo.user@example.com>
+Subject: Your return has been received - refund on the way
+Date: Wed, 02 Sep 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+We've received your return for receipt number NW-88213.
+Refund amount: $129.00
+The refund will be issued to your original payment method within 5-7 business=
+ days.

@@ -1,0 +1,14 @@
+From: Harbor Hardware (demo) <receipts@harborhardware.example>
+To: Demo User <demo.user@example.com>
+Subject: Your Harbor Hardware receipt
+Date: Thu, 08 Oct 2026 09:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Store #0412
+Deck screws (box)  $18.97
+Wood stain, 1 qt  $24.98
+Paint brushes  $13.17
+Total: $57.12
+Debit card ending 4417
