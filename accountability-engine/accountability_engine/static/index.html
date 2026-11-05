@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overview — The Accountability Engine</title>
+<link rel="stylesheet" href="/static/styles.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to main content</a>
+
+<header class="site-header">
+  <p class="brand"><span aria-hidden="true">⚖</span> The Accountability Engine</p>
+  <p class="privacy" id="privacy-badge">Local-only mode: your data stays on this computer.</p>
+  <nav aria-label="Main">
+    <ul class="nav-list">
+      <li><a href="#overview" data-view="overview">Overview</a></li>
+      <li><a href="#import" data-view="import">Import</a></li>
+      <li><a href="#transactions" data-view="transactions">Transactions</a></li>
+      <li><a href="#findings" data-view="findings">Findings</a></li>
+      <li><a href="#ask" data-view="ask">Ask</a></li>
+      <li><a href="#investigation" data-view="investigation">Investigation</a></li>
+      <li><a href="#reports" data-view="reports">Reports</a></li>
+      <li><a href="#settings" data-view="settings">Privacy and settings</a></li>
+      <li><a href="#help" data-view="help">Help</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="status-bar" role="status" aria-live="polite" aria-atomic="true" id="status"></div>
+
+<main id="main" tabindex="-1">
+
+<section id="view-overview" data-view-section="overview" aria-labelledby="h-overview">
+  <h1 id="h-overview" tabindex="-1">Overview</h1>
+  <p>The Accountability Engine helps you investigate unexplained transactions, spot patterns of
+  questionable billing, and gather evidence for a dispute. It separates what your records
+  <strong>prove</strong> from what is only <strong>possible</strong> and what is still
+  <strong>unknown</strong>.</p>
+  <ul class="promises">
+    <li>Everything runs on this computer. Nothing is sent anywhere unless you turn on external AI
+    and give consent in <a href="#settings">Privacy and settings</a>.</li>
+    <li>The app never contacts banks, merchants or regulators, and never starts a dispute. It only
+    drafts letters for you to review.</li>
+    <li>It never calls a charge theft or fraud. A finding is a question worth checking.</li>
+  </ul>
+  <h2>Your data</h2>
+  <dl class="counts" id="counts">
+    <div><dt>Transactions</dt><dd id="count-transactions">0</dd></div>
+    <div><dt>Receipts and emails</dt><dd id="count-receipts">0</dd></div>
+    <div><dt>Findings</dt><dd id="count-findings">0</dd></div>
+  </dl>
+  <h2>Try the demonstration</h2>
+  <p>The demonstration has 100 fictional transactions from a CSV file, a PDF statement and a
+  screenshot, plus email receipts. Several billing problems are planted in it.</p>
+  <div class="button-row">
+    <button type="button" id="load-demo">Load demonstration data</button>
+    <button type="button" id="ask-example">Investigate the $295.98 Apple charge</button>
+  </div>
+  <h2>Start over</h2>
+  <p>Deleting removes every imported file, finding and investigation from this computer.</p>
+  <button type="button" id="delete-data" class="danger">Delete all imported data…</button>
+</section>
+
+<section id="view-import" data-view-section="import" aria-labelledby="h-import" hidden>
+  <h1 id="h-import" tabindex="-1">Import</h1>
+  <p>Files are read on this computer. Importing the same file twice adds nothing.</p>
+  <form id="statement-form" class="card">
+    <h2>Bank or card statements</h2>
+    <p id="statement-hint">CSV exports, text-based PDF statements, or screenshots of transactions
+    (PNG or JPEG, read with local OCR).</p>
+    <div class="field">
+      <label for="statement-files">Statement files</label>
+      <input type="file" id="statement-files" name="files" multiple required
+             accept=".csv,.pdf,.png,.jpg,.jpeg,.gif,.bmp,.tif,.tiff,.webp"
+             aria-describedby="statement-hint">
+    </div>
+    <div class="field">
+      <label for="account-name">Account name</label>
+      <input type="text" id="account-name" name="account_name" autocomplete="off"
+             aria-describedby="account-name-hint">
+      <p class="hint" id="account-name-hint">For example “Everyday checking”. Remembered for next time.</p>
+    </div>
+    <div class="field">
+      <label for="account-type">Account type</label>
+      <select id="account-type" name="account_type">
+        <option value="checking">Checking account or debit card</option>
+        <option value="savings">Savings account</option>
+        <option value="credit_card">Credit card</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="statement-year">Statement year (optional)</label>
+      <input type="text" id="statement-year" name="year" inputmode="numeric" pattern="[0-9]{4}"
+             maxlength="4" aria-describedby="year-hint">
+      <p class="hint" id="year-hint">Only needed when dates on the statement have no year.</p>
+    </div>
+    <button type="submit">Import statements</button>
+  </form>
+  <form id="receipt-form" class="card">
+    <h2>Receipts from email</h2>
+    <p id="receipt-hint">Export messages from your mail program as .eml or .mbox files (or save a
+    receipt as .txt or .html). No email account access is needed.</p>
+    <div class="field">
+      <label for="receipt-files">Receipt files</label>
+      <input type="file" id="receipt-files" name="files" multiple required
+             accept=".eml,.mbox,.mbx,.txt,.html,.htm" aria-describedby="receipt-hint">
+    </div>
+    <button type="submit">Import receipts</button>
+  </form>
+  <h2>Import results</h2>
+  <ul id="import-results" class="plain-list"><li>Nothing imported in this session yet.</li></ul>
+</section>
+
+<section id="view-transactions" data-view-section="transactions" aria-labelledby="h-transactions" hidden>
+  <h1 id="h-transactions" tabindex="-1">Transactions</h1>
+  <div class="field inline">
+    <label for="tx-filter">Filter by description, amount or date</label>
+    <input type="search" id="tx-filter" aria-controls="tx-table" aria-describedby="tx-filter-count">
+  </div>
+  <p id="tx-filter-count" class="hint"></p>
+  <div class="table-wrap" role="region" aria-labelledby="tx-caption" tabindex="0">
+    <table id="tx-table">
+      <caption id="tx-caption">Imported transactions</caption>
+      <thead><tr>
+        <th scope="col">Date</th><th scope="col">Original description</th>
+        <th scope="col">Amount</th><th scope="col">Account</th><th scope="col">Receipt</th>
+        <th scope="col">Findings</th><th scope="col">Action</th>
+      </tr></thead>
+      <tbody id="tx-body"></tbody>
+    </table>
+  </div>
+</section>
+
+<section id="view-findings" data-view-section="findings" aria-labelledby="h-findings" hidden>
+  <h1 id="h-findings" tabindex="-1">Findings</h1>
+  <p>Each finding is shown with the transactions and evidence it is based on. Levels:
+  <strong>Review</strong> — a likely billing error worth acting on;
+  <strong>Notice</strong> — unusual, worth a look; <strong>Info</strong> — context.</p>
+  <div class="field inline">
+    <label for="finding-level">Show</label>
+    <select id="finding-level">
+      <option value="attention">Review and Notice</option>
+      <option value="all">All findings, including Info</option>
+      <option value="review">Review only</option>
+    </select>
+  </div>
+  <p id="findings-count" class="hint"></p>
+  <div id="findings-list"></div>
+</section>
+
+<section id="view-ask" data-view-section="ask" aria-labelledby="h-ask" hidden>
+  <h1 id="h-ask" tabindex="-1">Ask</h1>
+  <p>Ask about a charge in your own words. Answers come only from your imported files.</p>
+  <div class="button-row" aria-label="Example questions" role="group">
+    <button type="button" class="suggestion">What was this $295.98 Apple charge?</button>
+    <button type="button" class="suggestion">Show possible duplicate charges</button>
+    <button type="button" class="suggestion">Which subscriptions do I have?</button>
+    <button type="button" class="suggestion">Was I charged after cancelling anything?</button>
+  </div>
+  <h2 id="chat-heading">Conversation</h2>
+  <div role="log" aria-labelledby="chat-heading" id="chat-region">
+    <ol id="chat-log" class="chat-log"></ol>
+  </div>
+  <form id="chat-form" class="chat-form">
+    <label for="chat-input">Your question</label>
+    <div class="chat-row">
+      <input type="text" id="chat-input" autocomplete="off" required>
+      <button type="submit">Ask</button>
+    </div>
+  </form>
+</section>
+
+<section id="view-investigation" data-view-section="investigation" aria-labelledby="h-investigation" hidden>
+  <h1 id="h-investigation" tabindex="-1">Investigation</h1>
+  <div id="investigation-body">
+    <p>No investigation yet. Choose <strong>Investigate</strong> next to a transaction, or ask a
+    question on the <a href="#ask">Ask</a> page.</p>
+  </div>
+</section>
+
+<section id="view-reports" data-view-section="reports" aria-labelledby="h-reports" hidden>
+  <h1 id="h-reports" tabindex="-1">Reports</h1>
+  <p>Reports open in this tab. Use your browser's Back command to return. Plain-text versions
+  work well with any screen reader or braille display, and can be saved or printed.</p>
+  <h2>All findings</h2>
+  <ul class="plain-list">
+    <li><a href="/api/reports/findings.html">Findings report (HTML)</a></li>
+    <li><a href="/api/reports/findings.txt">Findings report (plain text)</a></li>
+  </ul>
+  <h2>Investigations from this session</h2>
+  <ul id="investigation-reports" class="plain-list"><li>None yet.</li></ul>
+</section>
+
+<section id="view-settings" data-view-section="settings" aria-labelledby="h-settings" hidden>
+  <h1 id="h-settings" tabindex="-1">Privacy and settings</h1>
+  <form id="mode-form" class="card">
+    <fieldset>
+      <legend>Analysis mode</legend>
+      <div class="radio">
+        <input type="radio" name="mode" id="mode-local" value="local" checked>
+        <label for="mode-local">Local only (recommended). All analysis runs on this computer.</label>
+      </div>
+      <div class="radio">
+        <input type="radio" name="mode" id="mode-external" value="external" aria-describedby="external-hint">
+        <label for="mode-external">Local analysis, plus an external AI service to word the summary.</label>
+      </div>
+      <p class="hint" id="external-hint">Needs your consent below and an API key set on this
+      computer. Only a redacted copy of already-verified statements is sent — never your files.
+      Card numbers, email addresses and account names are removed first.</p>
+    </fieldset>
+    <button type="submit">Save analysis mode</button>
+  </form>
+  <form id="consent-form" class="card">
+    <h2>Consent for external AI</h2>
+    <p id="consent-state">Consent has not been given.</p>
+    <div class="checkbox">
+      <input type="checkbox" id="consent-check">
+      <label for="consent-check" id="consent-text">I understand that turning this on sends a
+      redacted copy of verified investigation statements to an external AI service.</label>
+    </div>
+    <div class="button-row">
+      <button type="submit">Give consent</button>
+      <button type="button" id="withdraw-consent">Withdraw consent</button>
+    </div>
+  </form>
+  <h2>Activity log</h2>
+  <p>Every import, analysis, investigation, consent change and approval is recorded here.</p>
+  <button type="button" id="load-audit">Show activity log</button>
+  <div id="audit-wrap"></div>
+</section>
+
+<section id="view-help" data-view-section="help" aria-labelledby="h-help" hidden>
+  <h1 id="h-help" tabindex="-1">Help</h1>
+  <h2>Moving around</h2>
+  <ul>
+    <li>Use Tab and Shift+Tab to move between links, buttons and fields. Every control works with
+    Enter or Space.</li>
+    <li>The main navigation is a list of links near the top. After you choose one, focus moves to
+    that page's heading.</li>
+    <li>Screen reader users can jump by heading (H in NVDA and JAWS, or the VoiceOver rotor).
+    Findings and investigation sections each start with a heading.</li>
+    <li>Status messages, such as “Import finished”, are announced automatically.</li>
+    <li>There are no single-key shortcuts, so nothing triggers by accident.</li>
+  </ul>
+  <h2>What the words mean</h2>
+  <dl>
+    <dt>Verified fact</dt><dd>Backed by an imported record or arithmetic on imported records.</dd>
+    <dt>Interpretation</dt><dd>A reading of text, such as what a prefix in a description usually means.</dd>
+    <dt>Hypothesis</dt><dd>A possible explanation. Not confirmed. Each one says how to check it.</dd>
+    <dt>Unknown</dt><dd>Something the records cannot answer, and where you might find the answer.</dd>
+  </dl>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <p>The Accountability Engine is open-source prototype software. It is not legal or financial
+  advice. <a href="#help">Help</a></p>
+</footer>
+</body>
+</html>

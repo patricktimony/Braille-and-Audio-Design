@@ -1,0 +1,8 @@
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9
+pdfplumber>=0.11
+pillow>=10
+httpx>=0.27
+# Optional: screenshot reading. Also needs the free Tesseract program installed.
+pytesseract>=0.3.10

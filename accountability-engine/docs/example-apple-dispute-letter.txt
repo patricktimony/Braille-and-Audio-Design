@@ -1,0 +1,44 @@
+DRAFT — NOT SENT. The Accountability Engine never sends letters or contacts anyone. Check every line, choose the statements that are true, and send it yourself only if you decide to.
+
+[Your full name]
+[Your street address]
+[City, state, ZIP]
+[Date — today is 2026-11-05]
+
+[Name of your bank or card issuer]
+[The billing-error or error-resolution address printed on your statement — not the payment address]
+
+Re: Notice of billing error — account ending [last four digits only]
+
+To whom it may concern:
+
+I am writing to report a possible error on my Demo Checking account concerning this transaction:
+
+  Date: 2026-09-18
+  Amount: $295.98
+  Description on my statement: PP*APPLE.COM/BILL402-935-7733 CA 8231
+
+Reason (keep only the statements that are true, and delete the rest):
+  [ ] I do not recognize this charge and did not authorize it.
+  [ ] I was charged twice for what I believe was a single purchase.
+  [ ] I was charged after my cancellation took effect.
+  [ ] The amount charged is different from my receipt.
+  [ ] A promised refund has not been credited.
+
+What my records show:
+  - Demo Checking shows a charge of $295.98 dated 2026-09-18.
+  - The original description reads exactly: “PP*APPLE.COM/BILL402-935-7733 CA 8231”.
+  - None of the 21 imported emails is a receipt for $295.98 dated between 3 days before and 7 days after 2026-09-18 from a sender resembling this merchant.
+  - No refund or credit with a corresponding merchant name appears between 2026-09-18 and 2026-11-04, the last date in the imported statements.
+
+Please investigate this transaction, correct any error, and credit my account for any amount charged in error. Please also send me copies of any documentation you rely on, including the merchant's name and contact details.
+
+(For your own reference, delete before sending: For debit cards and other electronic transfers from a bank account, the US Electronic Fund Transfer Act (Regulation E) generally asks you to report an error to the bank within 60 days after the statement showing it was sent. The 60 days count from the statement date, which is on or after the transaction date, so 2026-11-17 is a cautious estimate (12 days from today). Check your statement date. This is general information, not legal advice.)
+
+Enclosed are copies of (keep only what you include):
+  [ ] checking_statement.csv, row 46
+
+Sincerely,
+
+[Your name]
+[Phone or email for replies]

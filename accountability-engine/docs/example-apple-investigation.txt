@@ -1,0 +1,109 @@
+INVESTIGATION: $295.98 on 2026-09-18
+============================================================
+This report was prepared by software from the files you imported. It is not legal advice. Absence of a record in the imported files does not prove the record does not exist elsewhere.
+
+SOURCE TRANSACTION
+  Date: 2026-09-18
+  Amount: debit $295.98
+  Original description: PP*APPLE.COM/BILL402-935-7733 CA 8231
+  Account: Demo Checking
+  Source file: checking_statement.csv, row 46
+
+SUMMARY (written by: local)
+Investigation of the $295.98 item dated 2026-09-18, described as “PP*APPLE.COM/BILL402-935-7733 CA 8231”.
+
+Verified from your records (9 statements): None of the 21 imported emails is a receipt for $295.98 dated between 3 days before and 7 days after 2026-09-18 from a sender resembling this merchant. There are 7 other charges with a corresponding merchant name between 2026-08-05 and 2026-10-12, ranging from $2.99 to $147.99 (median $10.99). This charge is the largest of them. This is the only charge with this merchant name whose description begins with the “PP*” prefix; the other 7 do not.
+
+Possible explanations, none confirmed: (1) The charge may be related to “PhotoStudio Pro - Annual subscription (renews Sep 10, 2027)  $147.99”: $295.98 = 2 × $147.99. For example, 2 billing periods or 2 units billed together, or a repeat of that charge. (2) The payment may have gone through a PayPal account rather than directly by card. If so, a receipt may be in that account or in an email inbox that was not exported. (3) A receipt may exist that was not part of the imported exports, for example in another email address or sent to another person who shares the account.
+
+Still unknown: What was purchased? Do you, or someone allowed to use the account, recognize this charge? Which PayPal account, if any, made this payment? What does “402-935-7733” in the description refer to? What does “8231” in the description refer to?
+
+Suggested next step: Check your purchase history with the merchant named in the description and your PayPal activity for 2026-09-18 and $295.98.
+
+VERIFIED FACTS
+  1. Demo Checking shows a charge of $295.98 dated 2026-09-18.
+      Evidence: 2026-09-18 · debit $295.98 · “PP*APPLE.COM/BILL402-935-7733 CA 8231” (Source: checking_statement.csv, row 46)
+  2. The original description reads exactly: “PP*APPLE.COM/BILL402-935-7733 CA 8231”.
+      Evidence: 2026-09-18 · debit $295.98 · “PP*APPLE.COM/BILL402-935-7733 CA 8231” (Source: checking_statement.csv, row 46)
+  3. None of the 21 imported emails is a receipt for $295.98 dated between 3 days before and 7 days after 2026-09-18 from a sender resembling this merchant.
+      Evidence: No receipt for $295.98 near 2026-09-18. (Source: search of 21 imported emails)
+  4. There are 7 other charges with a corresponding merchant name between 2026-08-05 and 2026-10-12, ranging from $2.99 to $147.99 (median $10.99). This charge is the largest of them.
+      Evidence: There are 7 other charges with a corresponding merchant name between 2026-08-05 and 2026-10-12, ranging from $2.99 to $147.99 (median $10.99). This charge is the largest of them. (Source: computed from imported records)
+  5. This is the only charge with this merchant name whose description begins with the “PP*” prefix; the other 7 do not.
+      Evidence: 2026-09-18 · debit $295.98 · “PP*APPLE.COM/BILL402-935-7733 CA 8231” (Source: checking_statement.csv, row 46)
+      Evidence: 2026-08-05 · debit $2.99 · “APPLE.COM/BILL 866-712-7753 CA” (Source: checking_statement.csv, row 6)
+      Evidence: 2026-08-12 · debit $10.99 · “APPLE.COM/BILL 866-712-7753 CA” (Source: checking_statement.csv, row 13)
+      Evidence: 2026-09-05 · debit $2.99 · “APPLE.COM/BILL 866-712-7753 CA” (Source: checking_statement.csv, row 34)
+  6. 7 other email(s) from a sender resembling this merchant were imported: 2026-08-05: “iCloud+ with 50 GB (Monthly)  $2.99”; 2026-08-12: “Apple Music Individual (Monthly)  $10.99”; 2026-09-05: “iCloud+ with 50 GB (Monthly)  $2.99”; 2026-09-10: “PhotoStudio Pro - Annual subscription (renews Sep 10, 2027)  $147.99”; 2026-09-12: “Apple Music Individual (Monthly)  $10.99”; 2026-10-05: “iCloud+ with 50 GB (Monthly)  $2.99”; ….
+      Evidence: 2026-08-05 · receipt from Apple · $2.99 · subject “Your receipt from Apple (demo)” (Source: receipts_export.mbox, message 1)
+      Evidence: 2026-08-12 · receipt from Apple · $10.99 · subject “Your receipt from Apple (demo)” (Source: receipts_export.mbox, message 2)
+      Evidence: 2026-09-05 · receipt from Apple · $2.99 · subject “Your receipt from Apple (demo)” (Source: receipts_export.mbox, message 3)
+      Evidence: 2026-09-10 · receipt from Apple · $147.99 · subject “Your receipt from Apple (demo)” (Source: receipts_export.mbox, message 7)
+      Evidence: 2026-09-12 · receipt from Apple · $10.99 · subject “Your receipt from Apple (demo)” (Source: receipts_export.mbox, message 4)
+      Evidence: 2026-10-05 · receipt from Apple · $2.99 · subject “Your receipt from Apple (demo)” (Source: receipts_export.mbox, message 5)
+  7. Those emails state the payment method as: “Billed to: Visa Debit ending 4417”.
+      Evidence: 2026-08-05 · receipt from Apple · $2.99 · subject “Your receipt from Apple (demo)” (Source: receipts_export.mbox, message 1)
+      Evidence: 2026-08-12 · receipt from Apple · $10.99 · subject “Your receipt from Apple (demo)” (Source: receipts_export.mbox, message 2)
+      Evidence: 2026-09-05 · receipt from Apple · $2.99 · subject “Your receipt from Apple (demo)” (Source: receipts_export.mbox, message 3)
+      Evidence: 2026-09-10 · receipt from Apple · $147.99 · subject “Your receipt from Apple (demo)” (Source: receipts_export.mbox, message 7)
+  8. Arithmetic: $295.98 = 2 × $147.99, the amount of a receipt dated 2026-09-10 for “PhotoStudio Pro - Annual subscription (renews Sep 10, 2027)  $147.99”.
+      Evidence: 2026-09-10 · receipt from Apple · $147.99 · subject “Your receipt from Apple (demo)” (Source: receipts_export.mbox, message 7)
+      Evidence: $295.98 = 2 × $147.99 (Source: computed from imported records)
+  9. No refund or credit with a corresponding merchant name appears between 2026-09-18 and 2026-11-04, the last date in the imported statements.
+      Evidence: No later credit. (Source: search of imported statements)
+
+HOW THE DESCRIPTION WAS READ (interpretations, not facts)
+  - “PP*” — processor prefix. Commonly used for payments processed through PayPal. This is a descriptor convention, not proof of how this particular payment was made.
+  - “APPLE.COM/BILL” — merchant name as printed. The name exactly as the bank printed it. A printed name is a claim by the payment network, not verified merchant identity.
+  - “402-935-7733” — phone-number-shaped digits. Ten digits in the shape of a phone number. The app has not checked who answers this number.
+  - “CA” — possible state code. 'CA' matches a US state abbreviation. It may describe the merchant's registered location, not where the purchase happened.
+  - “8231” — unexplained reference number. A number at the end of the descriptor. Its meaning (store number, terminal, reference) cannot be determined from the text alone.
+
+HYPOTHESES (not confirmed)
+  1. The charge may be related to “PhotoStudio Pro - Annual subscription (renews Sep 10, 2027)  $147.99”: $295.98 = 2 × $147.99. For example, 2 billing periods or 2 units billed together, or a repeat of that charge.
+     Confidence: low. How to check: Check the merchant's purchase history for this date and amount.
+  2. The payment may have gone through a PayPal account rather than directly by card. If so, a receipt may be in that account or in an email inbox that was not exported.
+     Confidence: moderate. How to check: Look at your PayPal activity for 2026-09-18 and $295.98.
+  3. A receipt may exist that was not part of the imported exports, for example in another email address or sent to another person who shares the account.
+     Confidence: low. How to check: Search your other inboxes for the amount and date, then import any receipt you find.
+  4. The charge was not authorized by you or anyone permitted to use the account.
+     Confidence: not assessable. How to check: Only you can say whether you recognize it. Nothing in the imported records points either way, so the app makes no claim about it.
+
+UNKNOWNS
+  1. What was purchased?
+     Why it matters: Without a receipt there is no record of the item or service.
+     How to find out: Your purchase history with the merchant named in the description.
+  2. Do you, or someone allowed to use the account, recognize this charge?
+     Why it matters: This decides whether it is a billing error to dispute or simply an undocumented purchase.
+     How to find out: Your own memory and household; the merchant's account history.
+  3. Which PayPal account, if any, made this payment?
+     Why it matters: It identifies who initiated the payment and where its receipt went.
+     How to find out: Your PayPal activity for 2026-09-18.
+  4. What does “402-935-7733” in the description refer to?
+     Why it matters: Codes in a descriptor are not explained by the statement.
+     How to find out: Your bank can provide the full transaction details for this charge.
+  5. What does “8231” in the description refer to?
+     Why it matters: Codes in a descriptor are not explained by the statement.
+     How to find out: Your bank can provide the full transaction details for this charge.
+
+NEXT ACTIONS
+  1. Check your purchase history with the merchant named in the description and your PayPal activity for 2026-09-18 and $295.98. (Done by: you.)
+  2. If you find a receipt, export it and import it here; then run this investigation again. (Done by: you.)
+  3. If the charge is still unexplained or wrong after those checks, review a draft billing-error notice to the bank. For debit cards and other electronic transfers from a bank account, the US Electronic Fund Transfer Act (Regulation E) generally asks you to report an error to the bank within 60 days after the statement showing it was sent. The 60 days count from the statement date, which is on or after the transaction date, so 2026-11-17 is a cautious estimate (12 days from today). Check your statement date. This is general information, not legal advice. (Done by: app (draft only). Requires your approval.)
+
+LOCAL TOOLS CALLED
+  - get_transaction(transaction_id=45) -> id, source_id, source_ref, account_name, account_type, date
+  - descriptor(raw_description=PP*APPLE.COM/BILL402-935-7733 CA 8231) -> raw, processor, merchant_text, phone, state, references
+  - matched_receipt(transaction_id=45) -> nothing found
+  - find_receipts(merchant_of_transaction=45) -> 7 item(s)
+  - receipt_count() -> 21
+  - merchant_history(transaction_id=45) -> 7 item(s)
+  - amount_relationships(transaction_id=45) -> 1 item(s)
+  - find_credits_after(transaction_id=45) -> 0 item(s)
+  - data_range() -> first, last, n
+  - findings_for_transaction(transaction_id=45) -> 2 item(s)
+
+SAFEGUARDS
+  - Only imported files were searched; nothing was sent outside this computer.
+  - Statements of fact are limited to what imported records show.
+  - No one has been contacted. Drafts are not sent anywhere by this app.

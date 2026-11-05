@@ -1,0 +1,27 @@
+name: Accountability Engine tests
+
+on:
+  push:
+    paths: ["accountability-engine/**", ".github/workflows/accountability-engine.yml"]
+  pull_request:
+    paths: ["accountability-engine/**", ".github/workflows/accountability-engine.yml"]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: accountability-engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Tesseract (for screenshot import tests)
+        run: sudo apt-get update && sudo apt-get install -y tesseract-ocr
+      - name: Install dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Run tests
+        run: python -m pytest
