@@ -237,3 +237,11 @@ To rebuild the demonstration files, run
 ## Licence
 
 MIT. See [LICENSE](LICENSE).
+
+## Web demo for phones
+
+`python tools/build_web_demo.py demo.html` builds one self-contained page for
+phones and tablets, including iPhone. It needs no server. The real app runs
+once over the fictional data, and the page stores every answer, investigation,
+report and draft letter. Questions are matched in the browser. Importing your
+own files needs the full app on a computer.

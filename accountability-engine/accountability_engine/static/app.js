@@ -92,6 +92,14 @@ function go(view) {
   else location.hash = view;
 }
 
+// A scrollable container for a wide table: focusable so keyboard users can scroll it,
+// and named after the table's caption.
+function tableWrap(table) {
+  const cap = table.querySelector("caption");
+  return h("div", { class: "table-wrap", role: "region", tabindex: "0",
+    "aria-label": cap ? cap.textContent : "Table" }, table);
+}
+
 // ---------------------------------------------------------------- overview
 async function refreshStatus() {
   try {
@@ -232,7 +240,7 @@ function evidenceList(evidence) {
 }
 
 function txTable(txs, captionText) {
-  return h("div", { class: "table-wrap" }, h("table", {},
+  return tableWrap(h("table", {},
     h("caption", {}, captionText),
     h("thead", {}, h("tr", {}, ["Date", "Original description", "Amount", "Source", "Action"]
       .map((c) => h("th", { scope: "col" }, c)))),
@@ -295,7 +303,7 @@ function renderInvestigation(inv) {
     ["Original description", tx.raw_description], ["Merchant name as printed", tx.merchant_name],
     ["Account", tx.account_name], ["Source file", `${tx.source_file}, ${tx.source_ref}`]];
   const parts = [
-    h("div", { class: "table-wrap" }, h("table", {}, h("caption", {}, "Source transaction"),
+    tableWrap(h("table", {}, h("caption", {}, "Source transaction"),
       h("tbody", {}, rowsData.map(([k, v]) => h("tr", {}, h("th", { scope: "row" }, k), h("td", {}, v)))))),
     inv.notes && inv.notes.length ? h("p", { class: "hint" }, "Note: " + inv.notes.join(" ")) : null,
     section("Summary", "inv-summary", h("p", { class: "hint" }, `Written by: ${inv.summary_source}.`),
@@ -324,10 +332,10 @@ function renderInvestigation(inv) {
       h("ul", {}, inv.related_findings.map((f) => h("li", {}, `${f.title}: ${f.summary}`)))) : null,
     section("Reports", "inv-reports", reportLinks(inv)),
     section("How this investigation was carried out", "inv-method",
-      h("div", { class: "table-wrap" }, h("table", {}, h("caption", {}, "Plan"),
+      tableWrap(h("table", {}, h("caption", {}, "Plan"),
         h("thead", {}, h("tr", {}, ["Step", "Purpose", "Status"].map((c) => h("th", { scope: "col" }, c)))),
         h("tbody", {}, inv.plan.map((s) => h("tr", {}, h("td", {}, s.step), h("td", {}, s.purpose), h("td", {}, s.status)))))),
-      h("div", { class: "table-wrap" }, h("table", {}, h("caption", {}, "Local tools called, in order"),
+      tableWrap(h("table", {}, h("caption", {}, "Local tools called, in order"),
         h("thead", {}, h("tr", {}, ["Tool", "Arguments", "Result"].map((c) => h("th", { scope: "col" }, c)))),
         h("tbody", {}, inv.tool_calls.map((c) => h("tr", {}, h("td", {}, c.tool),
           h("td", {}, Object.entries(c.args).map(([k, v]) => `${k}=${v}`).join(", ") || "none"),
@@ -461,7 +469,7 @@ async function loadAudit() {
   if (!rows) return;
   const wrap = $("#audit-wrap");
   wrap.textContent = "";
-  wrap.append(h("div", { class: "table-wrap" }, h("table", {}, h("caption", {}, `Activity log (${rows.length} most recent entries)`),
+  wrap.append(tableWrap(h("table", {}, h("caption", {}, `Activity log (${rows.length} most recent entries)`),
     h("thead", {}, h("tr", {}, ["Time (UTC)", "Event", "Detail"].map((c) => h("th", { scope: "col" }, c)))),
     h("tbody", {}, rows.map((r) => h("tr", {}, h("td", {}, r.ts), h("td", {}, r.event), h("td", {}, r.detail)))))));
   announce(`Activity log shown, ${rows.length} entries.`);
