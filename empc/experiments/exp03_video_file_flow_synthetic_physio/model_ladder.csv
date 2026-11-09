@@ -1,0 +1,16 @@
+pattern,model,description,parameters,flops_per_prediction,fit_cpu_s,validation_gain_r2,validation_bits_per_sample,chosen
+P001,M1,single-lag linear,5,10,0.000119,0.437299,0.848885,True
+P001,M2,sparse lagged kernel,29,58,0.034085,0.588637,1.626954,False
+P001,M3,dense lagged kernel,33,66,0.003591,0.588874,1.566381,False
+P001,M4,small neural network,321,642,0.149710,0.482262,-4.102640,False
+P001,M5,gradient-boosted trees,2388,400,0.044029,0.431923,-37.992539,False
+P002,M1,single-lag linear,5,10,0.000084,0.102660,0.100607,True
+P002,M2,sparse lagged kernel,25,50,0.010663,0.179237,-0.121839,False
+P002,M3,dense lagged kernel,45,90,0.002692,0.177647,-0.448109,False
+P002,M4,small neural network,417,834,0.110558,-0.002343,-6.693278,False
+P002,M5,gradient-boosted trees,2164,400,0.047491,-0.072592,-35.065684,False
+P003,M1,single-lag linear,5,10,0.000084,0.030657,0.056560,True
+P003,M2,sparse lagged kernel,15,30,0.010758,0.074559,0.014036,False
+P003,M3,dense lagged kernel,45,90,0.002818,0.080042,-0.454759,False
+P003,M4,small neural network,417,834,0.210158,-0.196194,-7.024535,False
+P003,M5,gradient-boosted trees,2340,400,0.048498,-0.128494,-38.021034,False

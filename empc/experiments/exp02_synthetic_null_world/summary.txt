@@ -1,0 +1,8 @@
+IMPORTANT: this run used SYNTHETIC data with NO planted relationships (null world). It tests the software; it is not evidence about people.
+The system examined 2589 possible relationships between 42 movement, 12 sound and 7 physiological signals.
+0 relationship groups passed the training-data tests (shuffled-time controls, false-discovery-rate correction and a validation stretch). 0 of them also predicted held-out data better than shuffled controls.
+No reliable relationships were found on held-out data. This is reported as a negative result; nothing has been invented to fill the gap.
+Search cost: the adaptive search used 3% of the operations and 1% of the CPU time of uniform exhaustive search; it exhaustive search confirmed nothing, so recall is undefined.
+A simple staged filter (no learning) used 26% of exhaustive operations and 8% of its CPU time; it exhaustive search confirmed nothing, so recall is undefined.
+Null world check: 0 patterns generalised although no relationships were planted (each one is a false positive).
+Correlation and prediction here do not establish causation, and patterns carry neutral identifiers only; interpretation is left to human researchers.

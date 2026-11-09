@@ -1,0 +1,66 @@
+pattern,model,description,parameters,flops_per_prediction,fit_cpu_s,validation_gain_r2,validation_bits_per_sample,chosen
+P001,M1,single-lag linear,5,10,0.000137,0.681625,0.974738,True
+P001,M2,sparse lagged kernel,16,32,0.033809,0.662085,0.688533,False
+P001,M3,dense lagged kernel,19,38,0.003092,0.681306,0.684597,False
+P001,M4,small neural network,209,418,0.336427,0.670002,-3.274102,False
+P001,M5,gradient-boosted trees,2008,400,0.041833,0.609941,-40.588946,False
+P002,M1,single-lag linear,5,10,0.000100,0.577769,0.705115,False
+P002,M2,sparse lagged kernel,16,32,0.017275,0.730054,0.918820,True
+P002,M3,dense lagged kernel,19,38,0.001846,0.722441,0.827098,False
+P002,M4,small neural network,209,418,0.173599,0.794162,-2.751142,False
+P002,M5,gradient-boosted trees,2020,400,0.044982,0.825277,-39.929300,False
+P003,M1,single-lag linear,5,10,0.000124,1.291534,0.471074,False
+P003,M2,sparse lagged kernel,16,32,0.011497,1.508932,0.073658,False
+P003,M3,dense lagged kernel,17,34,0.001402,1.543883,0.050217,False
+P003,M4,small neural network,193,386,0.138088,2.017139,-8.085558,True
+P003,M5,gradient-boosted trees,988,400,0.018038,1.312457,-47.651683,False
+P004,M1,single-lag linear,5,10,0.000083,0.127167,0.250718,False
+P004,M2,sparse lagged kernel,6,12,0.010361,0.173276,0.360664,True
+P004,M3,dense lagged kernel,16,32,0.001547,0.177009,0.165822,False
+P004,M4,small neural network,177,354,0.212673,0.068162,-3.440197,False
+P004,M5,gradient-boosted trees,1968,400,0.037041,0.094460,-40.370645,False
+P005,M1,single-lag linear,5,10,0.000079,0.198021,0.213160,True
+P005,M2,sparse lagged kernel,7,14,0.026877,0.240006,0.232918,False
+P005,M3,dense lagged kernel,16,32,0.002659,0.249425,0.061483,False
+P005,M4,small neural network,177,354,0.137061,0.097180,-3.467582,False
+P005,M5,gradient-boosted trees,1928,400,0.040042,0.161659,-39.550982,False
+P006,M1,single-lag linear,5,10,0.000123,0.246132,0.206604,True
+P006,M2,sparse lagged kernel,5,10,0.009172,0.200477,0.158681,False
+P006,M3,dense lagged kernel,17,34,0.001663,0.194962,-0.094730,False
+P006,M4,small neural network,193,386,0.272921,-0.085428,-3.968032,False
+P006,M5,gradient-boosted trees,1720,400,0.042730,0.216672,-35.244056,False
+P007,M1,single-lag linear,5,10,0.000090,0.278287,0.108915,False
+P007,M2,sparse lagged kernel,1,2,0.033437,-0.576808,-0.066467,False
+P007,M3,dense lagged kernel,24,48,0.001598,-0.056381,-1.369244,False
+P007,M4,small neural network,241,482,0.143413,0.628707,-15.375013,True
+P007,M5,gradient-boosted trees,728,400,0.018469,-0.500762,-48.683758,False
+P008,M1,single-lag linear,5,10,0.000083,0.027899,0.049957,True
+P008,M2,sparse lagged kernel,4,8,0.011960,0.003353,0.008130,False
+P008,M3,dense lagged kernel,25,50,0.001945,0.023787,-0.373948,False
+P008,M4,small neural network,257,514,0.231015,-0.413860,-5.851596,False
+P008,M5,gradient-boosted trees,2124,400,0.033125,-0.185290,-44.131399,False
+P009,M1,single-lag linear,5,10,0.000120,0.097321,0.047925,True
+P009,M2,sparse lagged kernel,9,18,0.012052,0.111336,-0.024250,False
+P009,M3,dense lagged kernel,16,32,0.002162,0.109072,-0.170515,False
+P009,M4,small neural network,177,354,0.254729,0.060207,-3.531266,False
+P009,M5,gradient-boosted trees,2000,400,0.031963,-0.048578,-41.254719,False
+P010,M1,single-lag linear,5,10,0.000217,0.061766,0.046220,False
+P010,M2,sparse lagged kernel,14,28,0.008989,0.057962,-0.143957,False
+P010,M3,dense lagged kernel,25,50,0.002018,0.103522,-0.317836,True
+P010,M4,small neural network,257,514,0.067039,0.100381,-5.113065,False
+P010,M5,gradient-boosted trees,2236,400,0.036049,-0.187260,-46.268340,False
+P011,M1,single-lag linear,5,10,0.000074,0.070536,0.029163,True
+P011,M2,sparse lagged kernel,6,12,0.008920,0.016671,-0.029838,False
+P011,M3,dense lagged kernel,22,44,0.001704,-0.019069,-0.384646,False
+P011,M4,small neural network,225,450,0.039886,-0.130836,-4.648422,False
+P011,M5,gradient-boosted trees,1912,400,0.035804,-0.043573,-39.434483,False
+P012,M1,single-lag linear,5,10,0.000103,0.019368,0.027622,True
+P012,M2,sparse lagged kernel,15,30,0.013033,0.011058,-0.199465,False
+P012,M3,dense lagged kernel,25,50,0.002407,0.000957,-0.430344,False
+P012,M4,small neural network,257,514,0.291139,-0.159023,-5.519942,False
+P012,M5,gradient-boosted trees,2028,400,0.049375,-0.103806,-41.914597,False
+P013,M1,single-lag linear,5,10,0.000094,0.026736,0.000191,True
+P013,M2,sparse lagged kernel,12,24,0.013213,-0.088894,-0.230491,False
+P013,M3,dense lagged kernel,18,36,0.002333,-0.182855,-0.417524,False
+P013,M4,small neural network,193,386,0.130393,-0.588734,-4.254557,False
+P013,M5,gradient-boosted trees,2080,400,0.048045,-0.202958,-43.016200,False

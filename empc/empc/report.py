@@ -92,10 +92,14 @@ def _write_csv(path, rows):
             w.writerow({k: (_f(v, 6) if isinstance(v, (float, np.floating)) else v) for k, v in r.items()})
 
 
+def _pcap(p) -> str:
+    return "below 1e-10 (tail extrapolation; treat as 'very small', not as an exact value)" if p < 1e-10 else f"about {_f(p)}"
+
+
 def _ptext(t) -> str:
     if t.get("shift_exceed", 1) == 0 and t.get("block_exceed", 1) == 0:
         return (f"beat all {t['n_null']} time-shifted and all {t['n_block_null']} block-shuffled controls; "
-                f"extrapolated p about {_f(max(t['p_shift'], t['p_block']))}")
+                f"extrapolated p {_pcap(max(t['p_shift'], t['p_block']))}")
     return f"p {_f(max(t['p_shift'], t['p_block']))} against time-shifted and block-shuffled controls"
 
 

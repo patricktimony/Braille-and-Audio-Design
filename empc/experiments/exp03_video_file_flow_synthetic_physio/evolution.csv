@@ -1,0 +1,28 @@
+target,method,seed,evals,best_val_bits,evals_to_90pct,terms,genome,test_gain
+physio.pupil.diameter,evolutionary,0,309,1.352912,158,2,audio.timing.silence@1s lag 2.1s; audio.spectral.flatness@1s lag 0.6s,0.387302
+physio.pupil.diameter,random,0,300,0.903143,38,1,audio.spectral.zcr@1s lag 0.4s,0.201811
+physio.pupil.diameter,greedy,0,300,1.489102,188,4,audio.spectral.zcr@0s lag 0.7s; audio.spectral.zcr@1s lag 0.5s; audio.spectral.flatness@1s lag 2.0s; audio.timing.silence@0s lag 2.8s,0.427249
+physio.pupil.diameter,evolutionary,1,306,1.056842,271,4,audio.pitch.voiced@1s lag 0.1s; video.flow.d_energy@1s lag 4.6s; audio.energy.rms_db@1s lag 0.9s; audio.spectral.zcr@4s lag 2.1s,0.317013
+physio.pupil.diameter,random,1,300,1.030053,193,2,video.flowgrid.g01@0s lag 4.5s; audio.timing.silence@1s lag 0.7s,0.222861
+physio.pupil.diameter,greedy,1,300,1.447052,156,4,audio.spectral.centroid_log@4s lag 0.7s; audio.energy.rms_db@1s lag 0.6s; audio.timing.silence@4s lag 3.0s; video.flowgrid.g11@4s lag 1.3s,0.430779
+physio.pupil.diameter,evolutionary,2,311,1.393350,126,4,video.flow.energy@4s lag 3.2s; video.flowgrid.g11@4s lag 7.6s; audio.spectral.zcr@4s lag 3.0s; audio.pitch.voiced@1s lag 0.7s,0.373630
+physio.pupil.diameter,random,2,300,1.033485,95,4,audio.timing.silence@1s lag 7.1s; audio.energy.rms_db@1s lag 0.5s; audio.timing.onset@1s lag 2.0s; audio.energy.rms_db@0s lag 2.3s,0.252943
+physio.pupil.diameter,greedy,2,299,1.175661,243,4,audio.spectral.zcr@0s lag 0.7s; audio.timing.silence@1s lag 0.9s; audio.spectral.centroid_log@1s lag 0.8s; audio.spectral.centroid_log@1s lag 0.3s,0.232078
+physio.eda.phasic,evolutionary,0,309,0.330547,194,4,audio.timing.silence@0s lag 1.4s; audio.energy.rms_db@1s lag 2.4s; audio.timing.silence@0s lag 0.8s; video.flowgrid.g12@4s lag 7.1s,0.063683
+physio.eda.phasic,random,0,300,0.193672,152,3,audio.pitch.voiced@1s lag 2.3s; video.flowgrid.g01@1s lag 6.1s; audio.spectral.centroid_log@0s lag 4.7s,0.125319
+physio.eda.phasic,greedy,0,300,0.364480,169,4,audio.energy.rms_db@1s lag 2.5s; video.flowgrid.g22@1s lag 6.0s; video.flowgrid.g20@1s lag 2.6s; audio.timing.periodicity@4s lag 3.6s,-0.041674
+physio.eda.phasic,evolutionary,1,316,0.267137,265,3,video.flowgrid.g12@4s lag 7.0s; audio.energy.rms_db@0s lag 3.4s; audio.timing.silence@1s lag 2.5s,0.011428
+physio.eda.phasic,random,1,300,0.202460,116,1,audio.spectral.centroid_log@1s lag 2.5s,0.038049
+physio.eda.phasic,greedy,1,300,0.321206,156,4,video.flowgrid.g22@1s lag 6.1s; video.flowgrid.g10@0s lag 2.7s; audio.timing.silence@1s lag 2.6s; video.flowgrid.g11@1s lag 7.4s,-0.152679
+physio.eda.phasic,evolutionary,2,300,0.344730,177,3,audio.spectral.centroid_log@1s lag 2.4s; video.flowgrid.g10@1s lag 2.6s; audio.timing.onset@4s lag 1.0s,-0.337176
+physio.eda.phasic,random,2,300,0.212496,103,3,video.flowgrid.g10@1s lag 2.8s; video.flowgrid.g01@0s lag 7.2s; video.flow.cx@4s lag 1.9s,-0.063383
+physio.eda.phasic,greedy,2,299,0.217375,232,4,audio.timing.periodicity@4s lag 3.4s; video.flowgrid.g22@1s lag 2.8s; audio.energy.rms_db@1s lag 2.2s; video.flowgrid.g20@4s lag 4.0s,-0.099332
+physio.eda.level,evolutionary,0,311,0.460383,264,4,audio.spectral.flatness@4s lag 2.2s; video.flowgrid.g22@1s lag 6.1s; audio.energy.rms_db@1s lag 2.3s; audio.pitch.d_f0@1s lag 0.4s,0.008984
+physio.eda.level,random,0,300,0.182862,48,3,audio.pitch.voiced@1s lag 2.3s; video.flowgrid.g01@1s lag 6.1s; audio.spectral.centroid_log@0s lag 4.7s,0.167428
+physio.eda.level,greedy,0,300,0.396024,206,4,audio.energy.rms_db@1s lag 2.5s; video.flowgrid.g22@1s lag 6.0s; video.flow.cy@1s lag 7.1s; video.flowgrid.g20@4s lag 2.2s,0.050656
+physio.eda.level,evolutionary,1,309,0.415834,173,4,audio.pitch.d_f0@1s lag 0.3s; audio.spectral.centroid_log@4s lag 1.7s; video.flowgrid.g12@1s lag 5.9s; audio.timing.silence@4s lag 1.5s,-0.055858
+physio.eda.level,random,1,300,0.181244,13,3,video.flowgrid.g10@4s lag 0.0s; audio.spectral.zcr@1s lag 2.0s; audio.spectral.centroid_log@1s lag 6.7s,0.112715
+physio.eda.level,greedy,1,300,0.406393,193,4,video.flowgrid.g22@1s lag 6.1s; audio.energy.rms_db@4s lag 1.1s; audio.spectral.flux@1s lag 7.4s; video.flowgrid.g11@1s lag 7.4s,-0.143181
+physio.eda.level,evolutionary,2,309,0.330914,264,2,video.flowgrid.g20@1s lag 2.9s; video.flowgrid.g22@1s lag 5.7s,-0.084046
+physio.eda.level,random,2,300,0.152979,103,1,audio.pitch.voiced@1s lag 2.5s,0.055244
+physio.eda.level,greedy,2,299,0.355929,234,4,video.flowgrid.g21@4s lag 2.4s; video.flow.d_energy@4s lag 5.6s; audio.energy.rms_db@1s lag 2.2s; video.flowgrid.g12@4s lag 5.0s,0.073777

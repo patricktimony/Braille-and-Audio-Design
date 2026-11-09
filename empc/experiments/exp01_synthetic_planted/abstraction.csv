@@ -1,0 +1,5 @@
+target,best_raw_signal,raw_test_gain,raw_params,best_pattern_signal,pattern_test_gain,pattern_params,abstraction_helped
+physio.eda.level,"video.wrist_r.y (scale 0 s, lag 3.5 s)",0.100141,34,pattern.P018.coact,0.043374,33,False
+physio.eda.phasic,"video.wrist_r.speed (scale 1 s, lag 3.7 s)",0.231832,417,pattern.P003.coact,0.263938,32,True
+physio.hr.bpm,"video.body.energy (scale 1 s, lag 2.1 s)",0.102934,417,pattern.P003.drive,0.045017,401,False
+physio.pupil.diameter,"audio.timing.silence (scale 1 s, lag 0.8 s)",0.319849,28,pattern.P003.drive,0.177760,321,False

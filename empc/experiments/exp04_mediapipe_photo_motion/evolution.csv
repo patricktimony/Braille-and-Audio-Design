@@ -1,0 +1,28 @@
+target,method,seed,evals,best_val_bits,evals_to_90pct,terms,genome,test_gain
+audio.timing.silence,evolutionary,0,300,0.763827,300,4,video.face.mouth_aperture@0s lag 0.6s; video.wrist_l.z_speed_est@4s lag 1.9s; video.elbow_l.y@4s lag 1.4s; video.face.eye_aperture_l@0s lag 0.5s,0.507332
+audio.timing.silence,random,0,300,0.566659,72,4,video.elbow_l.z_est@1s lag 1.2s; video.face.mouth_aperture@0s lag 0.6s; video.elbow_r.z_speed_est@0s lag 0.5s; video.face.mouth_speed@0s lag 2.0s,0.439585
+audio.timing.silence,greedy,0,300,0.726234,264,4,video.face.mouth_speed@4s lag 2.0s; video.head.speed@0s lag 0.2s; video.face.mouth_aperture@0s lag 0.6s; video.face.eye_aperture_l@0s lag 0.3s,0.546169
+audio.timing.silence,evolutionary,1,305,0.754953,137,2,video.face.mouth_aperture@0s lag 0.6s; video.head.speed@1s lag 0.5s,0.574016
+audio.timing.silence,random,1,300,0.573215,3,4,video.head.periodicity@4s lag 1.1s; video.face.eye_aperture_l@0s lag 0.9s; video.face.mouth_aperture@0s lag 0.6s; video.head.speed@1s lag 2.0s,0.447971
+audio.timing.silence,greedy,1,295,0.757602,76,4,video.face.mouth_aperture@0s lag 0.6s; video.head.speed@0s lag 0.7s; video.head.vy@0s lag 0.8s; video.elbow_r.z_est@1s lag 0.0s,0.498082
+audio.timing.silence,evolutionary,2,309,0.677052,217,4,video.head.speed@1s lag 0.3s; video.face.brow_eye_l@0s lag 0.2s; video.face.mouth_aperture@0s lag 0.7s; video.elbow_r.z_speed_est@1s lag 1.7s,0.566510
+audio.timing.silence,random,2,300,0.454517,269,4,video.face.pitch_proxy@0s lag 0.8s; video.wrist_l.y@4s lag 1.0s; video.face.mouth_aperture@1s lag 1.1s; video.face.mouth_aperture@1s lag 0.8s,0.466095
+audio.timing.silence,greedy,2,300,0.610146,275,4,video.head.speed@1s lag 0.2s; video.elbow_r.vy@1s lag 0.2s; video.face.mouth_speed@0s lag 0.7s; video.face.eye_aperture_l@1s lag 0.7s,0.631650
+video.elbow_r.y,evolutionary,0,300,0.741081,118,4,audio.energy.rms_db@1s lag 0.0s; audio.spectral.flatness@0s lag 0.0s; audio.pitch.voiced@4s lag 2.0s; audio.timing.onset@1s lag 0.1s,-0.258407
+video.elbow_r.y,random,0,300,0.545737,294,4,audio.pitch.f0_st@4s lag 1.0s; audio.timing.silence@0s lag 0.5s; audio.timing.silence@4s lag 0.0s; audio.pitch.voiced@1s lag 0.7s,-0.264271
+video.elbow_r.y,greedy,0,217,0.657668,92,2,audio.pitch.voiced@4s lag 2.0s; audio.timing.onset@1s lag 0.0s,-1.859823
+video.elbow_r.y,evolutionary,1,310,0.734286,124,2,audio.spectral.flatness@1s lag 0.8s; audio.timing.silence@4s lag 0.0s,-0.323810
+video.elbow_r.y,random,1,300,0.566227,189,4,audio.energy.rms_db@1s lag 0.8s; audio.energy.rms_db@4s lag 1.7s; audio.spectral.flatness@4s lag 1.0s; audio.pitch.voiced@4s lag 0.0s,0.128856
+video.elbow_r.y,greedy,1,289,0.608290,166,3,audio.spectral.flatness@4s lag 1.9s; audio.spectral.centroid_log@4s lag 0.8s; audio.spectral.flatness@0s lag 1.2s,0.346332
+video.elbow_r.y,evolutionary,2,307,0.780607,223,2,audio.energy.rms_db@1s lag 0.0s; audio.spectral.centroid_log@4s lag 1.9s,-0.170075
+video.elbow_r.y,random,2,300,0.767335,21,2,audio.timing.silence@1s lag 0.0s; audio.timing.silence@4s lag 1.9s,-0.208286
+video.elbow_r.y,greedy,2,281,0.662529,230,4,audio.timing.silence@4s lag 1.9s; audio.timing.onset@1s lag 0.1s; audio.spectral.centroid_log@4s lag 0.5s; audio.spectral.zcr@1s lag 0.0s,-0.182355
+video.head.speed,evolutionary,0,313,0.188016,120,3,audio.timing.silence@1s lag 1.5s; audio.timing.silence@4s lag 1.0s; audio.spectral.zcr@4s lag 1.9s,0.328359
+video.head.speed,random,0,300,0.109043,69,3,audio.timing.silence@4s lag 1.0s; audio.timing.onset@4s lag 0.0s; audio.spectral.zcr@4s lag 1.7s,0.276603
+video.head.speed,greedy,0,289,0.206421,197,3,audio.spectral.centroid_log@1s lag 0.0s; audio.timing.silence@0s lag 0.3s; audio.energy.d_rms@4s lag 1.3s,0.330283
+video.head.speed,evolutionary,1,306,0.113409,199,3,audio.timing.silence@4s lag 0.8s; audio.spectral.flux@1s lag 0.0s; audio.spectral.centroid_log@1s lag 1.9s,0.208625
+video.head.speed,random,1,300,0.148088,106,4,audio.spectral.zcr@4s lag 2.0s; audio.energy.rms_db@4s lag 1.2s; audio.spectral.zcr@1s lag 1.5s; audio.spectral.zcr@4s lag 0.7s,0.298353
+video.head.speed,greedy,1,289,0.158604,146,4,audio.pitch.voiced@4s lag 0.9s; audio.timing.silence@4s lag 1.6s; audio.spectral.centroid_log@4s lag 2.0s; audio.energy.rms_db@1s lag 1.6s,0.292353
+video.head.speed,evolutionary,2,300,0.182624,89,2,audio.timing.silence@4s lag 1.0s; audio.spectral.flatness@4s lag 2.0s,0.280194
+video.head.speed,random,2,300,0.155372,210,3,audio.pitch.voiced@1s lag 2.0s; audio.pitch.voiced@4s lag 1.8s; audio.timing.silence@4s lag 1.0s,0.312811
+video.head.speed,greedy,2,212,0.141138,96,2,audio.energy.d_rms@4s lag 1.6s; audio.energy.d_rms@4s lag 1.3s,0.241252

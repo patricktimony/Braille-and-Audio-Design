@@ -1,0 +1,28 @@
+target,method,seed,evals,best_val_bits,evals_to_90pct,terms,genome,test_gain
+physio.pupil.diameter,evolutionary,0,308,0.824200,207,4,audio.spectral.flatness@1s lag 0.1s; audio.spectral.flatness@1s lag 1.0s; audio.timing.silence@1s lag 0.6s; video.head.z_est@0s lag 4.7s,0.337046
+physio.pupil.diameter,random,0,300,0.412832,88,1,audio.spectral.flatness@1s lag 0.3s,0.199690
+physio.pupil.diameter,greedy,0,300,1.147884,238,4,audio.timing.silence@0s lag 0.7s; audio.timing.silence@1s lag 0.5s; audio.pitch.voiced@4s lag 1.8s; audio.pitch.voiced@0s lag 1.1s,0.380944
+physio.pupil.diameter,evolutionary,1,311,1.071652,296,4,audio.spectral.flatness@1s lag 0.7s; audio.spectral.zcr@4s lag 3.8s; video.wrist_r.vy@4s lag 5.2s; audio.spectral.flatness@1s lag 0.6s,0.375650
+physio.pupil.diameter,random,1,300,0.769346,177,4,video.body.energy@1s lag 2.7s; audio.energy.d_rms@0s lag 3.2s; video.wrist_l.vy@1s lag 3.2s; audio.spectral.flatness@1s lag 0.5s,0.316988
+physio.pupil.diameter,greedy,1,300,0.385136,227,4,video.wrist_r.accel@4s lag 2.5s; video.wrist_r.accel@4s lag 3.8s; audio.spectral.flatness@1s lag 0.2s; video.elbow_r.speed@1s lag 0.3s,0.172720
+physio.pupil.diameter,evolutionary,2,312,1.079666,210,2,audio.pitch.voiced@1s lag 0.6s; audio.spectral.centroid_log@4s lag 3.9s,0.375285
+physio.pupil.diameter,random,2,300,0.753400,17,3,audio.pitch.voiced@1s lag 0.7s; video.head.z_est@4s lag 2.3s; video.elbow_l.speed@4s lag 2.0s,0.326221
+physio.pupil.diameter,greedy,2,300,0.743398,252,4,audio.timing.silence@0s lag 0.7s; video.wrist_r.y@1s lag 0.8s; audio.energy.rms_db@0s lag 1.0s; audio.pitch.voiced@4s lag 3.5s,0.305422
+physio.eda.phasic,evolutionary,0,311,0.351065,227,3,video.elbow_r.speed@1s lag 3.1s; video.elbow_r.accel@4s lag 1.5s; audio.spectral.centroid_log@1s lag 3.1s,0.191371
+physio.eda.phasic,random,0,300,0.285769,189,2,video.wrist_l.x@4s lag 6.4s; video.wrist_r.speed@1s lag 3.4s,0.146285
+physio.eda.phasic,greedy,0,300,0.142678,227,4,audio.spectral.zcr@0s lag 2.9s; video.body.energy@1s lag 1.5s; audio.energy.d_rms@1s lag 2.0s; video.body.energy@4s lag 3.6s,0.096974
+physio.eda.phasic,evolutionary,1,301,0.316271,173,4,video.wrist_r.z_speed_est@1s lag 6.7s; audio.pitch.f0_st@1s lag 3.0s; video.wrist_r.accel@4s lag 3.4s; video.wrist_r.accel@1s lag 3.2s,0.174896
+physio.eda.phasic,random,1,300,0.309134,247,4,video.wrist_r.speed@1s lag 3.3s; video.head.y@1s lag 4.5s; audio.timing.onset@4s lag 7.7s; video.head.accel@4s lag 1.7s,0.170520
+physio.eda.phasic,greedy,1,300,0.283270,298,4,video.wrist_r.accel@0s lag 3.7s; video.wrist_r.z_est@4s lag 4.6s; audio.pitch.f0_st@0s lag 2.8s; video.elbow_r.y@1s lag 3.4s,0.177641
+physio.eda.phasic,evolutionary,2,317,0.243539,248,3,video.wrist_r.accel@4s lag 4.3s; video.elbow_r.accel@1s lag 3.0s; video.wrist_r.speed@4s lag 0.7s,0.164742
+physio.eda.phasic,random,2,300,0.202331,60,4,video.hands.distance@1s lag 1.4s; video.elbow_r.accel@0s lag 2.6s; video.head.z_est@4s lag 6.1s; video.elbow_r.speed@1s lag 3.5s,0.108054
+physio.eda.phasic,greedy,2,300,0.269518,250,4,video.elbow_r.speed@4s lag 4.0s; audio.timing.onset@4s lag 0.6s; video.elbow_r.speed@1s lag 3.5s; audio.timing.silence@1s lag 1.3s,0.140769
+physio.eda.level,evolutionary,0,301,0.382786,191,4,video.elbow_r.speed@1s lag 3.1s; audio.spectral.zcr@0s lag 2.9s; video.body.energy@1s lag 3.4s; video.elbow_r.accel@0s lag 3.8s,0.089514
+physio.eda.level,random,0,300,0.316943,129,2,video.wrist_l.x@4s lag 6.4s; video.wrist_r.speed@1s lag 3.4s,0.071687
+physio.eda.level,greedy,0,300,0.194795,228,4,video.elbow_r.y@4s lag 2.2s; video.body.energy@1s lag 1.5s; audio.energy.d_rms@1s lag 2.0s; video.wrist_r.y@1s lag 0.7s,0.055654
+physio.eda.level,evolutionary,1,310,0.407367,213,4,video.wrist_r.accel@1s lag 3.1s; audio.pitch.f0_st@0s lag 2.9s; video.wrist_r.accel@1s lag 3.4s; video.elbow_r.vy@0s lag 4.7s,0.095346
+physio.eda.level,random,1,300,0.372117,247,4,video.wrist_r.speed@1s lag 3.3s; video.head.y@1s lag 4.5s; audio.timing.onset@4s lag 7.7s; video.head.accel@4s lag 1.7s,0.086039
+physio.eda.level,greedy,1,300,0.346521,262,4,video.wrist_r.accel@4s lag 2.5s; video.body.energy@1s lag 3.6s; audio.pitch.f0_st@0s lag 2.8s; video.elbow_r.y@1s lag 3.4s,0.087912
+physio.eda.level,evolutionary,2,306,0.433678,223,4,video.wrist_r.speed@1s lag 3.6s; audio.spectral.flatness@1s lag 2.7s; video.wrist_r.speed@1s lag 3.1s; video.wrist_r.speed@1s lag 3.4s,0.099504
+physio.eda.level,random,2,300,0.290772,175,2,video.wrist_r.speed@1s lag 2.9s; video.elbow_l.speed@4s lag 0.6s,0.084409
+physio.eda.level,greedy,2,300,0.280410,250,4,video.elbow_r.speed@4s lag 4.0s; video.elbow_r.speed@4s lag 2.2s; video.elbow_r.speed@1s lag 3.5s; audio.timing.onset@1s lag 3.0s,0.065255

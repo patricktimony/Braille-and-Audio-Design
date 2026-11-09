@@ -1,0 +1,98 @@
+{
+ "summary": "IMPORTANT: this run used SYNTHETIC data with NO planted relationships (null world). It tests the software; it is not evidence about people.\nThe system examined 2589 possible relationships between 42 movement, 12 sound and 7 physiological signals.\n0 relationship groups passed the training-data tests (shuffled-time controls, false-discovery-rate correction and a validation stretch). 0 of them also predicted held-out data better than shuffled controls.\nNo reliable relationships were found on held-out data. This is reported as a negative result; nothing has been invented to fill the gap.\nSearch cost: the adaptive search used 3% of the operations and 1% of the CPU time of uniform exhaustive search; it exhaustive search confirmed nothing, so recall is undefined.\nA simple staged filter (no learning) used 26% of exhaustive operations and 8% of its CPU time; it exhaustive search confirmed nothing, so recall is undefined.\nNull world check: 0 patterns generalised although no relationships were planted (each one is a false positive).\nCorrelation and prediction here do not establish causation, and patterns carry neutral identifiers only; interpretation is left to human researchers.",
+ "patterns": [],
+ "search_comparison": [
+  {
+   "strategy": "exhaustive",
+   "candidates": 2589,
+   "screened_on_subsample": 0,
+   "full_null_tests": 2589,
+   "predictive_checks": 2589,
+   "confirmed_candidates": 0,
+   "confirmed_families": 0,
+   "ops": 8099183983.017698,
+   "cpu_s": 176.139137483,
+   "recall_of_exhaustive_candidates": NaN,
+   "recall_of_exhaustive_families": NaN,
+   "ops_vs_exhaustive": 1.0,
+   "cpu_vs_exhaustive": 1.0
+  },
+  {
+   "strategy": "staged",
+   "candidates": 2589,
+   "screened_on_subsample": 0,
+   "full_null_tests": 2589,
+   "predictive_checks": 10,
+   "confirmed_candidates": 0,
+   "confirmed_families": 0,
+   "ops": 2067365933.0176983,
+   "cpu_s": 14.954717233000025,
+   "recall_of_exhaustive_candidates": NaN,
+   "recall_of_exhaustive_families": NaN,
+   "ops_vs_exhaustive": 0.25525607732242334,
+   "cpu_vs_exhaustive": 0.08490286398980108
+  },
+  {
+   "strategy": "adaptive",
+   "candidates": 2589,
+   "screened_on_subsample": 629,
+   "full_null_tests": 107,
+   "predictive_checks": 1,
+   "confirmed_candidates": 0,
+   "confirmed_families": 0,
+   "ops": 235275028.97104818,
+   "cpu_s": 2.2514753349999808,
+   "recall_of_exhaustive_candidates": NaN,
+   "recall_of_exhaustive_families": NaN,
+   "ops_vs_exhaustive": 0.02904922637445586,
+   "cpu_vs_exhaustive": 0.012782368343419876
+  }
+ ],
+ "compression": {
+  "raw_features": 61,
+  "features_in_generalized_patterns": 0,
+  "features_used": [],
+  "chosen_params_total": 0,
+  "best_scoring_params_total": 0,
+  "dense_params_total": 0,
+  "gbm_params_total": 0,
+  "chosen_kinds": {
+   "M1": 0,
+   "M2": 0,
+   "M3": 0,
+   "M4": 0,
+   "M5": 0
+  }
+ },
+ "abstraction": [],
+ "latent": [
+  {
+   "lag_s": -1.0,
+   "validation_r": 0.051710582021767273,
+   "test_r": -0.04094061781692625,
+   "p_shift": 0.31,
+   "null_mean_abs_r": 0.031297422899266604,
+   "top_movement_weights": "video.wrist_r.x +0.64; video.hands.distance +0.50; video.wrist_l.x -0.28; video.head.periodicity +0.20; video.wrist_r.y -0.18",
+   "top_sound_weights": "audio.spectral.flatness -0.72; audio.spectral.centroid_log +0.66; audio.timing.silence +0.16; audio.energy.rms_db +0.09; audio.spectral.zcr -0.08"
+  }
+ ],
+ "ground_truth": {
+  "relations": [],
+  "null_world": true,
+  "false_positive_patterns_generalized": [],
+  "false_positive_patterns_validation": [],
+  "by_strategy": {
+   "exhaustive": {
+    "families_confirmed": 0
+   },
+   "staged": {
+    "families_confirmed": 0
+   },
+   "adaptive": {
+    "families_confirmed": 0
+   }
+  }
+ },
+ "n_candidates": 2589,
+ "elapsed_s": 207.8355050086975
+}

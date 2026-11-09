@@ -218,6 +218,11 @@ time_s,eda            # any subset of: hr, ibi_ms, eda, resp, pupil, gaze_x, gaz
 * No real recordings of people with physiology were available while this was built.
   The real-video path has been run only on rendered and photo-animated videos (see
   `experiments/RESULTS.md`).
-* PyTorch is not used: the small sklearn MLP in the ladder never had to beat linear
-  models by more than one standard error to justify more capacity. Neural
-  architecture search is not implemented.
+* PyTorch is not used. The model ladder's small scikit-learn MLP (M4) was chosen
+  for several synthetic patterns where it beat the linear models by more than one
+  standard error, so neural capacity can add measurable value here. At this data
+  scale, scikit-learn covers it without a GPU or PyTorch. Neural architecture search
+  is not implemented.
+* The 1-SE rule judges models only by predictive gain. Where a nonlinear model is
+  clearly better, it is chosen even though it costs hundreds of numbers. The report
+  shows the full ladder so the accuracy-versus-cost trade-off is visible.

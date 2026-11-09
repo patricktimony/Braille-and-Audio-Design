@@ -1,0 +1,4 @@
+strategy,candidates,screened_on_subsample,full_null_tests,predictive_checks,confirmed_candidates,confirmed_families,ops,cpu_s,recall_of_exhaustive_candidates,recall_of_exhaustive_families,ops_vs_exhaustive,cpu_vs_exhaustive
+exhaustive,2589,0,2589,2589,532,49,8.02e+09,178.265686,1.000000,1.000000,1.000000,1.000000
+staged,2589,0,2589,725,534,49,3.80e+09,65.324780,0.994361,1.000000,0.473614,0.366446
+adaptive,2589,1556,762,612,478,43,2.29e+09,45.751348,0.892857,0.877551,0.285106,0.256647

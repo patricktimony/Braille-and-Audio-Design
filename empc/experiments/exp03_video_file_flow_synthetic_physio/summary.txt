@@ -1,0 +1,9 @@
+IMPORTANT: this run used SYNTHETIC data (synthetic physiology supplied with the video). It tests the software; it is not evidence about people.
+The system examined 936 possible relationships between 12 movement, 12 sound and 7 physiological signals.
+3 relationship groups passed the training-data tests (shuffled-time controls, false-discovery-rate correction and a validation stretch). 1 of them also predicted held-out data better than shuffled controls.
+- Pattern 001: changes in physio.pupil.diameter tend to follow audio.spectral.centroid_log by about 0.8 s. On held-out recordings the leader signal explained an extra 15.5% of the follower's variance beyond the follower's own recent past (beat all 199 time-shifted and all 49 block-shuffled controls; extrapolated p about 0.002). Compact form: single-lag linear with 5 numbers. Found in 100% of resampled training sets.
+Search cost: the adaptive search used 9% of the operations and 8% of the CPU time of uniform exhaustive search; it recovered 27% of the relationship families exhaustive search confirmed.
+A simple staged filter (no learning) used 48% of exhaustive operations and 31% of its CPU time; it recovered 100% of the relationship families exhaustive search confirmed.
+Compression: 2 of 31 raw signals take part in the generalising patterns. Their chosen models use 5 numbers in total, versus 33 for dense lag kernels and 2388 for boosted trees.
+Evolutionary vs random vs greedy search (equal budgets, mean over targets and seeds): evolutionary: validation 0.661 bits/sample, held-out gain 0.076; greedy: validation 0.686 bits/sample, held-out gain 0.086; random: validation 0.455 bits/sample, held-out gain 0.124.
+Correlation and prediction here do not establish causation, and patterns carry neutral identifiers only; interpretation is left to human researchers.

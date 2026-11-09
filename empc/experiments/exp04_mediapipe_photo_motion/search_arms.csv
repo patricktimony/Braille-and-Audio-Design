@@ -1,0 +1,21 @@
+arm,pulls,successes,posterior_mean,retired,untested
+video.face -> audio.spectral,108,84,0.772727,False,0
+video.face -> audio.energy,54,40,0.732143,False,0
+video.head -> audio.timing,72,35,0.486486,False,0
+video.head -> audio.energy,48,23,0.480000,False,0
+video.head -> audio.spectral,96,44,0.459184,False,0
+video.face -> audio.timing,81,36,0.445783,False,0
+video.face -> audio.pitch,81,35,0.433735,False,0
+video.elbow_r -> audio.spectral,84,34,0.406977,False,0
+video.elbow_l -> audio.energy,42,15,0.363636,False,0
+video.elbow_r -> audio.energy,42,15,0.363636,False,0
+video.elbow_r -> audio.timing,63,22,0.353846,False,0
+video.elbow_l -> audio.spectral,84,26,0.313953,False,0
+video.wrist_l -> audio.timing,63,19,0.307692,False,0
+video.elbow_l -> audio.timing,63,17,0.276923,False,0
+video.elbow_r -> audio.pitch,63,12,0.200000,False,0
+video.wrist_l -> audio.energy,9,1,0.181818,True,33
+video.wrist_l -> audio.pitch,9,1,0.181818,True,54
+video.elbow_l -> audio.pitch,9,1,0.181818,True,54
+video.head -> audio.pitch,4,0,0.166667,True,68
+video.wrist_l -> audio.spectral,4,0,0.166667,True,80
